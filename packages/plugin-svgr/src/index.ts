@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { RsbuildPlugin, Rspack } from '@rsbuild/core';
 import { PLUGIN_REACT_NAME } from '@rsbuild/plugin-react';
 import type { Config as BaseSvgrOptions } from '@svgr/core';
@@ -11,8 +10,6 @@ import type { Config as SvgoConfig } from 'svgo';
 type SvgrOptions = Omit<BaseSvgrOptions, 'svgoConfig'> & {
   svgoConfig?: SvgoConfig;
 };
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type SvgoPluginConfig = NonNullable<SvgoConfig['plugins']>[0];
 
@@ -40,7 +37,7 @@ export type PluginSvgrOptions = {
   query?: RegExp;
 
   /**
-   * Exclude some SVG files, they will not be transformed by SVGR.
+   * Exclude specific SVG files from SVGR transformation.
    */
   exclude?: Rspack.RuleSetCondition;
 
@@ -135,12 +132,22 @@ const dedupeSvgoPlugins = (config: SvgoConfig): SvgoConfig => {
 
 export const PLUGIN_SVGR_NAME = 'rsbuild:svgr';
 
+function assertCoreVersion(version: string): void {
+  if (version.split('.')[0] === '1') {
+    throw new Error(
+      `"@rsbuild/plugin-svgr" v2 requires "@rsbuild/core" >= 2.0. Please upgrade "@rsbuild/core" or use "@rsbuild/plugin-svgr" v1.`,
+    );
+  }
+}
+
 export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
   name: PLUGIN_SVGR_NAME,
 
   pre: [PLUGIN_REACT_NAME],
 
   setup(api) {
+    assertCoreVersion(api.context.version);
+
     api.modifyBundlerChain((chain, { CHAIN_ID, environment }) => {
       const { config } = environment;
       const { dataUriLimit } = config.output;
@@ -174,11 +181,11 @@ export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
 
       svgrOptions.svgoConfig = dedupeSvgoPlugins(svgrOptions.svgoConfig);
 
-      // get asset URL: "foo.svg?url" or "foo.svg?__inline=false"
+      // get asset URL: "foo.svg?url"
       rule
         .oneOf(CHAIN_ID.ONE_OF.SVG_URL)
         .type('asset/resource')
-        .resourceQuery(/^\?(__inline=false|url)$/)
+        .resourceQuery(/^\?url$/)
         .set('generator', generatorOptions);
 
       // get inlined base64 content: "foo.svg?inline"
@@ -201,7 +208,7 @@ export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
         .type('javascript/auto')
         .resourceQuery(options.query || /react/)
         .use(CHAIN_ID.USE.SVGR)
-        .loader(path.resolve(__dirname, './loader.mjs'))
+        .loader(path.join(import.meta.dirname, 'loader.mjs'))
         .options({
           ...svgrOptions,
           exportType: 'default',
@@ -232,7 +239,7 @@ export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
           // The issuer option ensures that SVGR will only apply if the SVG is imported from a JS file.
           .set('issuer', issuer)
           .use(CHAIN_ID.USE.SVGR)
-          .loader(path.resolve(__dirname, './loader.mjs'))
+          .loader(path.join(import.meta.dirname, 'loader.mjs'))
           .options({
             ...svgrOptions,
             exportType,
@@ -246,7 +253,7 @@ export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
         if (mixedImport && exportType === 'named') {
           svgRule
             .use(CHAIN_ID.USE.URL)
-            .loader(path.join(__dirname, '../compiled', 'url-loader/index.js'))
+            .loader(path.join(import.meta.dirname, 'assetLoader.mjs'))
             .options({
               limit: maxSize,
               name: generatorOptions?.filename,
@@ -266,11 +273,11 @@ export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
         })
         .set('generator', generatorOptions);
 
-      // apply current JS transform rule to SVGR rules
       const jsRule = chain.module.rules.get(CHAIN_ID.RULE.JS);
+      const jsMainRule = jsRule.oneOfs.get(CHAIN_ID.ONE_OF.JS_MAIN);
 
       [CHAIN_ID.USE.SWC, CHAIN_ID.USE.BABEL].some((jsUseId) => {
-        const use = jsRule.uses.get(jsUseId);
+        const use = jsMainRule.uses.get(jsUseId);
 
         if (!use) {
           return false;
@@ -284,12 +291,28 @@ export const pluginSvgr = (options: PluginSvgrOptions = {}): RsbuildPlugin => ({
             continue;
           }
 
+          let loaderOptions = use.get('options');
+
+          // disable React refresh runtime for SVGR transformed components
+          if (jsUseId === CHAIN_ID.USE.SWC) {
+            loaderOptions = deepmerge(loaderOptions, {
+              jsc: {
+                transform: {
+                  react: {
+                    refresh: false,
+                  },
+                },
+              },
+            });
+          }
+
+          // apply current JS transform loader to SVGR rules
           rule
             .oneOf(oneOfId)
             .use(jsUseId)
             .before(CHAIN_ID.USE.SVGR)
             .loader(use.get('loader'))
-            .options(use.get('options'));
+            .options(loaderOptions);
         }
 
         return true;

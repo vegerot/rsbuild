@@ -1,6 +1,10 @@
+---
+description: '默认情况下，Rsbuild 会将 SVG 图片当作静态资源处理，处理规则可参考：静态资源。'
+---
+
 # SVGR 插件
 
-import { SourceCode } from '@rspress/core/theme';
+import { SourceCode } from '@theme';
 
 <SourceCode href="https://github.com/web-infra-dev/rsbuild/tree/main/packages/plugin-svgr" />
 
@@ -48,7 +52,7 @@ export const App = () => <Logo />;
 ```js
 import logoURL from './static/logo.svg';
 
-console.log(logoURL); // => "/static/logo.6c12aba3.png"
+console.log(logoURL); // => "/static/svg/logo.6c12aba3ab.svg" 或 base64 URL
 ```
 
 ### 具名导入
@@ -91,6 +95,19 @@ type PluginSvgrOptions = {
    * @default false
    */
   mixedImport?: boolean;
+  /**
+   * 自定义匹配 SVGR 转换的 query 后缀
+   * @default /react/
+   */
+  query?: RegExp;
+  /**
+   * 排除一部分 SVG 文件，这些文件不会经过 SVGR 处理
+   */
+  exclude?: Rspack.RuleSetCondition;
+  /**
+   * 排除一部分模块，这些模块引用的 SVG 文件不会经过 SVGR 处理
+   */
+  excludeImporter?: Rspack.RuleSetCondition;
 };
 ```
 
@@ -153,7 +170,7 @@ pluginSvgr({
 });
 ```
 
-合并后的 `svgoConfig` `如下：
+合并后的 `svgoConfig` 如下：
 
 ```ts
 const mergedSvgoConfig = {
@@ -162,7 +179,7 @@ const mergedSvgoConfig = {
       name: 'preset-default',
       params: {
         overrides: {
-          removeViewBox: true,
+          removeViewBox: false,
           cleanupIds: false,
         },
       },
@@ -275,7 +292,7 @@ export const App = () => <Logo />;
 
 ### exclude
 
-- **类型：** [RuleSetCondition](https://rspack.rs/zh/config/module#condition)
+- **类型：** [Rspack.RuleSetCondition](https://rspack.rs/zh/config/module-rules#condition)
 - **默认值：** `undefined`
 
 用于排除一部分 SVG 模块，这些 SVG 模块不会经过 SVGR 处理。
@@ -303,7 +320,7 @@ console.log(url); // => 资源 url
 
 ### excludeImporter
 
-- **类型：** [RuleSetCondition](https://rspack.rs/zh/config/module#condition)
+- **类型：** [Rspack.RuleSetCondition](https://rspack.rs/zh/config/module-rules#condition)
 - **默认值：** `undefined`
 
 用于排除一部分模块，这些模块引用的 SVG 文件不会经过 SVGR 处理。

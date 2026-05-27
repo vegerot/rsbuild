@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 支持同时为多个环境构建产物。你可以使用 environments 来并行构建多个环境，并为每个环境设置不同的 Rsbuild 配置。'
+---
+
 # 多环境构建
 
 Rsbuild 支持同时为多个环境构建产物。你可以使用 [environments](/config/environments) 来并行构建多个环境，并为每个环境设置不同的 Rsbuild 配置。
@@ -125,16 +129,16 @@ export default {
 
 ```bash
 # 构建所有环境
-rsbuild dev
+rsbuild
 
 # 仅构建 web 环境
-rsbuild dev --environment web
+rsbuild --environment web
 
 # 构建 web 和 ssr 环境
-rsbuild dev --environment web --environment node
+rsbuild --environment web --environment node
 
 # 构建多个环境可以简写为：
-rsbuild dev --environment web,node
+rsbuild --environment web,node
 ```
 
 ## 为指定环境添加插件
@@ -164,6 +168,41 @@ export default {
 ```
 
 如果你是插件开发者，可查看 [开发 Environment 插件](/plugins/dev/index#environment-插件) 了解详情。
+
+## 配置输出目录
+
+在多环境构建时，建议为不同的环境配置不同的输出目录，以避免不同环境的同名构建产物互相覆盖。
+
+你可以通过 [output.distPath.root](/config/output/dist-path) 来为每个环境设置独立的输出根目录。
+
+比如，将 web 产物输出到默认的 `dist`，将 node 产物输出到 `dist/server`：
+
+```ts title="rsbuild.config.ts"
+export default {
+  environments: {
+    web: {
+      source: {
+        entry: {
+          index: './src/index.client.js',
+        },
+      },
+    },
+    node: {
+      source: {
+        entry: {
+          index: './src/index.server.js',
+        },
+      },
+      output: {
+        target: 'node',
+        distPath: {
+          root: 'dist/server',
+        },
+      },
+    },
+  },
+};
+```
 
 ## 插件 API
 
@@ -226,15 +265,15 @@ const myPlugin = () => ({
 });
 ```
 
-对于一些全局的 plugin hooks（如 [onAfterDevCompile](/plugins/dev/hooks#onafterdevcompile)、[onBeforeStartDevServer](/plugins/dev/hooks#onbeforestartdevserver) 等）， Rsbuild 支持通过 `environments` 参数获取所有环境的上下文。
+对于一些全局的 plugin hooks（如 [onAfterDevCompile](/plugins/dev/hooks#onafterdevcompile)、[onBeforeStartDevServer](/plugins/dev/hooks#onbeforestartdevserver) 等），Rsbuild 支持通过 `environments` 参数获取所有环境的上下文。
 
 ```ts
 const myPlugin = () => ({
   setup(api) {
     api.onAfterDevCompile(({ environments }) => {
-      environments.forEach((environment) => {
-        console.log('environment', environment);
-      });
+      for (const name in environments) {
+        console.log(name, environments[name]);
+      }
     });
   },
 });
@@ -244,7 +283,7 @@ const myPlugin = () => ({
 
 Rsbuild server 提供了一系列和构建环境相关的 API，用户可通过 Rsbuild [environment API](/api/javascript-api/environment-api#environment-api) 在服务器端操作特定环境下的构建产物。
 
-你可以在 [Rsbuild DevMiddleware](/config/dev/setup-middlewares) 或 [自定义 Server](/api/javascript-api/instance#rsbuildcreatedevserver) 中使用 environment API。
+你可以在 [server.setup](/config/server/setup) 或 [自定义 Server](/api/javascript-api/instance#rsbuildcreatedevserver) 中使用 environment API。
 
 例如，你可以通过 Rsbuild environment API 在开发模式下快速实现一个 SSR 功能：
 
@@ -271,7 +310,7 @@ export async function startDevServer() {
 
   // Init Rsbuild
   const rsbuild = await createRsbuild({
-    rsbuildConfig: content,
+    config: content,
   });
 
   const app = express();
@@ -298,7 +337,7 @@ export async function startDevServer() {
 }
 ```
 
-详细使用情况可参考：[SSR + Express 示例](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/ssr-express)。
+详细使用情况可参考：[SSR + Express 示例](https://github.com/rstackjs/rstack-examples/tree/main/rsbuild/ssr-express)。
 
 ## 构建顺序
 

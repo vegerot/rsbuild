@@ -1,4 +1,5 @@
-import { createRsbuild } from '@rsbuild/core';
+import { createRsbuild, type Rspack } from '@rsbuild/core';
+import { createRsbuild as createRsbuildV1 } from '@rsbuild/core-v1';
 import { matchRules } from '@scripts/test-helper';
 import { pluginBabel } from '../src';
 
@@ -6,7 +7,7 @@ describe('plugins/babel', () => {
   it('babel-loader should works with builtin:swc-loader', async () => {
     const rsbuild = await createRsbuild({
       cwd: import.meta.dirname,
-      rsbuildConfig: {
+      config: {
         plugins: [pluginBabel()],
         source: {
           include: [/node_modules[\\/]query-string[\\/]/],
@@ -22,10 +23,31 @@ describe('plugins/babel', () => {
     expect(matchRules(config[0], 'a.tsx')[0]).toMatchSnapshot();
   });
 
+  it('babel-loader should works with builtin:swc-loader for Rsbuild v1', async () => {
+    const rsbuild = await createRsbuildV1({
+      cwd: import.meta.dirname,
+      config: {
+        plugins: [pluginBabel()],
+        source: {
+          include: [/node_modules[\\/]query-string[\\/]/],
+          exclude: ['src/example'],
+        },
+        performance: {
+          buildCache: false,
+        },
+      },
+    });
+
+    const config = await rsbuild.initConfigs();
+    expect(
+      matchRules(config[0] as Rspack.Configuration, 'a.tsx')[0],
+    ).toMatchSnapshot();
+  });
+
   it('should apply environment config correctly', async () => {
     const rsbuild = await createRsbuild({
       cwd: import.meta.dirname,
-      rsbuildConfig: {
+      config: {
         plugins: [pluginBabel()],
         environments: {
           web: {
@@ -57,16 +79,36 @@ describe('plugins/babel', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    for (const bundlerConfig of bundlerConfigs) {
-      expect(matchRules(bundlerConfig, 'a.tsx')[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    for (const rspackConfig of rspackConfigs) {
+      expect(matchRules(rspackConfig, 'a.tsx')[0]).toMatchSnapshot();
     }
+  });
+
+  it('should apply decorators version 2023-11 correctly', async () => {
+    const rsbuild = await createRsbuild({
+      cwd: import.meta.dirname,
+      config: {
+        plugins: [pluginBabel()],
+        source: {
+          decorators: {
+            version: '2023-11',
+          },
+        },
+        performance: {
+          buildCache: false,
+        },
+      },
+    });
+
+    const configs = await rsbuild.initConfigs();
+    expect(matchRules(configs[0], 'a.tsx')[0]).toMatchSnapshot();
   });
 
   it('should set babel-loader', async () => {
     const rsbuild = await createRsbuild({
       cwd: import.meta.dirname,
-      rsbuildConfig: {
+      config: {
         plugins: [pluginBabel()],
         performance: {
           buildCache: false,
@@ -81,7 +123,7 @@ describe('plugins/babel', () => {
   it('should set babel-loader when config is add', async () => {
     const rsbuild = await createRsbuild({
       cwd: import.meta.dirname,
-      rsbuildConfig: {
+      config: {
         plugins: [
           pluginBabel({
             babelLoaderOptions: (config) => {

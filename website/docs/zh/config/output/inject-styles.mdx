@@ -1,3 +1,7 @@
+---
+description: '控制是否将 CSS 内联到 JS 文件中，并在运行时注入页面，而不是提取为独立的 `.css` 文件。'
+---
+
 # output.injectStyles
 
 - **类型：** `boolean`
@@ -9,7 +13,7 @@
 
 ## 示例
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     injectStyles: true,
@@ -29,7 +33,7 @@ export default {
 
 比如：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     injectStyles: process.env.NODE_ENV === 'development',

@@ -2,7 +2,6 @@ import { pluginSass } from '@rsbuild/plugin-sass';
 import { defineConfig } from '@rspress/core';
 import { pluginAlgolia } from '@rspress/plugin-algolia';
 import { pluginClientRedirects } from '@rspress/plugin-client-redirects';
-import { pluginLlms } from '@rspress/plugin-llms';
 import { pluginRss } from '@rspress/plugin-rss';
 import { pluginSitemap } from '@rspress/plugin-sitemap';
 import {
@@ -21,7 +20,6 @@ const description = 'The Rspack-based build tool';
 export default defineConfig({
   plugins: [
     pluginAlgolia(),
-    pluginLlms(),
     pluginSitemap({
       siteUrl,
     }),
@@ -31,8 +29,8 @@ export default defineConfig({
       feed: [
         {
           id: 'releases-rss',
-          test: '/community/releases/v',
-          title: 'Rsbuild Releases',
+          test: '/blog/v',
+          title: 'Rsbuild Blogs',
           language: 'en',
           output: {
             type: 'rss',
@@ -41,8 +39,8 @@ export default defineConfig({
         },
         {
           id: 'releases-atom',
-          test: '/community/releases/v',
-          title: 'Rsbuild Releases',
+          test: '/blog/v',
+          title: 'Rsbuild Blogs',
           language: 'en',
           output: {
             type: 'atom',
@@ -50,8 +48,8 @@ export default defineConfig({
         },
         {
           id: 'releases-rss-zh',
-          test: '/zh/community/releases/v',
-          title: 'Rsbuild Releases',
+          test: '/zh/blog/v',
+          title: 'Rsbuild Blogs',
           language: 'zh-CN',
           output: {
             type: 'rss',
@@ -60,8 +58,8 @@ export default defineConfig({
         },
         {
           id: 'releases-atom-zh',
-          test: '/zh/community/releases/v',
-          title: 'Rsbuild Releases',
+          test: '/zh/blog/v',
+          title: 'Rsbuild Blogs',
           language: 'zh-CN',
           output: {
             type: 'atom',
@@ -76,12 +74,24 @@ export default defineConfig({
           to: '/config/resolve/alias',
         },
         {
+          from: '/config/dev/setup-middlewares',
+          to: '/config/server/setup',
+        },
+        {
+          from: '/api/javascript-api/dev-server-api',
+          to: '/api/javascript-api/server-api',
+        },
+        {
           from: '/config/source/alias-strategy',
           to: '/config/resolve/alias-strategy',
         },
         {
+          from: '/config/performance/chunk-split',
+          to: '/config/split-chunks',
+        },
+        {
           from: '/plugins/list/plugin-assets-retry',
-          to: 'https://github.com/rspack-contrib/rsbuild-plugin-assets-retry',
+          to: 'https://github.com/rstackjs/rsbuild-plugin-assets-retry',
         },
         {
           from: '/guide/basic/css-usage',
@@ -115,18 +125,32 @@ export default defineConfig({
           from: '/guide/basic/configure-swc',
           to: '/guide/configuration/swc',
         },
+        ...[
+          'v0-1',
+          'v0-2',
+          'v0-3',
+          'v0-4',
+          'v0-5',
+          'v0-6',
+          'v0-7',
+          'v1-0',
+          'v2-0',
+        ].map((version) => ({
+          from: `/community/releases/${version}`,
+          to: `/blog/${version}`,
+        })),
       ],
     }),
   ],
   lang: 'en',
   title: 'Rsbuild',
-  description:
-    'Rsbuild is a high-performance build tool powered by Rspack. It provides out-of-the-box setup for enjoyable development experience.',
+  description: 'Rsbuild is a high-performance build tool powered by Rspack.',
   icon: 'https://assets.rspack.rs/rsbuild/favicon-128x128.png',
   logo: {
     light: 'https://assets.rspack.rs/rsbuild/navbar-logo-light.png',
     dark: 'https://assets.rspack.rs/rsbuild/navbar-logo-dark.png',
   },
+  llms: true,
   markdown: {
     shiki: {
       langs: ['styl', 'html', 'toml'],
@@ -168,37 +192,29 @@ export default defineConfig({
         content: 'https://bsky.app/profile/rspack.rs',
       },
     ],
+    editLink: {
+      docRepoBaseUrl:
+        'https://github.com/web-infra-dev/rsbuild/tree/main/website/docs',
+    },
     locales: [
       {
         lang: 'en',
         label: 'English',
         description,
-        editLink: {
-          docRepoBaseUrl:
-            'https://github.com/web-infra-dev/rsbuild/tree/main/website/docs',
-          text: '📝 Edit this page on GitHub',
-        },
       },
       {
         lang: 'zh',
         label: '简体中文',
-        outlineTitle: '目录',
-        prevPageText: '上一页',
-        nextPageText: '下一页',
         description: '由 Rspack 驱动的构建工具',
-        editLink: {
-          docRepoBaseUrl:
-            'https://github.com/web-infra-dev/rsbuild/tree/main/website/docs',
-          text: '📝 在 GitHub 上编辑此页',
-        },
       },
     ],
   },
   head: [
     ({ routePath }) => {
       const getOgImage = () => {
-        if (routePath.endsWith('releases/v1-0')) {
-          return 'assets/rsbuild-og-image-v1-0.png';
+        if (routePath.includes('blog/v1-') || routePath.includes('blog/v2-')) {
+          const version = routePath.split('blog/v')[1];
+          return `assets/rsbuild-og-image-v${version}.png`;
         }
         return 'rsbuild-og-image.png';
       };

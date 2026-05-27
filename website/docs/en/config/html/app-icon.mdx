@@ -1,3 +1,7 @@
+---
+description: 'Reference for the Rsbuild html.app-icon option, including behavior, defaults, configuration details, and usage examples.'
+---
+
 # html.appIcon
 
 - **Type:**
@@ -7,7 +11,7 @@ type AppIconItem = {
   src: string;
   size: number;
   target?: 'apple-touch-icon' | 'web-app-manifest';
-  purpose?: string;
+  purpose?: 'any' | 'maskable' | 'monochrome' | string;
 };
 
 type AppIcon = {
@@ -22,7 +26,7 @@ type AppIcon = {
 Set the web application icons to display when added to the home screen of a mobile device:
 
 - Generate the web app manifest file and its `icons` field.
-- Generate the `apple-touch-icon` and `manifest` tags in the HTML file.
+- Generate the [apple-touch-icon](https://webhint.io/docs/user-guide/hints/hint-apple-touch-icons/) and `manifest` tags in the HTML file.
 
 :::tip
 
@@ -39,7 +43,7 @@ For display on different devices, you will need to prepare several icons of diff
 
 The most commonly used icon sizes are `192x192` and `512x512`, and you can customize the icon sizes and quantities to suit your needs.
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {
@@ -131,7 +135,7 @@ export default {
 
 Use `target` to specify the target for the icon:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {
@@ -165,7 +169,7 @@ export default {
 
 The filename of the manifest file.
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {

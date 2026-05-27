@@ -1,16 +1,10 @@
 import path from 'node:path';
-import { promisify } from 'node:util';
-import type { Compilation, Compiler } from '@rspack/core';
-import {
-  addCompilationError,
-  color,
-  ensureAssetPrefix,
-  isFunction,
-  isURL,
-  partition,
-} from '../helpers';
-import { logger } from '../logger';
-import { getHTMLPlugin } from '../pluginHelper';
+import { type Compilation, type Compiler, rspack } from '@rspack/core';
+import { color, isFunction, partition } from '../helpers';
+import { addCompilationError } from '../helpers/compiler';
+import { readFileAsync } from '../helpers/fs';
+import { ensureAssetPrefix, isURL } from '../helpers/url';
+import type { Logger } from '../logger';
 import type {
   EnvironmentContext,
   HtmlBasicTag,
@@ -250,9 +244,15 @@ export class RsbuildHtmlPlugin {
 
   readonly getExtraData: (entryName: string) => HtmlExtraData | undefined;
 
-  constructor(getExtraData: (entryName: string) => HtmlExtraData | undefined) {
+  readonly getHTMLPlugin: () => typeof HtmlRspackPlugin;
+
+  constructor(
+    getExtraData: (entryName: string) => HtmlExtraData | undefined,
+    getHTMLPlugin: () => typeof HtmlRspackPlugin,
+  ) {
     this.name = 'RsbuildHtmlPlugin';
     this.getExtraData = getExtraData;
+    this.getHTMLPlugin = getHTMLPlugin;
   }
 
   apply(compiler: Compiler): void {
@@ -260,10 +260,12 @@ export class RsbuildHtmlPlugin {
       compilation,
       favicon,
       faviconDistPath,
+      logger,
     }: {
       compilation: Rspack.Compilation;
       favicon: string;
       faviconDistPath: string;
+      logger: Logger;
     }) => {
       const name = path.basename(favicon);
 
@@ -271,7 +273,8 @@ export class RsbuildHtmlPlugin {
         return name;
       }
 
-      if (!compilation.inputFileSystem) {
+      const inputFs = compilation.inputFileSystem;
+      if (!inputFs) {
         addCompilationError(
           compilation,
           `${color.dim('[rsbuild:html]')} Failed to read the favicon file as ${color.yellow(
@@ -285,15 +288,10 @@ export class RsbuildHtmlPlugin {
         ? favicon
         : path.join(compilation.compiler.context, favicon);
 
-      let buffer: Buffer | undefined;
+      let fileContent: Buffer | string | undefined;
 
       try {
-        buffer = await promisify(compilation.inputFileSystem.readFile)(
-          inputFilename,
-        );
-        if (!buffer) {
-          throw new Error('Buffer is undefined');
-        }
+        fileContent = await readFileAsync(inputFs, inputFilename);
       } catch (error) {
         logger.debug(`read favicon error: ${error}`);
 
@@ -306,7 +304,7 @@ export class RsbuildHtmlPlugin {
         return null;
       }
 
-      const source = new compiler.webpack.sources.RawSource(buffer, false);
+      const source = new rspack.sources.RawSource(fileContent, false);
       const outputFilename = path.posix.join(faviconDistPath, name);
       compilation.emitAsset(outputFilename, source);
 
@@ -319,12 +317,14 @@ export class RsbuildHtmlPlugin {
       faviconDistPath,
       compilation,
       publicPath,
+      logger,
     }: {
       headTags: HtmlTagObject[];
       favicon: string;
       faviconDistPath: string;
       compilation: Rspack.Compilation;
       publicPath: string;
+      logger: Logger;
     }) => {
       let href = favicon;
 
@@ -333,6 +333,7 @@ export class RsbuildHtmlPlugin {
           compilation,
           favicon,
           faviconDistPath,
+          logger,
         });
 
         if (name === null) {
@@ -375,7 +376,7 @@ export class RsbuildHtmlPlugin {
     };
 
     compiler.hooks.compilation.tap(this.name, (compilation: Compilation) => {
-      const hooks = getHTMLPlugin().getCompilationHooks(compilation);
+      const hooks = this.getHTMLPlugin().getCompilationHooks(compilation);
 
       hooks.alterAssetTagGroups.tapPromise(this.name, async (data) => {
         const extraData = getExtraDataByPlugin(data.plugin);
@@ -405,6 +406,7 @@ export class RsbuildHtmlPlugin {
             faviconDistPath,
             compilation,
             publicPath: data.publicPath,
+            logger: context.logger,
           });
         }
 

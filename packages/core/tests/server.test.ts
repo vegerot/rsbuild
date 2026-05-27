@@ -1,17 +1,17 @@
 import { rspack } from '@rspack/core';
 import { defaultAllowedOrigins } from '../src/defaultConfig';
-import {
-  isClientCompiler,
-  setupServerHooks,
-} from '../src/server/compilationMiddleware';
+import { isClientCompiler } from '../src/server/assets-middleware';
 import { formatRoutes, printServerURLs } from '../src/server/helper';
+import { createHttpServer } from '../src/server/httpServer';
+import type { Connect } from '../src/types';
+import { logger } from '../src';
 
 beforeEach(() => {
   const consoleLogSpy = rstest.spyOn(console, 'log');
   consoleLogSpy.mockImplementation(() => {});
 });
 
-test('formatRoutes', () => {
+test('should format routes correctly', () => {
   expect(
     formatRoutes(
       {
@@ -165,12 +165,13 @@ test('formatRoutes', () => {
   ]);
 });
 
-test('printServerURLs', () => {
+test('should print server URLs correctly', () => {
   let message: string | null;
 
   message = printServerURLs({
     port: 3000,
     protocol: 'http',
+    logger,
     urls: [
       {
         url: 'http://localhost:3000',
@@ -198,6 +199,7 @@ test('printServerURLs', () => {
   message = printServerURLs({
     port: 3000,
     protocol: 'http',
+    logger,
     urls: [
       {
         url: 'http://localhost:3000',
@@ -240,53 +242,40 @@ test('printServerURLs', () => {
   message = printServerURLs({
     port: 3000,
     protocol: 'http',
+    logger,
     urls: [],
     routes: [],
   });
 
   expect(message).toEqual(null);
+
+  message = printServerURLs({
+    port: 3000,
+    protocol: 'http',
+    logger,
+    urls: [
+      {
+        url: 'http://localhost:3000',
+        label: 'local',
+      },
+      {
+        url: 'http://192.168.0.1:3000/',
+        label: 'network',
+      },
+    ],
+    routes: [],
+    fallbackPathname: '/foo',
+  });
+
+  expect(message!).toMatchInlineSnapshot(`
+    "  ➜  local     http://localhost:3000/foo/
+      ➜  network   http://192.168.0.1:3000/foo/
+    "
+  `);
 });
 
-describe('test dev server', () => {
-  test('should setupServerHooks correctly', () => {
-    const compiler = rspack({
-      target: 'web',
-    });
-    const onDoneFn = rstest.fn();
-    const onInvalidFn = rstest.fn();
-
-    setupServerHooks({
-      compiler,
-      token: 'test',
-      callbacks: {
-        onDone: onDoneFn,
-        onInvalid: onInvalidFn,
-      },
-    });
-
-    expect(compiler.hooks.done.taps.length).toBe(1);
-  });
-
-  test('should not setupServerHooks when compiler is server', () => {
-    const compiler = rspack({
-      target: 'node',
-    });
-    const onDoneFn = rstest.fn();
-    const onInvalidFn = rstest.fn();
-
-    setupServerHooks({
-      compiler,
-      token: 'test',
-      callbacks: {
-        onDone: onDoneFn,
-        onInvalid: onInvalidFn,
-      },
-    });
-
-    expect(compiler.hooks.done.taps.length).toBe(0);
-  });
-
-  test('check isClientCompiler', () => {
+describe('dev server', () => {
+  test('should detect client compilers correctly', () => {
     expect(isClientCompiler(rspack({}))).toBeTruthy();
 
     expect(
@@ -315,7 +304,24 @@ describe('test dev server', () => {
   });
 });
 
-test('local origins regex', () => {
+test('should use Http2SecureServer when https and proxy are both enabled', async () => {
+  const middlewares = ((_: unknown, __: unknown, next: () => void) =>
+    next()) as unknown as Connect.Server;
+
+  const server = await createHttpServer({
+    serverConfig: {
+      https: {},
+      proxy: {
+        '/api': 'http://127.0.0.1:3001',
+      },
+    },
+    middlewares,
+  });
+
+  expect(server.constructor.name).toBe('Http2SecureServer');
+});
+
+test('should match local origins correctly', () => {
   expect(defaultAllowedOrigins.test('http://localhost:3000')).toBeTruthy();
   expect(defaultAllowedOrigins.test('http://foo.localhost:3000')).toBeTruthy();
   expect(defaultAllowedOrigins.test('http://127.0.0.1:3000')).toBeTruthy();

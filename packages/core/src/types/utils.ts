@@ -4,6 +4,11 @@ export type OneOrMany<T> = T | T[];
 
 export type MaybePromise<T> = T | Promise<T>;
 
+export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+// https://github.com/microsoft/TypeScript/issues/29729
+export type LiteralUnion<T extends U, U> = T | (U & Record<never, never>);
+
 /**
  * Creates a type with readonly properties at the first and second levels only.
  */

@@ -1,11 +1,11 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-test('should apply resolve.extensions as expected', async ({ page }) => {
-  await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should apply resolve.extensions as expected', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview({
+    config: {
       resolve: {
         extensions: ['.ts', '.js'],
       },
@@ -14,10 +14,8 @@ test('should apply resolve.extensions as expected', async ({ page }) => {
 
   expect(await page.evaluate(() => window.test)).toBe('ts');
 
-  await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await buildPreview({
+    config: {
       resolve: {
         extensions: ['.js', '.ts'],
       },

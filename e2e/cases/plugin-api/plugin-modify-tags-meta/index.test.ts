@@ -1,26 +1,16 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow plugin to modify HTML tags with metadata',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-    });
+test('should allow plugin to modify HTML tags with metadata', async ({
+  build,
+}) => {
+  const rsbuild = await build();
 
-    const files = await rsbuild.getDistFiles();
-    const indexHTML = Object.keys(files).find(
-      (file) => file.includes('index') && file.endsWith('.html'),
-    );
+  const files = rsbuild.getDistFiles();
+  const html = getFileContent(files, 'index.html');
 
-    const html = files[indexHTML!];
-
-    expect(
-      html.includes(
-        '<script src="https://example.com/script.js" id="foo"></script>',
-      ),
-    ).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
+  expect(
+    html.includes(
+      '<script src="https://example.com/script.js" id="foo"></script>',
+    ),
+  ).toBeTruthy();
+});

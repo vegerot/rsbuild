@@ -1,10 +1,9 @@
-import { rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { loadEnv } from '@rsbuild/core';
 
-rspackOnlyTest('should load env files correctly', () => {
+test('should load env files correctly', () => {
   const env = loadEnv({
-    cwd: __dirname,
+    cwd: import.meta.dirname,
     mode: 'staging',
     prefixes: ['REACT_'],
   });
@@ -43,22 +42,19 @@ rspackOnlyTest('should load env files correctly', () => {
   expect(process.env.REACT_NAME).toEqual(undefined);
 });
 
-rspackOnlyTest(
-  'should not modify process.env if processEnv is provided',
-  () => {
-    delete process.env.REACT_NAME;
+test('should not modify process.env if processEnv is provided', () => {
+  delete process.env.REACT_NAME;
 
-    const targetEnv: Record<string, string> = {};
-    const env = loadEnv({
-      cwd: __dirname,
-      processEnv: targetEnv,
-    });
+  const targetEnv: Record<string, string> = {};
+  const env = loadEnv({
+    cwd: import.meta.dirname,
+    processEnv: targetEnv,
+  });
 
-    expect(process.env.REACT_NAME).toEqual(undefined);
-    expect(targetEnv.REACT_NAME).toEqual('react');
+  expect(process.env.REACT_NAME).toEqual(undefined);
+  expect(targetEnv.REACT_NAME).toEqual('react');
 
-    env.cleanup();
-    expect(process.env.REACT_NAME).toEqual(undefined);
-    expect(targetEnv.REACT_NAME).toEqual(undefined);
-  },
-);
+  env.cleanup();
+  expect(process.env.REACT_NAME).toEqual(undefined);
+  expect(targetEnv.REACT_NAME).toEqual(undefined);
+});

@@ -1,10 +1,13 @@
 import type { Server } from 'node:http';
 import type { Http2SecureServer } from 'node:http2';
-import { color, getPublicPathFromCompiler, isMultiCompiler } from '../helpers';
-import { logger } from '../logger';
+import { color } from '../helpers';
+import {
+  getPublicPathFromCompiler,
+  isMultiCompiler,
+} from '../helpers/compiler';
+import { getPathnameFromUrl } from '../helpers/path';
 import { onBeforeRestartServer, restartDevServer } from '../restart';
 import type {
-  Connect,
   CreateCompiler,
   CreateDevServerOptions,
   EnvironmentAPI,
@@ -12,8 +15,8 @@ import type {
   NormalizedConfig,
   Rspack,
 } from '../types';
+import { BuildManager } from './buildManager';
 import { isCliShortcutsEnabled, setupCliShortcuts } from './cliShortcuts';
-import { CompilationManager } from './compilationManager';
 import {
   type GetDevMiddlewaresResult,
   getDevMiddlewares,
@@ -31,62 +34,33 @@ import {
 import {
   getAddressUrls,
   getRoutes,
-  getServerConfig,
   getServerTerminator,
   printServerURLs,
-  type StartServerResult,
+  type RsbuildServerBase,
+  resolvePort,
+  type StartDevServerResult,
+  stripBase,
 } from './helper';
 import { createHttpServer } from './httpServer';
 import { notFoundMiddleware, optionsFallbackMiddleware } from './middlewares';
 import { open } from './open';
-import type { SocketMessage } from './socketServer';
+import { applyServerSetup } from './serverSetup';
+import type { ServerMessage } from './socketServer';
 import { setupWatchFiles, type WatchFilesResult } from './watchFiles';
 
 type HTTPServer = Server | Http2SecureServer;
 
-type ExtractSocketMessageData<T extends SocketMessage['type']> =
-  Extract<SocketMessage, { type: T }> extends { data: infer D } ? D : undefined;
+type ExtractSocketMessageData<T extends ServerMessage['type']> =
+  'data' extends keyof Extract<ServerMessage, { type: T }>
+    ? Extract<ServerMessage, { type: T }>['data']
+    : undefined;
 
-export type SockWrite = <T extends SocketMessage['type']>(
+export type HotSend = <T extends ServerMessage['type']>(
   type: T,
   data?: ExtractSocketMessageData<T>,
 ) => void;
 
-export type RsbuildDevServer = {
-  /**
-   * The `connect` app instance.
-   * Can be used to attach custom middlewares to the dev server.
-   */
-  middlewares: Connect.Server;
-  /**
-   * The Node.js HTTP server instance.
-   * - Will be `Http2SecureServer` if `server.https` config is used.
-   * - Will be `null` if `server.middlewareMode` is enabled.
-   */
-  httpServer:
-    | import('node:http').Server
-    | import('node:http2').Http2SecureServer
-    | null;
-  /**
-   * Start listening on the Rsbuild dev server.
-   * Do not call this method if you are using a custom server.
-   */
-  listen: () => Promise<{
-    port: number;
-    urls: string[];
-    server: {
-      close: () => Promise<void>;
-    };
-  }>;
-  /**
-   * Environment API of Rsbuild server.
-   */
-  environments: EnvironmentAPI;
-  /**
-   * The resolved port.
-   * By default, Rsbuild server listens on port `3000` and automatically increments the port number if the port is occupied.
-   */
-  port: number;
+export type RsbuildDevServer = RsbuildServerBase & {
   /**
    * Notifies Rsbuild that the custom server has successfully started.
    * Rsbuild will trigger the `onAfterStartDevServer` hook at this stage.
@@ -98,23 +72,22 @@ export type RsbuildDevServer = {
    */
   connectWebSocket: (options: { server: HTTPServer }) => void;
   /**
-   * Close the Rsbuild server.
+   * Environment API of Rsbuild server.
    */
-  close: () => Promise<void>;
+  environments: EnvironmentAPI;
   /**
-   * Print the server URLs.
+   * Start listening on the Rsbuild dev server.
+   * Do not call this method if you are using a custom server.
    */
-  printUrls: () => void;
-  /**
-   * Open URL in the browser after starting the server.
-   */
-  open: () => Promise<void>;
+  listen: () => Promise<StartDevServerResult>;
   /**
    * Allows middleware to send some message to HMR client, and then the HMR
    * client will take different actions depending on the message type.
-   * - `static-changed`: The page will reload.
+   * - `full-reload`: The page will reload.
+   * - `static-changed`: Alias of `full-reload` for backward compatibility.
+   * - `custom`: Send custom messages via `custom` type with optional data to the browser and handle them via HMR events.
    */
-  sockWrite: SockWrite;
+  sockWrite: HotSend;
 };
 
 export async function createDevServer<
@@ -125,26 +98,30 @@ export async function createDevServer<
   options: Options,
   createCompiler: CreateCompiler,
   config: NormalizedConfig,
-  {
-    compiler: customCompiler,
-    getPortSilently,
-    runCompile = true,
-  }: CreateDevServerOptions = {},
+  { getPortSilently, runCompile = true }: CreateDevServerOptions = {},
 ): Promise<RsbuildDevServer> {
+  const { context } = options;
+  const { logger } = context;
   logger.debug('create dev server');
 
-  const { port, host, https, portTip } = await getServerConfig({
-    config,
-  });
-  const { middlewareMode } = config.server;
-  const { context } = options;
+  const { port, portTip } = await resolvePort(config);
+  const { middlewareMode, host } = config.server;
+  const isHttps = Boolean(config.server.https);
   const routes = getRoutes(context);
-  const root = context.rootPath;
+
+  // SSR or backend-integrated apps may not generate HTML upfront. In that case,
+  // keep printing the dev server base URL for web targets so users still get
+  // a meaningful address, while node targets stay silent.
+  const fallbackPathname =
+    routes.length === 0 &&
+    context.environmentList.some((item) => item.config.output.target === 'web')
+      ? config.server.base
+      : undefined;
 
   context.devServer = {
     hostname: host,
     port,
-    https,
+    https: isHttps,
   };
 
   let lastStats: Rspack.Stats[];
@@ -179,8 +156,8 @@ export async function createDevServer<
     }
   });
 
-  const startCompile: () => Promise<CompilationManager> = async () => {
-    const compiler = customCompiler || (await createCompiler());
+  const startCompile: () => Promise<BuildManager> = async () => {
+    const compiler = await createCompiler();
 
     if (!compiler) {
       throw new Error(
@@ -188,29 +165,34 @@ export async function createDevServer<
       );
     }
 
-    compiler?.hooks.watchRun.tap('rsbuild:watchRun', () => {
-      resetWaitLastCompileDone();
-    });
-
     const publicPaths = isMultiCompiler(compiler)
       ? compiler.compilers.map(getPublicPathFromCompiler)
       : [getPublicPathFromCompiler(compiler)];
 
-    // create dev middleware instance
-    const compilationManager = new CompilationManager({
-      config,
-      compiler,
-      publicPaths: publicPaths,
-      resolvedPort: port,
-      environments: context.environments,
+    const { base } = config.server;
+    context.publicPathnames = publicPaths
+      .map(getPathnameFromUrl)
+      .map((prefix) =>
+        base && base !== '/' ? stripBase(prefix, base) : prefix,
+      );
+
+    compiler?.hooks.watchRun.tap('rsbuild:watchRun', () => {
+      resetWaitLastCompileDone();
     });
 
-    await compilationManager.init();
+    const buildManager = new BuildManager({
+      context,
+      config,
+      compiler,
+      resolvedPort: port,
+    });
 
-    return compilationManager;
+    await buildManager.init();
+
+    return buildManager;
   };
 
-  const protocol = https ? 'https' : 'http';
+  const protocol = isHttps ? 'https' : 'http';
   const urls = await getAddressUrls({ protocol, port, host });
 
   const cliShortcutsEnabled = isCliShortcutsEnabled(config);
@@ -222,32 +204,49 @@ export async function createDevServer<
       routes,
       protocol,
       printUrls: config.server.printUrls,
+      fallbackPathname,
       trailingLineBreak: !cliShortcutsEnabled,
+      originalConfig: context.originalConfig,
+      logger,
     });
 
   const openPage = async () => {
     return open({
-      https,
       port,
       routes,
       config,
+      protocol,
       clearCache: true,
+      logger,
     });
   };
 
-  let fileWatcher: WatchFilesResult | undefined;
-  let devMiddlewares: GetDevMiddlewaresResult | undefined;
+  const state: {
+    fileWatcher?: WatchFilesResult;
+    devMiddlewares?: GetDevMiddlewaresResult;
+    buildManager?: BuildManager;
+  } = {};
 
   const cleanupGracefulShutdown = middlewareMode
     ? null
     : setupGracefulShutdown();
 
+  let closingPromise: Promise<void> | null = null;
+
   const closeServer = async () => {
-    // ensure closeServer is only called once
-    removeCleanup(closeServer);
-    cleanupGracefulShutdown?.();
-    await context.hooks.onCloseDevServer.callBatch();
-    await Promise.all([devMiddlewares?.close(), fileWatcher?.close()]);
+    if (!closingPromise) {
+      closingPromise = (async () => {
+        // ensure closeServer is only called once
+        removeCleanup(closeServer);
+        cleanupGracefulShutdown?.();
+        await context.hooks.onCloseDevServer.callBatch();
+        await Promise.all([
+          state.devMiddlewares?.close(),
+          state.fileWatcher?.close(),
+        ]);
+      })();
+    }
+    return closingPromise;
   };
 
   if (!middlewareMode) {
@@ -267,9 +266,10 @@ export async function createDevServer<
         openPage,
         closeServer,
         printUrls,
-        restartServer: () => restartDevServer({ clear: false }),
+        restartServer: () => restartDevServer({ clear: false, logger }),
         help: shortcutsOptions.help,
         customShortcuts: shortcutsOptions.custom,
+        logger,
       });
       context.hooks.onCloseDevServer.tap(cleanup);
     }
@@ -284,65 +284,62 @@ export async function createDevServer<
     (_stats, entryName, utils) => getTransformedHtml(entryName, utils),
   );
 
-  const environmentAPI = Object.fromEntries(
-    Object.entries(context.environments).map(([name, environment]) => {
-      return [
-        name,
+  const environmentAPI: EnvironmentAPI = {};
+  const createHotSend =
+    (token?: string): HotSend =>
+    (type, data) =>
+      state.buildManager?.socketServer.sendMessage(
         {
-          getStats: async () => {
-            if (!compilationManager) {
-              throw new Error(
-                `${color.dim('[rsbuild:server]')} Can not call ` +
-                  `${color.yellow('getStats')} when ` +
-                  `${color.yellow('runCompile')} is false`,
-              );
-            }
-            await waitLastCompileDone;
-            return lastStats[environment.index];
-          },
-          context: environment,
-          loadBundle: async <T>(entryName: string) => {
-            if (!compilationManager) {
-              throw new Error(
-                `${color.dim('[rsbuild:server]')} Can not call ` +
-                  `${color.yellow('loadBundle')} when ` +
-                  `${color.yellow('runCompile')} is false`,
-              );
-            }
-            await waitLastCompileDone;
-            return cacheableLoadBundle(
-              lastStats[environment.index],
-              entryName,
-              {
-                readFileSync: compilationManager.readFileSync,
-                environment,
-              },
-            ) as T;
-          },
-          getTransformedHtml: async (entryName: string) => {
-            if (!compilationManager) {
-              throw new Error(
-                `${color.dim('[rsbuild:server]')} Can not call ` +
-                  `${color.yellow('getTransformedHtml')} when ` +
-                  `${color.yellow('runCompile')} is false`,
-              );
-            }
-            await waitLastCompileDone;
-            return cacheableTransformedHtml(
-              lastStats[environment.index],
-              entryName,
-              {
-                readFileSync: compilationManager.readFileSync,
-                environment,
-              },
-            );
-          },
-        },
-      ];
-    }),
-  );
+          type,
+          data,
+        } as ServerMessage,
+        token,
+      );
 
-  const { default: connect } = await import('../../compiled/connect/index.js');
+  const getErrorMsg = (method: string) =>
+    `${color.dim('[rsbuild:server]')} Can not call ` +
+    `${color.yellow(method)} when ` +
+    `${color.yellow('runCompile')} is false`;
+
+  context.environmentList.forEach((environment, index) => {
+    environmentAPI[environment.name] = {
+      context: environment,
+      hot: {
+        send: createHotSend(environment.webSocketToken),
+      },
+      getStats: async () => {
+        if (!state.buildManager) {
+          throw new Error(getErrorMsg('getStats'));
+        }
+        await waitLastCompileDone;
+        return lastStats[index];
+      },
+      loadBundle: async <T>(entryName: string) => {
+        if (!state.buildManager) {
+          throw new Error(getErrorMsg('loadBundle'));
+        }
+        await waitLastCompileDone;
+        return cacheableLoadBundle(lastStats[index], entryName, {
+          readFileSync: state.buildManager.readFileSync,
+          environment,
+        }) as T;
+      },
+      getTransformedHtml: async (entryName: string) => {
+        if (!state.buildManager) {
+          throw new Error(getErrorMsg('getTransformedHtml'));
+        }
+        await waitLastCompileDone;
+        return cacheableTransformedHtml(lastStats[index], entryName, {
+          readFileSync: state.buildManager.readFileSync,
+          environment,
+        });
+      },
+    };
+  });
+
+  const { connect } = await import(
+    /* webpackChunkName: "connect-next" */ 'connect-next'
+  );
   const middlewares = connect();
 
   const httpServer = middlewareMode
@@ -352,13 +349,9 @@ export async function createDevServer<
         middlewares,
       });
 
-  const sockWrite: SockWrite = (type, data) =>
-    compilationManager?.socketServer.sockWrite({
-      type,
-      data,
-    } as SocketMessage);
+  const sockWrite = createHotSend();
 
-  const devServerAPI: RsbuildDevServer = {
+  const devServer: RsbuildDevServer = {
     port,
     middlewares,
     environments: environmentAPI,
@@ -377,7 +370,7 @@ export async function createDevServer<
 
       context.hooks.onCloseDevServer.tap(serverTerminator);
 
-      return new Promise<StartServerResult>((resolve) => {
+      return new Promise<StartDevServerResult>((resolve) => {
         httpServer.listen(
           {
             host,
@@ -396,22 +389,20 @@ export async function createDevServer<
             // 404 fallback middleware should be the last middleware
             middlewares.use(notFoundMiddleware);
 
-            if (devMiddlewares) {
-              httpServer.on('upgrade', devMiddlewares.onUpgrade);
+            if (state.devMiddlewares) {
+              httpServer.on('upgrade', state.devMiddlewares.onUpgrade);
             }
 
             logger.debug('listen dev server done');
 
-            await devServerAPI.afterListen();
+            await devServer.afterListen();
 
-            onBeforeRestartServer(devServerAPI.close);
+            onBeforeRestartServer(devServer.close);
 
             resolve({
               port,
               urls: urls.map((item) => item.url),
-              server: {
-                close: devServerAPI.close,
-              },
+              server: devServer,
             });
           },
         );
@@ -425,8 +416,8 @@ export async function createDevServer<
       });
     },
     connectWebSocket: ({ server }: { server: HTTPServer }) => {
-      if (devMiddlewares) {
-        server.on('upgrade', devMiddlewares.onUpgrade);
+      if (state.devMiddlewares) {
+        server.on('upgrade', state.devMiddlewares.onUpgrade);
       }
     },
     close: closeServer,
@@ -434,12 +425,20 @@ export async function createDevServer<
     open: openPage,
   };
 
-  const postCallbacks = (
+  const setupPostCallbacks = await applyServerSetup(config.server.setup, {
+    action: 'dev',
+    server: devServer,
+    environments: context.environments,
+  });
+
+  const hookPostCallbacks = (
     await context.hooks.onBeforeStartDevServer.callBatch({
-      server: devServerAPI,
+      server: devServer,
       environments: context.environments,
     })
   ).filter((item) => typeof item === 'function');
+
+  const postCallbacks = [...hookPostCallbacks, ...setupPostCallbacks];
 
   if (runCompile) {
     // print server url should between listen and beforeCompile
@@ -448,35 +447,26 @@ export async function createDevServer<
     await beforeCreateCompiler();
   }
 
-  const compilationManager = runCompile ? await startCompile() : undefined;
+  state.buildManager = runCompile ? await startCompile() : undefined;
 
-  fileWatcher = await setupWatchFiles({
+  state.fileWatcher = await setupWatchFiles({
     config,
-    compilationManager,
-    root,
+    buildManager: state.buildManager,
+    root: context.rootPath,
   });
 
-  devMiddlewares = await getDevMiddlewares({
-    pwd: root,
-    compilationManager,
+  state.devMiddlewares = await getDevMiddlewares({
+    buildManager: state.buildManager,
     config,
-    devServerAPI,
+    devServer,
     context,
     postCallbacks,
   });
 
-  for (const item of devMiddlewares.middlewares) {
-    if (Array.isArray(item)) {
-      middlewares.use(...item);
-    } else {
-      middlewares.use(item);
-    }
-  }
-
   // start watching
-  compilationManager?.watch();
+  state.buildManager?.watch();
 
   logger.debug('create dev server done');
 
-  return devServerAPI;
+  return devServer;
 }

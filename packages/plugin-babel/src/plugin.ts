@@ -8,7 +8,6 @@ import type {
   RsbuildContext,
   RsbuildPlugin,
 } from '@rsbuild/core';
-import deepmerge from 'deepmerge';
 import { applyUserBabelConfig, BABEL_JS_RULE, castArray } from './helper.js';
 import type { BabelLoaderOptions, PluginBabelOptions } from './types.js';
 
@@ -56,10 +55,10 @@ async function getCacheIdentifier(options: BabelLoaderOptions) {
   return identifier;
 }
 
-export const getDefaultBabelOptions = (
+export function getDefaultBabelOptions(
   config: NormalizedEnvironmentConfig,
   context: RsbuildContext,
-): BabelLoaderOptions => {
+): BabelLoaderOptions {
   const isLegacyDecorators = config.source.decorators.version === 'legacy';
 
   const options: BabelLoaderOptions = {
@@ -69,7 +68,7 @@ export const getDefaultBabelOptions = (
     plugins: [
       [
         require.resolve('@babel/plugin-proposal-decorators'),
-        config.source.decorators,
+        { ...config.source.decorators },
       ],
       // If you are using @babel/preset-env and legacy decorators, you must ensure the class elements transform is enabled regardless of your targets, because Babel only supports compiling legacy decorators when also compiling class properties:
       // see https://babeljs.io/docs/babel-plugin-proposal-decorators#legacy
@@ -81,7 +80,7 @@ export const getDefaultBabelOptions = (
       // TODO: only apply preset-typescript for ts file (isTSX & allExtensions false)
       [
         require.resolve('@babel/preset-typescript'),
-        DEFAULT_BABEL_PRESET_TYPESCRIPT_OPTIONS,
+        { ...DEFAULT_BABEL_PRESET_TYPESCRIPT_OPTIONS },
       ],
     ],
   };
@@ -102,7 +101,7 @@ export const getDefaultBabelOptions = (
   }
 
   return options;
-};
+}
 
 export const pluginBabel = (
   options: PluginBabelOptions = {},
@@ -115,7 +114,7 @@ export const pluginBabel = (
       const baseOptions = getDefaultBabelOptions(config, api.context);
 
       const mergedOptions = applyUserBabelConfig(
-        deepmerge({}, baseOptions),
+        baseOptions,
         options.babelLoaderOptions,
       );
 
@@ -140,7 +139,7 @@ export const pluginBabel = (
         if (include || exclude) {
           const rule = chain.module
             .rule(BABEL_JS_RULE)
-            // run babel loader before the builtin SWC loader
+            // run babel loader before the builtin JS rule
             // https://stackoverflow.com/questions/32234329/what-is-the-loader-order-for-webpack
             .after(CHAIN_ID.RULE.JS);
 
@@ -161,10 +160,13 @@ export const pluginBabel = (
             .loader(babelLoader)
             .options(babelOptions);
         } else {
-          // already set source.include / exclude in plugin-swc
-          const rule = chain.module.rule(CHAIN_ID.RULE.JS);
-          rule
-            .test(SCRIPT_REGEX)
+          // Compatibility for Rsbuild v1
+          const isV1 = api.context.version.startsWith('1.');
+          const jsRule = chain.module.rule(CHAIN_ID.RULE.JS).test(SCRIPT_REGEX);
+          const jsMainRule = isV1
+            ? jsRule
+            : jsRule.oneOfs.get(CHAIN_ID.ONE_OF.JS_MAIN);
+          jsMainRule
             .use(CHAIN_ID.USE.BABEL)
             .after(CHAIN_ID.USE.SWC)
             .loader(babelLoader)

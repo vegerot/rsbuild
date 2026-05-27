@@ -1,10 +1,14 @@
+---
+description: 'Rsbuild 的 CSS Modules 功能是基于 css-loader 的 modules 选项实现的，你可以参考 css-loader - modules 来了解更多。'
+---
+
 # output.cssModules
 
 - **类型：** `CSSModules`
 
 用于自定义 CSS Modules 配置。
 
-Rsbuild 的 CSS Modules 功能是基于 css-loader 的 `modules` 选项实现的，你可以参考 [css-loader - modules](https://github.com/webpack-contrib/css-loader?tab=readme-ov-file#modules) 来了解更多。
+Rsbuild 的 CSS Modules 功能是基于 css-loader 的 `modules` 选项实现的，你可以参考 [css-loader - modules](https://github.com/webpack/css-loader#modules) 来了解更多。
 
 ## cssModules.auto
 
@@ -201,9 +205,9 @@ import styles from './index.module.scss';
 console.log(styles.header);
 ```
 
-### 模板字符串
+### 占位符
 
-在 `localIdentName` 中，你可以使用以下模板字符串：
+在 `localIdentName` 中，你可以使用以下占位符：
 
 - `[name]` - 源文件名称。
 - `[local]` - 原始类名。
@@ -212,21 +216,25 @@ console.log(styles.header);
 - `[path]` - 源文件的相对路径。
 - `[file]` - 文件名和路径。
 - `[ext]` - 文件后缀名，包含点号。
-- `[hash:<hashDigest>:<hashDigestLength>]` - 带有哈希设置的哈希。
+- `[hash:<hashDigest>:<hashDigestLength>]` - 带有哈希设置的哈希。其中 `hashDigest` 是[哈希编码](https://rspack.rs/zh/config/output#outputhashdigest)，`hashDigestLength` 是哈希值的长度。
 
 ### 示例
 
-将 `localIdentName` 设置为其他值：
+将 `localIdentName` 设置为其他值，例如更简短的五位哈希值：
 
 ```ts title="rsbuild.config.ts"
 export default {
   output: {
     cssModules: {
-      localIdentName: '[hash:base64:4]',
+      localIdentName: '[hash:base64:5]',
     },
   },
 };
 ```
+
+:::tip
+如果 hash 长度设置得较短，可能会增加类名冲突的风险。
+:::
 
 ## cssModules.mode
 
@@ -274,7 +282,7 @@ export default {
 
 例如，对 `.module.css` 文件使用局部作用域，对其他文件使用全局样式：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     cssModules: {

@@ -1,19 +1,20 @@
-import { dev, expectPoll } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, expectPoll, test } from '@e2e/helper';
 
-test('should apply custom middleware via `setupMiddlewares`', async ({
+test('should apply custom middleware via `server.setup`', async ({
   page,
+  dev,
 }) => {
   let count = 0;
 
-  // Only tested to see if it works, not all configurations.
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
-      dev: {
-        setupMiddlewares: (middlewares) => {
-          middlewares.unshift((_req, _res, next) => {
+  await dev({
+    config: {
+      server: {
+        setup: ({ action, server }) => {
+          if (action !== 'dev') {
+            return;
+          }
+
+          server.middlewares.use((_req, _res, next) => {
             count++;
             next();
           });
@@ -25,34 +26,35 @@ test('should apply custom middleware via `setupMiddlewares`', async ({
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
   expect(count).toBeGreaterThanOrEqual(1);
-  await rsbuild.close();
 });
 
-test('should apply to trigger page reload via the `static-changed` type of sockWrite', async ({
+test('should apply to trigger page reload via `environment.hot.send` in server.setup', async ({
   page,
+  dev,
 }) => {
   let count = 0;
   let reloadPage: undefined | (() => void);
 
-  // Only tested to see if it works, not all configurations.
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
-      dev: {
-        setupMiddlewares: (middlewares, { sockWrite }) => {
-          middlewares.unshift((_req, _res, next) => {
+  await dev({
+    config: {
+      server: {
+        setup: ({ action, server }) => {
+          if (action !== 'dev') {
+            return;
+          }
+
+          server.middlewares.use((_req, _res, next) => {
             count++;
             next();
           });
-          reloadPage = () => sockWrite('static-changed');
+          reloadPage = () => server.environments.web.hot.send('full-reload');
         },
       },
     },
   });
 
+  await expect(page.locator('#test')).toHaveText('Hello Rsbuild!');
   const previousCount = count;
   reloadPage?.();
-  expectPoll(() => count > previousCount).toBeTruthy();
-  await rsbuild.close();
+  await expectPoll(() => count > previousCount).toBeTruthy();
 });

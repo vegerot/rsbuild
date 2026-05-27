@@ -1,3 +1,7 @@
+---
+description: '本章节介绍如何使用 Rsbuild 实现 SSR 功能。'
+---
+
 # 服务端渲染（SSR）
 
 本章节介绍如何使用 Rsbuild 实现 SSR 功能。
@@ -74,7 +78,7 @@ export default {
 
 ## 自定义 Server
 
-Rsbuild 提供了 [Dev server API](/api/javascript-api/dev-server-api) 和 [Environment API](/guide/advanced/environments#environment-api) 来实现 SSR。
+Rsbuild 提供了 [Server API](/api/javascript-api/server-api) 和 [Environment API](/guide/advanced/environments#environment-api) 来实现 SSR。
 
 以下是一个基础示例：
 
@@ -84,7 +88,7 @@ import { createRsbuild } from '@rsbuild/core';
 
 async function initRsbuild() {
   const rsbuild = await createRsbuild({
-    rsbuildConfig: {
+    config: {
       server: {
         middlewareMode: true,
       },
@@ -131,7 +135,7 @@ startDevServer();
 
 使用自定义 Server 后，需要将启动命令由 `rsbuild dev` 改为 `node ./server.mjs`。
 
-如果需要预览 SSR 的线上效果，同样需要修改预览命令。SSR Prod Server 示例参考：[Example](https://github.com/rspack-contrib/rstack-examples/blob/main/rsbuild/ssr-express/prod-server.mjs)。
+如果需要预览 SSR 的线上效果，同样需要修改预览命令。SSR Prod Server 示例参考：[Example](https://github.com/rstackjs/rstack-examples/blob/main/rsbuild/ssr-express/prod-server.mjs)。
 
 ```json title="package.json"
 {
@@ -189,8 +193,8 @@ async function renderHtmlPage(): Promise<string> {
 
 ## 示例项目
 
-- [SSR + Express Example](https://github.com/rspack-contrib/rstack-examples/blob/main/rsbuild/ssr-express)
-- [SSR + Express + Manifest Example](https://github.com/rspack-contrib/rstack-examples/blob/main/rsbuild/ssr-express-with-manifest)
+- [SSR + Express Example](https://github.com/rstackjs/rstack-examples/blob/main/rsbuild/ssr-express)
+- [SSR + Express + Manifest Example](https://github.com/rstackjs/rstack-examples/blob/main/rsbuild/ssr-express-with-manifest)
 
 ## 在插件中适配 SSR
 

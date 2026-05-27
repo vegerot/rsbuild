@@ -1,15 +1,11 @@
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, NETWORK_LOG_REGEX, test } from '@e2e/helper';
 
-const cwd = __dirname;
-
-const NETWORK_LOG_REGEX =
-  /➜\s{2}Network:\s{2}http:\/\/\d{1,3}(?:\.\d{1,3}){3}:\d+/;
-
-test('should print server urls correctly by default', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should print server urls correctly by default', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         htmlFallback: false,
       },
@@ -21,18 +17,18 @@ test('should print server urls correctly by default', async ({ page }) => {
   expect(await page.evaluate(() => window.test)).toBe(1);
 
   await rsbuild.expectLog(`➜  Local:    ${url}`);
-  await rsbuild.expectLog(NETWORK_LOG_REGEX);
+  await rsbuild.expectLog('➜  Network:  use --host to expose');
+  rsbuild.expectNoLog(NETWORK_LOG_REGEX);
 
   expect(rsbuild.logs.find((log) => log.includes('/./'))).toBeFalsy();
-  await rsbuild.close();
 });
 
 test('should not print server urls when printUrls is false', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         printUrls: false,
       },
@@ -43,14 +39,11 @@ test('should not print server urls when printUrls is false', async ({
 
   rsbuild.expectNoLog(`➜  Local:    http://localhost:${rsbuild.port}`);
   rsbuild.expectNoLog(NETWORK_LOG_REGEX);
-
-  await rsbuild.close();
 });
 
-test('should allow to custom urls', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should allow to custom urls', async ({ page, devOnly }) => {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         printUrls: ({ urls, protocol, port }) => {
           expect(typeof port).toEqual('number');
@@ -65,15 +58,16 @@ test('should allow to custom urls', async ({ page }) => {
 
   rsbuild.expectNoLog(`➜  Local:    http://localhost:${rsbuild.port}`);
   rsbuild.expectNoLog(NETWORK_LOG_REGEX);
-
-  await rsbuild.close();
 });
 
-test('should allow to modify and return new urls', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should allow to modify and return new urls', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly({
+    config: {
       server: {
+        host: '0.0.0.0',
         printUrls: ({ urls }) => urls.map((url) => `${url}/test`),
       },
     },
@@ -84,17 +78,43 @@ test('should allow to modify and return new urls', async ({ page }) => {
   await rsbuild.expectLog(
     `➜  Local:    http://localhost:${rsbuild.port}/test/`,
   );
-  rsbuild.expectNoLog(
+  await rsbuild.expectLog(
     /➜\s{2}Network:\s{2}http:\/\/\d{1,3}(?:\.\d{1,3}){3}:\d+\/test\//,
   );
-
-  await rsbuild.close();
 });
 
-test('should listen only on localhost in dev', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should allow to modify and return new urls and labels', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly({
+    config: {
+      server: {
+        printUrls: ({ urls, port }) => {
+          expect(urls.includes(`http://localhost:${port}`)).toBeTruthy();
+          return urls
+            .map<{ url: string; label?: string }>((url) => ({
+              url,
+              label: 'Custom:',
+            }))
+            .concat({ url: 'http://example.com/mcp', label: 'MCP:' })
+            .concat({ url: 'http://localhost:8000/another-mcp' });
+        },
+      },
+    },
+  });
+
+  await page.goto(`http://localhost:${rsbuild.port}`);
+
+  await rsbuild.expectLog(`➜  Custom:   http://localhost:${rsbuild.port}/`);
+  await rsbuild.expectLog(`➜  MCP:      http://example.com/mcp/`);
+  await rsbuild.expectLog(`➜  Local:    http://localhost:8000/another-mcp/`);
+  rsbuild.expectNoLog(`➜  Local:    http://localhost:${rsbuild.port}`);
+});
+
+test('should listen only on localhost in dev', async ({ page, devOnly }) => {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         host: 'localhost',
         htmlFallback: false,
@@ -108,15 +128,14 @@ test('should listen only on localhost in dev', async ({ page }) => {
 
   await rsbuild.expectLog(`➜  Local:    ${url}`);
   rsbuild.expectNoLog(NETWORK_LOG_REGEX);
-
-  await rsbuild.close();
 });
 
-test('should listen only on localhost in preview', async ({ page }) => {
-  const rsbuild = await build({
-    cwd,
-    page,
-    rsbuildConfig: {
+test('should listen only on localhost in preview', async ({
+  page,
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview({
+    config: {
       server: {
         host: 'localhost',
         htmlFallback: false,
@@ -130,15 +149,13 @@ test('should listen only on localhost in preview', async ({ page }) => {
 
   await rsbuild.expectLog(`➜  Local:    ${url}`);
   rsbuild.expectNoLog(NETWORK_LOG_REGEX);
-
-  await rsbuild.close();
 });
 
-test('should not print server urls when HTML is disabled', async ({ page }) => {
-  const rsbuild = await build({
-    cwd,
-    page,
-    rsbuildConfig: {
+test('should not print server urls when HTML is disabled', async ({
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview({
+    config: {
       tools: {
         htmlPlugin: false,
       },
@@ -147,17 +164,13 @@ test('should not print server urls when HTML is disabled', async ({ page }) => {
 
   rsbuild.expectNoLog(`➜  Local:    http://localhost:${rsbuild.port}`);
   rsbuild.expectNoLog(NETWORK_LOG_REGEX);
-
-  await rsbuild.close();
 });
 
 test('should print server urls when HTML is disabled but printUrls is a custom function', async ({
-  page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       tools: {
         htmlPlugin: false,
       },
@@ -168,15 +181,14 @@ test('should print server urls when HTML is disabled but printUrls is a custom f
   });
 
   await rsbuild.expectLog(`➜  Local:    http://localhost:${rsbuild.port}`);
-  await rsbuild.close();
 });
 
 test('should print server urls for multiple web environments with custom distPath.root', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         printUrls: ({ urls, routes }) => {
           expect(routes[0].pathname).toBe('/dist/');
@@ -193,9 +205,7 @@ test('should print server urls for multiple web environments with custom distPat
             },
           },
           output: {
-            distPath: {
-              root: '.dist/web1',
-            },
+            distPath: '.dist/web1',
           },
         },
       },
@@ -211,16 +221,14 @@ test('should print server urls for multiple web environments with custom distPat
   await rsbuild.expectLog(
     `-  index1    http://localhost:${rsbuild.port}/.dist/web1/index1`,
   );
-
-  await rsbuild.close();
 });
 
 test('should print server urls for multiple web environments with custom distPath.html', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         htmlFallback: false,
       },
@@ -262,31 +270,27 @@ test('should print server urls for multiple web environments with custom distPat
 
   await rsbuild.expectLog(`-  index    ${url1}`);
   await rsbuild.expectLog(`-  main     ${url2}`);
-
-  await rsbuild.close();
 });
 
 test('should print server urls for web and node environments with custom distPath.root', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         htmlFallback: false,
       },
       environments: {
         web: {
           output: {
-            distPath: {
-              root: 'dist/client',
-            },
+            distPath: 'dist/client',
           },
         },
         node: {
           output: {
             target: 'node',
-            distPath: { root: './dist/server' },
+            distPath: './dist/server',
           },
         },
       },
@@ -299,5 +303,4 @@ test('should print server urls for web and node environments with custom distPat
   await rsbuild.expectLog(`➜  Local:    http://localhost:${rsbuild.port}/`, {
     strict: true,
   });
-  await rsbuild.close();
 });

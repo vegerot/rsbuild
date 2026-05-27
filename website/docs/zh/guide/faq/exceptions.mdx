@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 常见问题解答，聚焦构建与运行时异常排查。'
+---
+
 # 异常类问题
 
 ### 编译产物中存在未编译的 ESNext 代码？
@@ -45,7 +49,7 @@ npm ls postcss
 
 如果编译的过程中出现此报错，说明代码中引用了一个不存在的导出。
 
-比如以下例子，`index.ts` 中引用了 `utils.ts` 中的 `foo` 变量， 但 `utils.ts` 实际上只导出了 `bar` 变量。
+比如以下例子，`index.ts` 中引用了 `utils.ts` 中的 `foo` 变量，但 `utils.ts` 实际上只导出了 `bar` 变量。
 
 ```ts
 // utils.ts
@@ -164,7 +168,7 @@ Node.js 官方文档中有对以下参数更详细的解释：
 Module not found: Can't resolve 'core-js/modules/es.error.cause.js'
 ```
 
-通常来说，你无须在项目中安装 `core-js`，因为 Rsbuild 已经内置了一份 `core-js` v3。
+当你启用 polyfill 注入时，请确保项目中已安装 `core-js` v3。
 
 如果出现 `core-js` 找不到的报错，可能有以下几个原因：
 

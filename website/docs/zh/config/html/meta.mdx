@@ -1,3 +1,7 @@
+---
+description: '如果当前项目使用的 HTML 模板中已经包含了 charset 或 viewport meta 标签，那么 HTML 模板中的标签优先级更高。'
+---
+
 # html.meta
 
 - **类型：** `Object | Function`
@@ -5,9 +9,9 @@
 
 ```ts
 const defaultMeta = {
-  // <meta charset="UTF-8" />
+  // <meta charset="utf-8" />
   charset: {
-    charset: 'UTF-8',
+    charset: 'utf-8',
   },
   // <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   viewport: 'width=device-width, initial-scale=1.0',
@@ -34,7 +38,7 @@ type MetaOptions = {
 
 比如设置 `description`：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     meta: {
@@ -44,7 +48,7 @@ export default {
 };
 ```
 
-最终在 HTML 中生成的 `meta` 标签为：
+在 HTML 中生成的 `meta` 标签为：
 
 ```html
 <meta name="description" content="a description of the page" />
@@ -67,24 +71,54 @@ type MetaOptions = {
 
 当 `meta` 对象的 `value` 为对象时，会将该对象的 `key: value` 映射为 `meta` 标签的属性。
 
-比如设置 `charset`：
+### charset 标签
 
-```js
+比如生成 `charset` 标签：
+
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     meta: {
       charset: {
-        charset: 'UTF-8',
+        charset: 'utf-8',
       },
     },
   },
 };
 ```
 
-最终在 HTML 中生成的 `meta` 标签为：
+在 HTML 中生成的 `meta` 标签为：
 
 ```html
-<meta charset="UTF-8" />
+<meta charset="utf-8" />
+```
+
+### Open Graph 标签
+
+生成 [Open Graph 标签](https://ogp.me/)：
+
+```ts title="rsbuild.config.ts"
+export default {
+  html: {
+    meta: {
+      'og:title': {
+        property: 'og:title',
+        content: 'Example Title',
+      },
+      'og:image': {
+        property: 'og:image',
+        content: 'https://example.com/og.png',
+      },
+    },
+  },
+};
+```
+
+在 HTML 中生成的 `meta` 标签为：
+
+```html
+<meta property="og:title" content="Example Title" />
+<meta property="og:image" content="https://example.com/og.png" />
 ```
 
 ## 函数用法
@@ -107,7 +141,7 @@ type MetaFunction = ({
 
 比如，你可以直接修改内置的 `meta` 配置对象：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     meta({ value }) {
@@ -120,7 +154,7 @@ export default {
 
 在 MPA（多页面应用）场景下，你可以基于入口名称返回不同的 `meta` 配置，从而为每个页面生成不同的 `meta` 标签：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     meta({ entryName }) {
@@ -149,7 +183,7 @@ export default {
 
 比如移除 Rsbuild 预设的 `viewport`：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     meta: {

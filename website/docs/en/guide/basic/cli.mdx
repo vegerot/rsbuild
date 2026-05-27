@@ -1,10 +1,14 @@
+---
+description: 'Rsbuild includes a lightweight CLI with commands like rsbuild dev and rsbuild build.'
+---
+
 # CLI
 
-Rsbuild comes with a lightweight CLI that includes commands such as [rsbuild dev](#rsbuild-dev) and [rsbuild build](#rsbuild-build).
+Rsbuild includes a lightweight CLI with commands like [rsbuild dev](#rsbuild) and [rsbuild build](#rsbuild-build).
 
 ## All commands
 
-To view all available CLI commands, run the following command in the project directory:
+To view all available CLI commands, run this command in your project directory:
 
 ```bash
 npx rsbuild -h
@@ -14,7 +18,7 @@ The output is shown below:
 
 ```
 Usage:
-  $ rsbuild <command> [options]
+  $ rsbuild [command] [options]
 
 Commands:
   dev      Start the dev server
@@ -25,68 +29,75 @@ Commands:
 
 ## Common flags
 
-Rsbuild CLI includes several common flags that work with all commands:
+The Rsbuild CLI includes several common flags that work with all commands:
 
-| Flag                       | Description                                                                                                                       |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--base <base>`            | Set the base path of the server, see [server.base](/config/server/base)                                                           |
-| `-c, --config <config>`    | Set the configuration file (relative or absolute path), see [Set config file](/guide/configuration/rsbuild#specify-config-file)   |
-| `--config-loader <loader>` | Set the config file loader (`jiti` \| `native`), see [Set config loader](/guide/configuration/rsbuild#specify-config-loader)      |
-| `--env-mode <mode>`        | Set the env mode to load the `.env.[mode]` file, see [Env mode](/guide/advanced/env-vars#env-mode)                                |
-| `--env-dir <dir>`          | Set the directory for loading `.env` files, see [Env directory](/guide/advanced/env-vars#env-directory)                           |
-| `--environment <name>`     | Set the environment name(s) to build, see [Build specified environment](/guide/advanced/environments#build-specified-environment) |
-| `-h, --help`               | Display help for command                                                                                                          |
-| `--log-level <level>`      | Set the log level (`info` \| `warn` \| `error` \| `silent`), see [logLevel](/config/log-level)                                    |
-| `-m, --mode <mode>`        | Set the build mode (`development` \| `production` \| `none`), see [mode](/config/mode)                                            |
-| `--no-env`                 | Disable loading of `.env` files                                                                                                   |
-| `-r, --root <root>`        | Set the project root directory (absolute path or relative to [cwd](https://nodejs.org/api/process.html#processcwd))               |
+| Flag                       | Description                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--base <base>`            | Set the base path of the server, see [server.base](/config/server/base)                                                                    |
+| `-c, --config <config>`    | Set the configuration file (relative or absolute path), see [Specify config file](/guide/configuration/rsbuild#specify-config-file)        |
+| `--config-loader <loader>` | Set the config file loader (`auto` \| `jiti` \| `native`), see [Specify config loader](/guide/configuration/rsbuild#specify-config-loader) |
+| `--env-mode <mode>`        | Set the env mode to load the `.env.[mode]` file, see [Env mode](/guide/advanced/env-vars#env-mode)                                         |
+| `--env-dir <dir>`          | Set the directory for loading `.env` files, see [Env directory](/guide/advanced/env-vars#env-directory)                                    |
+| `--environment <name>`     | Set the environment name(s) to build, see [Build specified environment](/guide/advanced/environments#build-specified-environment)          |
+| `-h, --help`               | Display help for command                                                                                                                   |
+| `--log-level <level>`      | Set the log level (`info` \| `warn` \| `error` \| `silent`), see [logLevel](/config/log-level)                                             |
+| `-m, --mode <mode>`        | Set the build mode (`development` \| `production` \| `none`), see [mode](/config/mode)                                                     |
+| `--no-env`                 | Disable loading of `.env` files                                                                                                            |
+| `-r, --root <root>`        | Set the project root directory (absolute path or relative to [cwd](https://nodejs.org/api/process.html#processcwd))                        |
 
-## rsbuild dev
+## rsbuild
 
-The `rsbuild dev` command starts a local dev server and compiles the source code for development.
+The `rsbuild` command starts a local dev server and compiles source code for development. `rsbuild dev` is an alias for `rsbuild`.
 
 ```bash
-Usage: rsbuild dev [options]
+Usage:
+  rsbuild [options]
+  rsbuild dev [options]
 
 Options:
   -o, --open [url]      Open the page in browser on startup
   --port <port>         Set the port number for the server
-  --host <host>         Set the host that the server listens to
+  --host [host]         Set the host that the server listens to
 ```
 
-You can also start the dev server by running `rsbuild` directly, which is equivalent to running `rsbuild dev`.
+### Specifying host
+
+By default, the dev server listens on `localhost`. Passing `--host` without a value will make the server listen on all network interfaces:
 
 ```bash
-npx rsbuild
+npx rsbuild --host
+
+# equivalent to:
+npx rsbuild --host 0.0.0.0
 ```
 
 ### Opening page
 
-The `--open` option automatically opens a page when starting the dev server, which is equivalent to setting [server.open](/config/server/open) to `true`.
+The `--open` option opens a page automatically when the dev server starts (equivalent to setting [server.open](/config/server/open) to `true`).
 
 ```bash
-rsbuild dev --open
+rsbuild --open
 ```
 
-The `--open` option also supports specifying the URL to be opened, for example:
+The `--open` option also accepts a specific URL to open. For example:
 
 ```bash
-rsbuild dev --open http://localhost:3000/foo
+rsbuild --open http://localhost:3000/foo
 ```
 
 The `--open` option can also be abbreviated to `-o`:
 
 ```bash
-rsbuild dev -o
+rsbuild -o
 ```
 
 :::tip
-When using [server.open](/config/server/open) and `--open` at the same time, `--open` takes precedence.
+When using both [server.open](/config/server/open) and `--open`, the `--open` option takes precedence.
 :::
 
 ## rsbuild build
 
-The `rsbuild build` command will build the outputs for production in the `dist/` directory by default.
+The `rsbuild build` command builds production outputs in the `dist/` directory by default.
 
 ```bash
 Usage: rsbuild build [options]
@@ -97,7 +108,7 @@ Options:
 
 ## rsbuild preview
 
-The `rsbuild preview` command previews the production build outputs locally. Note that you need to execute the `rsbuild build` command beforehand to generate the build outputs.
+The `rsbuild preview` command previews production build outputs locally. You must run `rsbuild build` first to generate the outputs.
 
 ```bash
 Usage: rsbuild preview [options]
@@ -105,16 +116,16 @@ Usage: rsbuild preview [options]
 Options:
   -o, --open [url]      Open the page in browser on startup
   --port <port>         Set a port number for Rsbuild server to listen
-  --host <host>         Set the host that the Rsbuild server listens to
+  --host [host]         Set the host that the Rsbuild server listens to
 ```
 
 :::tip
-The preview command is only used for local preview. Do not use it for production servers, as it is not designed for that.
+Use the preview command only for local previews. Do not use it in production, as it is not designed for production servers.
 :::
 
 ## rsbuild inspect
 
-The `rsbuild inspect` command displays the Rsbuild config and Rspack config of the project.
+The `rsbuild inspect` command displays the project's Rsbuild and Rspack configurations.
 
 ```bash
 Usage: rsbuild inspect [options]
@@ -124,7 +135,7 @@ Options:
   --verbose             Show complete function definitions in output
 ```
 
-When you run the command `npx rsbuild inspect` in the project root directory, the following files will be generated in the `dist/.rsbuild` directory of the project:
+Running `npx rsbuild inspect` in the project root generates the following files in the `dist/.rsbuild` directory:
 
 - `rsbuild.config.mjs`: Represents the Rsbuild configuration used during the build.
 - `rspack.config.web.mjs`: Represents the Rspack configuration used during the build.
@@ -140,7 +151,7 @@ config inspection completed, generated files:
 
 ### Setting mode
 
-By default, the inspect command outputs the configuration for the development mode. You can add the `--mode production` option to output the configuration for the production mode:
+By default, the inspect command outputs configuration for development mode. To output production mode configuration, add the `--mode production` option:
 
 ```bash
 rsbuild inspect --mode production
@@ -148,7 +159,7 @@ rsbuild inspect --mode production
 
 ### Verbose content
 
-By default, the inspect command omits the content of functions in the configuration object. You can add the `--verbose` option to output the complete content of functions:
+By default, the inspect command omits function bodies in the configuration object. To output complete function content, add the `--verbose` option:
 
 ```bash
 rsbuild inspect --verbose
@@ -156,7 +167,7 @@ rsbuild inspect --verbose
 
 ### Multiple targets
 
-If the current project has multiple build targets, such as building browser bundles and Node.js bundles simultaneously, multiple Rspack configuration files will be generated in the `dist/.rsbuild` directory.
+If the current project has multiple build targets (such as building both browser and Node.js bundles), multiple Rspack configuration files will be generated in the `dist/.rsbuild` directory.
 
 ```bash
 ➜ npx rsbuild inspect

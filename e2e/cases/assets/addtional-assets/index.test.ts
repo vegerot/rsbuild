@@ -1,22 +1,22 @@
 import path from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 function isIncludeFile(filenames: string[], includeFilename: string) {
   return filenames.some((filename) => filename.includes(includeFilename));
 }
 
-test('should support configuring additional assets matched by RegExp', async () => {
+test('should support configuring additional assets matched by RegExp', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       source: {
         assetsInclude: [/\.json5$/],
       },
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   const indexJs = await rsbuild.getIndexBundle();
@@ -30,17 +30,18 @@ test('should support configuring additional assets matched by RegExp', async () 
   ).toBeFalsy();
 });
 
-test('should support configuring additional assets matched by path', async () => {
+test('should support configuring additional assets matched by path', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       source: {
-        assetsInclude: path.resolve(__dirname, 'src/assets'),
+        assetsInclude: path.resolve(import.meta.dirname, 'src/assets'),
       },
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   const indexJs = await rsbuild.getIndexBundle();
@@ -54,10 +55,11 @@ test('should support configuring additional assets matched by path', async () =>
   ).toBeFalsy();
 });
 
-test('should support disabling emission for additional assets', async () => {
+test('should support disabling emission for additional assets', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       source: {
         assetsInclude: [/\.json5$/],
       },
@@ -67,7 +69,7 @@ test('should support disabling emission for additional assets', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   expect(

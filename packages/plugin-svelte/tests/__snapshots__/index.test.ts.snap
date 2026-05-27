@@ -22,64 +22,69 @@ exports[`plugin-svelte > should add rule for \`.svelte.js\` and \`.svelte.ts\` a
       /\\\\\\.\\(\\?:ts\\|tsx\\|jsx\\|mts\\|cts\\)\\$/,
       /node_modules\\[\\\\\\\\/\\]svelte\\[\\\\\\\\/\\]/,
     ],
-    "resourceQuery": {
-      "not": /\\[\\?&\\]raw\\(\\?:&\\|=\\|\\$\\)/,
-    },
-    "test": /\\\\\\.\\(\\?:js\\|jsx\\|mjs\\|cjs\\|ts\\|tsx\\|mts\\|cts\\)\\$/,
-    "type": "javascript/auto",
-    "use": [
+    "oneOf": [
       {
-        "loader": "builtin:swc-loader",
-        "options": {
-          "env": {
-            "mode": undefined,
-            "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
-            ],
+        "resourceQuery": /\\[\\?&\\]worker\\(\\?:&\\|=\\|\\$\\)/,
+        "type": "javascript/auto",
+        "use": [
+          {
+            "loader": "<ROOT>/packages/core/dist/workerLoader.mjs",
           },
-          "isModule": "unknown",
-          "jsc": {
-            "experimental": {
-              "cacheRoot": "<ROOT>/packages/plugin-svelte/tests/node_modules/.cache/.swc",
-              "keepImportAttributes": true,
-            },
-            "externalHelpers": true,
-            "output": {
-              "charset": "utf8",
-            },
-            "parser": {
-              "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
-            },
-            "transform": {
-              "decoratorVersion": "2022-03",
-              "legacyDecorator": false,
+        ],
+      },
+      {
+        "resourceQuery": /\\[\\?&\\]raw\\(\\?:&\\|=\\|\\$\\)/,
+        "type": "asset/source",
+      },
+      {
+        "type": "javascript/auto",
+        "use": [
+          {
+            "loader": "builtin:swc-loader",
+            "options": {
+              "collectTypeScriptInfo": {
+                "exportedEnum": false,
+                "typeExports": true,
+              },
+              "detectSyntax": "auto",
+              "env": {
+                "targets": [
+                  "chrome >= 107",
+                  "edge >= 107",
+                  "firefox >= 104",
+                  "safari >= 16",
+                ],
+              },
+              "isModule": "unknown",
+              "jsc": {
+                "experimental": {
+                  "cacheRoot": "<ROOT>/packages/plugin-svelte/tests/node_modules/.cache/.swc",
+                  "keepImportAttributes": true,
+                },
+                "externalHelpers": true,
+                "output": {
+                  "charset": "utf8",
+                },
+                "parser": {
+                  "decorators": true,
+                },
+                "transform": {
+                  "decoratorVersion": "2023-11",
+                  "legacyDecorator": false,
+                },
+              },
             },
           },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
-            },
-          },
-        },
+        ],
       },
     ],
-  },
-  {
-    "resourceQuery": /\\[\\?&\\]raw\\(\\?:&\\|=\\|\\$\\)/,
     "test": /\\\\\\.\\(\\?:js\\|jsx\\|mjs\\|cjs\\|ts\\|tsx\\|mts\\|cts\\)\\$/,
-    "type": "asset/source",
   },
   {
     "test": /\\\\\\.\\(\\?:svelte\\\\\\.js\\|svelte\\\\\\.ts\\)\\$/,
     "use": [
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,
@@ -96,13 +101,17 @@ exports[`plugin-svelte > should add rule for \`.svelte.js\` and \`.svelte.ts\` a
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -117,18 +126,10 @@ exports[`plugin-svelte > should add rule for \`.svelte.js\` and \`.svelte.ts\` a
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
@@ -154,64 +155,69 @@ exports[`plugin-svelte > should add rule for \`.svelte.js\` and \`.svelte.ts\` a
       /\\\\\\.\\(\\?:ts\\|tsx\\|jsx\\|mts\\|cts\\)\\$/,
       /node_modules\\[\\\\\\\\/\\]svelte\\[\\\\\\\\/\\]/,
     ],
-    "resourceQuery": {
-      "not": /\\[\\?&\\]raw\\(\\?:&\\|=\\|\\$\\)/,
-    },
-    "test": /\\\\\\.\\(\\?:js\\|jsx\\|mjs\\|cjs\\|ts\\|tsx\\|mts\\|cts\\)\\$/,
-    "type": "javascript/auto",
-    "use": [
+    "oneOf": [
       {
-        "loader": "builtin:swc-loader",
-        "options": {
-          "env": {
-            "mode": undefined,
-            "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
-            ],
+        "resourceQuery": /\\[\\?&\\]worker\\(\\?:&\\|=\\|\\$\\)/,
+        "type": "javascript/auto",
+        "use": [
+          {
+            "loader": "<ROOT>/packages/core/dist/workerLoader.mjs",
           },
-          "isModule": "unknown",
-          "jsc": {
-            "experimental": {
-              "cacheRoot": "<ROOT>/packages/plugin-svelte/tests/node_modules/.cache/.swc",
-              "keepImportAttributes": true,
-            },
-            "externalHelpers": true,
-            "output": {
-              "charset": "utf8",
-            },
-            "parser": {
-              "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
-            },
-            "transform": {
-              "decoratorVersion": "2022-03",
-              "legacyDecorator": false,
+        ],
+      },
+      {
+        "resourceQuery": /\\[\\?&\\]raw\\(\\?:&\\|=\\|\\$\\)/,
+        "type": "asset/source",
+      },
+      {
+        "type": "javascript/auto",
+        "use": [
+          {
+            "loader": "builtin:swc-loader",
+            "options": {
+              "collectTypeScriptInfo": {
+                "exportedEnum": false,
+                "typeExports": true,
+              },
+              "detectSyntax": "auto",
+              "env": {
+                "targets": [
+                  "chrome >= 107",
+                  "edge >= 107",
+                  "firefox >= 104",
+                  "safari >= 16",
+                ],
+              },
+              "isModule": "unknown",
+              "jsc": {
+                "experimental": {
+                  "cacheRoot": "<ROOT>/packages/plugin-svelte/tests/node_modules/.cache/.swc",
+                  "keepImportAttributes": true,
+                },
+                "externalHelpers": true,
+                "output": {
+                  "charset": "utf8",
+                },
+                "parser": {
+                  "decorators": true,
+                },
+                "transform": {
+                  "decoratorVersion": "2023-11",
+                  "legacyDecorator": false,
+                },
+              },
             },
           },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
-            },
-          },
-        },
+        ],
       },
     ],
-  },
-  {
-    "resourceQuery": /\\[\\?&\\]raw\\(\\?:&\\|=\\|\\$\\)/,
     "test": /\\\\\\.\\(\\?:js\\|jsx\\|mjs\\|cjs\\|ts\\|tsx\\|mts\\|cts\\)\\$/,
-    "type": "asset/source",
   },
   {
     "test": /\\\\\\.\\(\\?:svelte\\\\\\.js\\|svelte\\\\\\.ts\\)\\$/,
     "use": [
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,
@@ -228,13 +234,17 @@ exports[`plugin-svelte > should add rule for \`.svelte.js\` and \`.svelte.ts\` a
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -249,18 +259,10 @@ exports[`plugin-svelte > should add rule for \`.svelte.js\` and \`.svelte.ts\` a
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
@@ -278,13 +280,17 @@ exports[`plugin-svelte > should add svelte loader and resolve config properly 1`
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -299,24 +305,16 @@ exports[`plugin-svelte > should add svelte loader and resolve config properly 1`
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
       },
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,
@@ -338,7 +336,109 @@ exports[`plugin-svelte > should add svelte loader and resolve config properly 1`
 exports[`plugin-svelte > should add svelte loader and resolve config properly 2`] = `
 {
   "alias": {
-    "@swc/helpers": "<ROOT>/node_modules/<PNPM_INNER>/@swc/helpers",
+    "@swc/helpers": "<PNPM_INNER>/@swc/helpers",
+  },
+  "conditionNames": [
+    "svelte",
+    "...",
+  ],
+  "extensionAlias": {
+    ".js": [
+      ".js",
+      ".ts",
+      ".tsx",
+    ],
+    ".jsx": [
+      ".jsx",
+      ".tsx",
+    ],
+  },
+  "extensions": [
+    ".ts",
+    ".tsx",
+    ".mjs",
+    ".js",
+    ".jsx",
+    ".json",
+    ".svelte",
+  ],
+  "mainFields": [
+    "svelte",
+    "...",
+  ],
+  "tsConfig": {
+    "configFile": "<ROOT>/packages/plugin-svelte/tests/tsconfig.json",
+    "references": "auto",
+  },
+}
+`;
+
+exports[`plugin-svelte > should add svelte loader and resolve config properly for Rsbuild v1 1`] = `
+[
+  {
+    "test": /\\\\\\.svelte\\$/,
+    "use": [
+      {
+        "loader": "builtin:swc-loader",
+        "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "env": {
+            "targets": [
+              "chrome >= 87",
+              "edge >= 88",
+              "firefox >= 78",
+              "safari >= 14",
+            ],
+          },
+          "isModule": "unknown",
+          "jsc": {
+            "experimental": {
+              "cacheRoot": "<ROOT>/packages/plugin-svelte/tests/node_modules/.cache/.swc",
+              "keepImportAttributes": true,
+            },
+            "externalHelpers": true,
+            "output": {
+              "charset": "utf8",
+            },
+            "parser": {
+              "decorators": true,
+              "syntax": "typescript",
+              "tsx": false,
+            },
+            "transform": {
+              "decoratorVersion": "2022-03",
+              "legacyDecorator": false,
+            },
+          },
+        },
+      },
+      {
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
+        "options": {
+          "compilerOptions": {
+            "dev": false,
+          },
+          "emitCss": false,
+          "hotReload": false,
+          "preprocess": {
+            "markup": [Function],
+            "script": [Function],
+            "style": [Function],
+          },
+        },
+      },
+    ],
+  },
+]
+`;
+
+exports[`plugin-svelte > should add svelte loader and resolve config properly for Rsbuild v1 2`] = `
+{
+  "alias": {
+    "@swc/helpers": "<PNPM_INNER>/@swc/helpers",
   },
   "conditionNames": [
     "svelte",
@@ -383,13 +483,17 @@ exports[`plugin-svelte > should override default svelte-loader options throw opt
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -404,24 +508,16 @@ exports[`plugin-svelte > should override default svelte-loader options throw opt
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
       },
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,
@@ -444,13 +540,17 @@ exports[`plugin-svelte > should set dev and hotReload to false in production mod
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": true,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -465,24 +565,16 @@ exports[`plugin-svelte > should set dev and hotReload to false in production mod
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
       },
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,
@@ -509,13 +601,17 @@ exports[`plugin-svelte > should support pass custom preprocess options 1`] = `
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -530,24 +626,16 @@ exports[`plugin-svelte > should support pass custom preprocess options 1`] = `
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
       },
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,
@@ -574,13 +662,17 @@ exports[`plugin-svelte > should turn off HMR by hand correctly 1`] = `
       {
         "loader": "builtin:swc-loader",
         "options": {
+          "collectTypeScriptInfo": {
+            "exportedEnum": false,
+            "typeExports": true,
+          },
+          "detectSyntax": "auto",
           "env": {
-            "mode": undefined,
             "targets": [
-              "chrome >= 87",
-              "edge >= 88",
-              "firefox >= 78",
-              "safari >= 14",
+              "chrome >= 107",
+              "edge >= 107",
+              "firefox >= 104",
+              "safari >= 16",
             ],
           },
           "isModule": "unknown",
@@ -595,24 +687,16 @@ exports[`plugin-svelte > should turn off HMR by hand correctly 1`] = `
             },
             "parser": {
               "decorators": true,
-              "syntax": "typescript",
-              "tsx": false,
             },
             "transform": {
-              "decoratorVersion": "2022-03",
+              "decoratorVersion": "2023-11",
               "legacyDecorator": false,
-            },
-          },
-          "rspackExperiments": {
-            "collectTypeScriptInfo": {
-              "exportedEnum": false,
-              "typeExports": true,
             },
           },
         },
       },
       {
-        "loader": "<ROOT>/node_modules/<PNPM_INNER>/svelte-loader/index.js",
+        "loader": "<PNPM_INNER>/svelte-loader/index.js",
         "options": {
           "compilerOptions": {
             "dev": false,

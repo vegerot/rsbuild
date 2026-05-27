@@ -1,16 +1,14 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import { platform } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { URL } from 'node:url';
-import { expect, test } from '@playwright/test';
-import type { RsbuildPlugin } from '@rsbuild/core';
-import glob, {
-  convertPathToPattern,
-  type Options as GlobOptions,
-} from 'fast-glob';
+import { styleText } from 'node:util';
+import { originalPositionFor, TraceMap } from '@jridgewell/trace-mapping';
+import { logger, type RsbuildPlugin } from '@rsbuild/core';
+import glob, { type Options as GlobOptions } from 'fast-glob';
 import type { Page } from 'playwright';
-import sourceMap from 'source-map';
+import { expect } from './fixture.ts';
 
 /**
  * Build an URL based on the entry name and port
@@ -28,8 +26,9 @@ export const gotoPage = async (
   page: Page,
   rsbuild: { port: number },
   path = 'index',
+  { hash = '' } = {},
 ) => {
-  const url = buildEntryUrl(path, rsbuild.port);
+  const url = `${buildEntryUrl(path, rsbuild.port)}${hash ? `#${hash}` : ''}`;
   return page.goto(url);
 };
 
@@ -73,41 +72,11 @@ export async function getRandomPort(
   }
 }
 
-export const providerType = process.env.PROVIDE_TYPE || 'rspack';
-
-process.env.PROVIDE_TYPE = providerType;
-
-export const getProviderTest = (
-  supportType: string[] = ['rspack'],
-): typeof test => {
-  if (supportType.includes(providerType)) {
-    return test;
-  }
-
-  const testSkip = test.skip;
-
-  // @ts-expect-error
-  testSkip.describe = test.describe.skip;
-
-  // @ts-expect-error
-  testSkip.fail = test.describe.skip;
-  // @ts-expect-error
-  testSkip.only = test.only;
-
-  // @ts-expect-error
-  return testSkip as typeof test.skip & {
-    describe: typeof test.describe.skip;
-    only: typeof test.only;
-  };
-};
-
-export const rspackOnlyTest = getProviderTest(['rspack']);
-
 // fast-glob only accepts posix path
 // https://github.com/mrmlnc/fast-glob#convertpathtopatternpath
 const convertPath = (path: string) => {
   if (platform() === 'win32') {
-    return convertPathToPattern(path);
+    return glob.convertPathToPattern(path);
   }
   return path;
 };
@@ -162,7 +131,7 @@ export const normalizeNewlines = (str: string) => str.replace(/\r\n/g, '\n');
 /**
  * A faster `expect.poll`
  */
-export const expectPoll = (fn: () => boolean) => {
+export const expectPoll: typeof expect.poll = (fn) => {
   return expect.poll(fn, {
     intervals: [20, 30, 40, 50, 60, 70, 80, 90, 100],
   });
@@ -186,9 +155,6 @@ export const recordPluginHooks = () => {
     name: 'record-hooks-plugin',
     setup(api) {
       api.modifyRspackConfig(() => {
-        hooks.push('ModifyBundlerConfig');
-      });
-      api.modifyWebpackChain(() => {
         hooks.push('ModifyBundlerConfig');
       });
       api.modifyRsbuildConfig(() => {
@@ -235,14 +201,14 @@ export const recordPluginHooks = () => {
       api.onAfterEnvironmentCompile(() => {
         hooks.push('AfterEnvironmentCompile');
       });
-      api.onBeforeStartProdServer(() => {
-        hooks.push('BeforeStartProdServer');
+      api.onBeforeStartPreviewServer(() => {
+        hooks.push('BeforeStartPreviewServer');
       });
       api.onCloseDevServer(() => {
         hooks.push('CloseDevServer');
       });
-      api.onAfterStartProdServer(() => {
-        hooks.push('AfterStartProdServer');
+      api.onAfterStartPreviewServer(() => {
+        hooks.push('AfterStartPreviewServer');
       });
       api.onAfterDevCompile(() => {
         hooks.push('AfterDevCompile');
@@ -266,15 +232,90 @@ export async function mapSourceMapPositions(
     column: number;
   }[],
 ) {
-  const consumer = await new sourceMap.SourceMapConsumer(rawSourceMap);
-
+  const tracer = new TraceMap(rawSourceMap);
   const originalPositions = generatedPositions.map((generatedPosition) =>
-    consumer.originalPositionFor({
+    originalPositionFor(tracer, {
       line: generatedPosition.line,
       column: generatedPosition.column,
     }),
   );
 
-  consumer.destroy();
   return originalPositions;
 }
+
+/**
+ * Convert Windows backslash paths to posix forward slashes
+ * @example
+ * toPosixPath('foo\\bar') // returns 'foo/bar'
+ */
+export const toPosixPath = (filepath: string): string => {
+  if (sep === '/') {
+    return filepath;
+  }
+  return filepath.replace(/\\/g, '/');
+};
+
+export type FileMatcher = string | RegExp | ((file: string) => boolean);
+export type FindFileOptions = {
+  /** Whether to ignore hash from filename (default: true) */
+  ignoreHash?: boolean;
+};
+
+const HASH_PATTERN = /\.[0-9a-z]{8,}(?=\.)/gi;
+
+const toMatcherFn = (matcher: FileMatcher): ((file: string) => boolean) => {
+  if (typeof matcher === 'function') {
+    return matcher;
+  }
+  if (typeof matcher === 'string') {
+    return (file: string) => file.endsWith(matcher);
+  }
+  return (file: string) => matcher.test(file);
+};
+
+/**
+ * Find the first filename that matches the matcher
+ * @returns The matching file path
+ * @throws {Error} When no matching file is found
+ */
+export const findFile = (
+  files: Record<string, string>,
+  matcher: FileMatcher,
+  options: FindFileOptions = {},
+): string => {
+  const { ignoreHash = true } = options;
+  const getComparable = (file: string) =>
+    ignoreHash ? file.replace(HASH_PATTERN, '') : file;
+  const matcherFn = toMatcherFn(matcher);
+
+  for (const file of Object.keys(files)) {
+    if (matcherFn(getComparable(file))) {
+      return file;
+    }
+  }
+
+  throw new Error(
+    `Unable to find file matching "${styleText('cyan', matcher.toString())}"`,
+  );
+};
+
+/**
+ * Get the content of the first matching file from a files map
+ * @returns The content of the matching file
+ * @throws {Error} When no matching file is found
+ */
+export const getFileContent = (
+  files: Record<string, string>,
+  matcher: FileMatcher,
+  options?: FindFileOptions,
+): string => files[findFile(files, matcher, options)];
+
+export const enableDebugMode = () => {
+  process.env.DEBUG = 'rsbuild';
+  const { level } = logger;
+  logger.level = 'verbose';
+  return () => {
+    delete process.env.DEBUG;
+    logger.level = level;
+  };
+};

@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { SwcLoaderOptions } from '@rspack/core';
 import deepmerge from 'deepmerge';
@@ -16,7 +15,9 @@ import {
   color,
   isFunction,
   isWebTarget,
+  require,
 } from '../helpers';
+import { normalizeRuleConditionPath } from '../helpers/path';
 import type {
   NormalizedEnvironmentConfig,
   NormalizedSourceConfig,
@@ -26,8 +27,6 @@ import type {
   RspackChain,
   TransformImport,
 } from '../types';
-
-const require = createRequire(import.meta.url);
 
 const builtinSwcLoaderName = 'builtin:swc-loader';
 
@@ -55,11 +54,11 @@ function applyScriptCondition({
   }
 
   for (const condition of config.source.include || []) {
-    rule.include.add(condition);
+    rule.include.add(normalizeRuleConditionPath(condition));
   }
 
   for (const condition of config.source.exclude || []) {
-    rule.exclude.add(condition);
+    rule.exclude.add(normalizeRuleConditionPath(condition));
   }
 }
 
@@ -67,17 +66,18 @@ function getDefaultSwcConfig({
   browserslist,
   cacheRoot,
   config,
+  isProd,
 }: {
   browserslist: string[];
   cacheRoot: string;
   config: NormalizedEnvironmentConfig;
+  isProd: boolean;
 }): SwcLoaderOptions {
   return {
+    detectSyntax: 'auto',
     jsc: {
       externalHelpers: true,
       parser: {
-        tsx: false,
-        syntax: 'typescript',
         decorators: true,
       },
       experimental: {
@@ -95,11 +95,9 @@ function getDefaultSwcConfig({
     env: {
       targets: browserslist,
     },
-    rspackExperiments: {
-      collectTypeScriptInfo: {
-        typeExports: true,
-        exportedEnum: false,
-      },
+    collectTypeScriptInfo: {
+      typeExports: true,
+      exportedEnum: isProd,
     },
   };
 }
@@ -113,26 +111,27 @@ export const pluginSwc = (): RsbuildPlugin => ({
   setup(api) {
     api.modifyBundlerChain({
       order: 'pre',
-      handler: (chain, { CHAIN_ID, isDev, target, environment }) => {
+      handler: (chain, { CHAIN_ID, isDev, isProd, target, environment }) => {
         const { config, browserslist } = environment;
         const cacheRoot = path.join(api.context.cachePath, '.swc');
 
         const rule = chain.module
           .rule(CHAIN_ID.RULE.JS)
           .test(SCRIPT_REGEX)
-          .type('javascript/auto')
           // When using `new URL('./path/to/foo.js', import.meta.url)`,
           // the module should be treated as an asset module rather than a JS module.
-          .dependency({ not: 'url' })
-          // exclude `import './foo.js?raw'`
-          .resourceQuery({ not: RAW_QUERY_REGEX });
+          .dependency({ not: 'url' });
 
         // Support for `import rawJs from "a.js?raw"`
-        chain.module
-          .rule(CHAIN_ID.RULE.JS_RAW)
-          .test(SCRIPT_REGEX)
-          .type('asset/source')
-          .resourceQuery(RAW_QUERY_REGEX);
+        rule
+          .oneOf(CHAIN_ID.ONE_OF.JS_RAW)
+          .resourceQuery(RAW_QUERY_REGEX)
+          .type('asset/source');
+
+        // Transform TypeScript/JSX/ESNext code
+        const mainRule = rule
+          .oneOf(CHAIN_ID.ONE_OF.JS_MAIN)
+          .type('javascript/auto');
 
         const dataUriRule = chain.module
           .rule(CHAIN_ID.RULE.JS_DATA_URI)
@@ -147,15 +146,11 @@ export const pluginSwc = (): RsbuildPlugin => ({
           rsbuildTarget: target,
         });
 
-        // Rspack builtin SWC is not suitable for webpack
-        if (api.context.bundlerType === 'webpack') {
-          return;
-        }
-
         const swcConfig = getDefaultSwcConfig({
           browserslist,
           cacheRoot,
           config,
+          isProd,
         });
 
         applyTransformImport(swcConfig, config.source.transformImport);
@@ -163,30 +158,44 @@ export const pluginSwc = (): RsbuildPlugin => ({
 
         // apply polyfill
         if (isWebTarget(target)) {
-          const polyfillMode = config.output.polyfill;
+          const { polyfill } = config.output;
 
-          if (polyfillMode === 'off') {
-            swcConfig.env!.mode = undefined;
-          } else {
-            swcConfig.env!.mode = polyfillMode;
+          if (polyfill !== 'off') {
+            swcConfig.env!.mode = polyfill;
 
-            const coreJsDir = applyCoreJs(swcConfig, polyfillMode);
-            for (const item of [rule, dataUriRule]) {
-              item.resolve.alias.set('core-js', coreJsDir);
+            const coreJsDir = applyCoreJs(
+              swcConfig,
+              polyfill,
+              api.context.rootPath,
+            );
+            if (coreJsDir) {
+              for (const item of [mainRule, dataUriRule]) {
+                item.resolve.alias.set('core-js', coreJsDir);
+              }
             }
           }
         }
 
-        const mergedSwcConfig = reduceConfigs({
+        const mergedConfig = reduceConfigs({
           initial: swcConfig,
           config: config.tools.swc,
           mergeFn: deepmerge,
         });
 
-        rule
+        // `jsc.target` and `env` cannot be set at the same time
+        // remove the built-in `env.targets` if `jsc.target` is set
+        if (
+          mergedConfig.jsc?.target !== undefined &&
+          mergedConfig.env?.targets !== undefined &&
+          Object.keys(mergedConfig.env).length === 1
+        ) {
+          delete mergedConfig.env;
+        }
+
+        mainRule
           .use(CHAIN_ID.USE.SWC)
           .loader(builtinSwcLoaderName)
-          .options(mergedSwcConfig);
+          .options(mergedConfig);
 
         /**
          * If a script is imported with data URI, it can be compiled by babel too.
@@ -202,7 +211,7 @@ export const pluginSwc = (): RsbuildPlugin => ({
           .use(CHAIN_ID.USE.SWC)
           .loader(builtinSwcLoaderName)
           // Using cloned options to keep options separate from each other
-          .options(cloneDeep(mergedSwcConfig));
+          .options(cloneDeep(mergedConfig));
       },
     });
   },
@@ -219,8 +228,29 @@ const getCoreJsVersion = (corejsPkgPath: string) => {
   }
 };
 
-function applyCoreJs(swcConfig: SwcLoaderOptions, polyfillMode: Polyfill) {
-  const coreJsPath = require.resolve('core-js/package.json');
+const resolveCoreJsPath = (rootPath: string) => {
+  try {
+    return require.resolve('core-js/package.json', {
+      // Resolve from both project root and current directory
+      paths: [rootPath, import.meta.dirname],
+    });
+  } catch {
+    throw new Error(
+      `${color.dim('[rsbuild:polyfill]')} Failed to resolve ${color.yellow(
+        'core-js',
+      )} dependency. Install ${color.yellow(
+        'core-js >= 3.0.0',
+      )} to use polyfills.`,
+    );
+  }
+};
+
+function applyCoreJs(
+  swcConfig: SwcLoaderOptions,
+  polyfillMode: Polyfill,
+  rootPath: string,
+) {
+  const coreJsPath = resolveCoreJsPath(rootPath);
   const version = getCoreJsVersion(coreJsPath);
   const coreJsDir = path.dirname(coreJsPath);
 
@@ -257,12 +287,10 @@ function applyTransformImport(
   swcConfig: SwcLoaderOptions,
   pluginImport?: NormalizedSourceConfig['transformImport'],
 ) {
-  const finalPluginImport = reduceTransformImportConfig(pluginImport);
-
-  if (finalPluginImport?.length) {
-    swcConfig.rspackExperiments ??= {};
-    swcConfig.rspackExperiments.import ??= [];
-    swcConfig.rspackExperiments.import.push(...finalPluginImport);
+  const finalConfig = reduceTransformImportConfig(pluginImport);
+  if (finalConfig?.length) {
+    swcConfig.transformImport ??= [];
+    swcConfig.transformImport.push(...finalConfig);
   }
 }
 
@@ -283,8 +311,9 @@ function applySwcDecoratorConfig(
       swcConfig.jsc.transform.useDefineForClassFields = false;
       break;
     case '2022-03':
+    case '2023-11':
       swcConfig.jsc.transform.legacyDecorator = false;
-      swcConfig.jsc.transform.decoratorVersion = '2022-03';
+      swcConfig.jsc.transform.decoratorVersion = version;
       break;
     default:
       throw new Error(

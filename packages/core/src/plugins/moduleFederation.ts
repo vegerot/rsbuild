@@ -1,103 +1,11 @@
-import { isRegExp } from 'node:util/types';
-import type { RspackPluginInstance } from '@rspack/core';
-import { rspack } from '../rspack';
-import type { RsbuildPlugin, Rspack } from '../types';
-
-/**
- * Force remote entry not be affected by user's chunkSplit strategy,
- * Otherwise, the remote chunk will not be loaded correctly.
- * @see https://github.com/web-infra-dev/rsbuild/discussions/1461#discussioncomment-8329790
- */
-class PatchSplitChunksPlugin implements RspackPluginInstance {
-  name: string;
-
-  constructor(name: string) {
-    this.name = name;
-  }
-
-  apply(compiler: Rspack.Compiler): void {
-    const { splitChunks } = compiler.options.optimization;
-
-    if (!splitChunks) {
-      return;
-    }
-
-    const applyPatch = (
-      config:
-        | Rspack.OptimizationSplitChunksCacheGroup
-        | Rspack.OptimizationSplitChunksOptions,
-    ) => {
-      if (typeof config !== 'object' || isRegExp(config)) {
-        return;
-      }
-
-      // cacheGroup.chunks will inherit splitChunks.chunks
-      // so we only need to modify the chunks that are set separately.
-      const { chunks } = config;
-      if (!chunks || chunks === 'async') {
-        return;
-      }
-
-      if (typeof chunks === 'function') {
-        const prevChunks = chunks;
-
-        config.chunks = (chunk) => {
-          if (chunk.name && chunk.name === this.name) {
-            return false;
-          }
-          return prevChunks(chunk);
-        };
-        return;
-      }
-
-      if (chunks === 'all') {
-        config.chunks = (chunk) => {
-          if (chunk.name && chunk.name === this.name) {
-            return false;
-          }
-          return true;
-        };
-        return;
-      }
-
-      if (chunks === 'initial') {
-        config.chunks = (chunk) => {
-          if (chunk.name && chunk.name === this.name) {
-            return false;
-          }
-          return chunk.isOnlyInitial();
-        };
-        return;
-      }
-    };
-
-    // patch splitChunk.chunks
-    applyPatch(splitChunks);
-
-    const { cacheGroups } = splitChunks;
-    if (!cacheGroups) {
-      return;
-    }
-
-    // patch splitChunk.cacheGroups[key].chunks
-    for (const cacheGroupKey of Object.keys(cacheGroups)) {
-      if (cacheGroups[cacheGroupKey]) {
-        applyPatch(cacheGroups[cacheGroupKey]);
-      }
-    }
-  }
-}
+import { rspack } from '@rspack/core';
+import type { RsbuildPlugin } from '../types';
 
 export function pluginModuleFederation(): RsbuildPlugin {
   return {
     name: 'rsbuild:module-federation',
 
     setup(api) {
-      // Rspack only
-      if (api.context.bundlerType === 'webpack') {
-        return;
-      }
-
       api.modifyRsbuildConfig((config) => {
         const { moduleFederation } = config;
 
@@ -141,20 +49,6 @@ export function pluginModuleFederation(): RsbuildPlugin {
           return;
         }
 
-        /**
-         * Currently, splitChunks will take precedence over module federation shared modules.
-         * So we need to disable the default split chunks rules to make shared modules to work properly.
-         * @see https://github.com/module-federation/module-federation-examples/issues/3161
-         */
-        if (
-          config.performance?.chunkSplit?.strategy === 'split-by-experience'
-        ) {
-          config.performance.chunkSplit = {
-            ...config.performance.chunkSplit,
-            strategy: 'custom',
-          };
-        }
-
         // Module Federation runtime uses ES6+ syntax,
         // adding to include and let SWC transform it
         config.source.include = [
@@ -177,12 +71,6 @@ export function pluginModuleFederation(): RsbuildPlugin {
           .use(rspack.container.ModuleFederationPlugin, [options]);
 
         if (options.name) {
-          if (options.exposes) {
-            chain
-              .plugin('mf-patch-split-chunks')
-              .use(PatchSplitChunksPlugin, [options.name]);
-          }
-
           // `uniqueName` is required for react refresh to work
           if (!chain.output.get('uniqueName')) {
             chain.output.set('uniqueName', options.name);

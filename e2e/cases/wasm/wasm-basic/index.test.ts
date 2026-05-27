@@ -1,19 +1,13 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, findFile, test } from '@e2e/helper';
 
-test('should allow to import a Wasm file', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-  });
-  const files = await rsbuild.getDistFiles();
+test('should allow to import a Wasm file', async ({ page, buildPreview }) => {
+  const rsbuild = await buildPreview();
+  const files = rsbuild.getDistFiles();
 
-  const wasmFile = Object.keys(files).find((file) =>
-    file.endsWith('.module.wasm'),
-  );
+  const wasmFile = findFile(files, '.module.wasm');
 
   expect(wasmFile).toBeTruthy();
-  expect(/static[\\/]wasm/g.test(wasmFile!)).toBeTruthy();
+  expect(/static[\\/]wasm/g.test(wasmFile)).toBeTruthy();
 
   await page.waitForFunction(() => {
     return Boolean(document.querySelector('#root')?.innerHTML);
@@ -21,6 +15,4 @@ test('should allow to import a Wasm file', async ({ page }) => {
 
   const locator = page.locator('#root');
   await expect(locator).toHaveText('6');
-
-  await rsbuild.close();
 });

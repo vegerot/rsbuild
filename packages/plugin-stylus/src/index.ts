@@ -1,7 +1,6 @@
 import { createRequire } from 'node:module';
 import type { RsbuildPlugin, RspackChain } from '@rsbuild/core';
 import deepmerge from 'deepmerge';
-import { reduceConfigs } from 'reduce-configs';
 
 const require = createRequire(import.meta.url);
 
@@ -72,63 +71,87 @@ export const pluginStylus = (options?: PluginStylusOptions): RsbuildPlugin => ({
   name: PLUGIN_STYLUS_NAME,
 
   setup(api) {
+    const CSS_MAIN = 'css';
+    const CSS_INLINE = 'css-inline';
+    const CSS_RAW = 'css-raw';
+    const STYLUS_MAIN = 'stylus';
+    const STYLUS_URL = 'stylus-url';
+    const STYLUS_INLINE = 'stylus-inline';
+    const STYLUS_RAW = 'stylus-raw';
+    const isV1 = api.context.version.startsWith('1.');
+
     api.modifyBundlerChain((chain, { CHAIN_ID, environment }) => {
       const { config } = environment;
 
       const { sourceMap } = config.output;
-      const mergedOptions = reduceConfigs({
-        initial: {
-          sourceMap: typeof sourceMap === 'boolean' ? sourceMap : sourceMap.css,
-        },
-        config: options,
-        mergeFn: deepmerge,
-      });
+      const mergedOptions = {
+        sourceMap: typeof sourceMap === 'boolean' ? sourceMap : sourceMap.css,
+        ...options,
+      };
 
       const test = /\.styl(us)?$/;
-
-      const rule = chain.module
+      const stylusRule = chain.module
         .rule(CHAIN_ID.RULE.STYLUS)
         .test(test)
+        .dependency({ not: 'url' })
         .resolve.preferRelative(true)
         .end();
 
-      // Rsbuild < 1.3.0 does not have the raw and inline rules
-      const inlineRule = CHAIN_ID.RULE.CSS_INLINE
-        ? chain.module.rule(CHAIN_ID.RULE.STYLUS_INLINE).test(test)
-        : null;
+      const cssRule = chain.module.rule(CHAIN_ID.RULE.CSS);
+      const cssUrlRuleId = CHAIN_ID.ONE_OF.CSS_URL;
+      const hasCssUrlRule = cssUrlRuleId && cssRule.oneOfs.has(cssUrlRuleId);
 
-      // Support for importing raw Stylus files
-      if (CHAIN_ID.RULE.CSS_RAW) {
-        const cssRawRule = chain.module.rules.get(CHAIN_ID.RULE.CSS_RAW);
-        chain.module
-          .rule(CHAIN_ID.RULE.STYLUS_RAW)
-          .test(test)
-          .type('asset/source')
-          .resourceQuery(cssRawRule.get('resourceQuery'));
+      if (isV1) {
+        chain.module.rule(STYLUS_RAW).test(test);
+        chain.module.rule(STYLUS_INLINE).test(test);
       }
 
-      // Update the normal rule and the inline rule
-      const updateRules = (
-        callback: (rule: RspackChain.Rule, type: 'normal' | 'inline') => void,
-      ) => {
-        callback(rule, 'normal');
-
-        if (inlineRule) {
-          callback(inlineRule, 'inline');
+      const getRule = (id: string) => {
+        // Compatibility for Rsbuild v1
+        if (isV1) {
+          return chain.module.rule(id);
         }
+        return (id.startsWith('stylus') ? stylusRule : cssRule).oneOf(id);
       };
 
-      updateRules((rule, type) => {
-        // Copy the builtin CSS rules
-        const cssRule = chain.module.rules.get(
-          type === 'normal' ? CHAIN_ID.RULE.CSS : CHAIN_ID.RULE.CSS_INLINE,
-        );
-        rule.dependency(cssRule.get('dependency'));
-        rule.sideEffects(cssRule.get('sideEffects'));
-        rule.resourceQuery(cssRule.get('resourceQuery'));
+      // Stylus URL for `?url` imports.
+      const stylusUrlRule = hasCssUrlRule && getRule(STYLUS_URL);
 
-        for (const id of Object.keys(cssRule.uses.entries())) {
-          const loader = cssRule.uses.get(id);
+      // Inline Stylus for `?inline` imports
+      const stylusInlineRule = getRule(STYLUS_INLINE);
+
+      // Raw Stylus for `?raw` imports
+      getRule(STYLUS_RAW)
+        .type('asset/source')
+        .resourceQuery(getRule(CSS_RAW).get('resourceQuery'));
+
+      // Main Stylus transform
+      const stylusMainRule = getRule(STYLUS_MAIN);
+
+      // Update the main, inline and URL rules.
+      const updateRules = (
+        callback: (
+          rule: RspackChain.Rule<unknown>,
+          cssBranchRule: RspackChain.Rule<unknown>,
+          type: 'main' | 'inline' | 'url',
+        ) => void,
+      ) => {
+        if (stylusUrlRule) {
+          callback(stylusUrlRule, getRule(cssUrlRuleId), 'url');
+        }
+        callback(stylusMainRule, getRule(CSS_MAIN), 'main');
+        callback(stylusInlineRule, getRule(CSS_INLINE), 'inline');
+      };
+
+      updateRules((rule, cssBranchRule, type) => {
+        // Copy the builtin CSS rules
+        if (type !== 'url') {
+          rule.sideEffects(true);
+        }
+        rule.resourceQuery(cssBranchRule.get('resourceQuery'));
+
+        for (const id of Object.keys(cssBranchRule.uses.entries())) {
+          const loader = cssBranchRule.uses.get(id);
           const options = loader.get('options') ?? {};
           const clonedOptions = deepmerge<Record<string, any>>({}, options);
 

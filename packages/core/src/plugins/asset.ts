@@ -10,6 +10,7 @@ import {
   IMAGE_EXTENSIONS,
   INLINE_QUERY_REGEX,
   RAW_QUERY_REGEX,
+  URL_QUERY_REGEX,
   VIDEO_EXTENSIONS,
 } from '../constants';
 import { getFilename } from '../helpers';
@@ -38,11 +39,11 @@ const chainStaticAssetRule = ({
     generatorOptions.emit = false;
   }
 
-  // get asset URL: "foo.png?url" or "foo.png?__inline=false"
+  // get asset URL: "foo.png?url"
   rule
     .oneOf(`${assetType}-asset-url`)
     .type('asset/resource')
-    .resourceQuery(/^\?(__inline=false|url)$/)
+    .resourceQuery(URL_QUERY_REGEX)
     .set('generator', generatorOptions);
 
   // get inlined base64 content: "foo.png?inline"
@@ -57,11 +58,11 @@ const chainStaticAssetRule = ({
     .type('asset/source')
     .resourceQuery(RAW_QUERY_REGEX);
 
-  // the asset will be inlined if fileSize < dataUrlCondition.maxSize
   rule
     .oneOf(`${assetType}-asset`)
     .type('asset')
     .parser({
+      // asset will be inlined if file size < maxSize
       dataUrlCondition: {
         maxSize,
       },
@@ -70,13 +71,17 @@ const chainStaticAssetRule = ({
 };
 
 export function getRegExpForExts(exts: string[]): RegExp {
-  const matcher = exts
-    .map((ext) => ext.trim())
-    .map((ext) => (ext.startsWith('.') ? ext.slice(1) : ext))
-    .join('|');
+  const normalizedExts: string[] = [];
+
+  for (const ext of exts) {
+    const trimmed = ext.trim();
+    normalizedExts.push(trimmed.startsWith('.') ? trimmed.slice(1) : trimmed);
+  }
+
+  const matcher = normalizedExts.join('|');
 
   return new RegExp(
-    exts.length === 1 ? `\\.${matcher}$` : `\\.(?:${matcher})$`,
+    normalizedExts.length === 1 ? `\\.${matcher}$` : `\\.(?:${matcher})$`,
     'i',
   );
 }
@@ -143,6 +148,15 @@ export const pluginAsset = (): RsbuildPlugin => ({
 
       // font
       createAssetRule(CHAIN_ID.RULE.FONT, FONT_EXTENSIONS, emitAssets);
+
+      // JSON
+      // Rspack has built-in rule for JSON, so we only need to handle imports with query
+      // get raw content: "foo.json?raw"
+      const rule = chain.module.rule(CHAIN_ID.RULE.JSON).test(/\.json$/i);
+      rule
+        .oneOf('json-asset-raw')
+        .type('asset/source')
+        .resourceQuery(RAW_QUERY_REGEX);
 
       // assets
       const assetsFilename = getMergedFilename('assets');

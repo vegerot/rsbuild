@@ -1,3 +1,7 @@
+---
+description: 'Whether to remove console.[methodName] in production build.'
+---
+
 # performance.removeConsole
 
 - **Type:** `boolean | ConsoleType[]`
@@ -9,7 +13,7 @@ Whether to remove `console.[methodName]` in production build.
 
 When `removeConsole` is set to `true`, all types of `console.[methodName]` are removed:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   performance: {
     removeConsole: true,
@@ -21,7 +25,7 @@ export default {
 
 You can also specify to remove only certain types of `console.[methodName]`, such as `console.log` and `console.warn`:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   performance: {
     removeConsole: ['log', 'warn'],

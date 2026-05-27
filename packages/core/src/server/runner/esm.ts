@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { SourceTextModule } from 'node:vm';
-import { color } from '../../helpers';
+import { color, require } from '../../helpers';
 import { asModule } from './asModule';
 import { CommonJsRunner } from './cjs';
 import { EsmMode, type RunnerRequirer } from './type';
-
-const require = createRequire(import.meta.url);
 
 export class EsmRunner extends CommonJsRunner {
   protected createRunner(): void {
@@ -15,8 +12,7 @@ export class EsmRunner extends CommonJsRunner {
     this.requirers.set('cjs', this.getRequire());
     this.requirers.set('esm', this.createEsmRequirer());
 
-    const outputModule =
-      this._options.compilerOptions.experiments?.outputModule;
+    const outputModule = this._options.compilerOptions.output.module;
 
     this.requirers.set('entry', (currentDirectory, modulePath, context) => {
       const file = this.getFile(modulePath, currentDirectory);
@@ -40,7 +36,13 @@ export class EsmRunner extends CommonJsRunner {
   protected createEsmRequirer(): RunnerRequirer {
     const esmCache = new Map<string, SourceTextModule>();
     const esmIdentifier = this._options.name;
+    // rslint-disable-next-line @typescript-eslint/no-require-imports
     const vm = require('node:vm') as typeof import('node:vm');
+    type SourceTextModuleOptionsWithUrl = NonNullable<
+      ConstructorParameters<typeof vm.SourceTextModule>[1]
+    > & {
+      url?: string;
+    };
 
     return (currentDirectory, modulePath, context = {}) => {
       if (!vm.SourceTextModule) {
@@ -56,24 +58,22 @@ export class EsmRunner extends CommonJsRunner {
 
       let esm = esmCache.get(file.path);
       if (!esm) {
-        esm = new vm.SourceTextModule(file.content, {
-          identifier: `${esmIdentifier}-${file.path}`,
+        const sourceTextModuleOptions: SourceTextModuleOptionsWithUrl = {
+          identifier: file.path,
           // no attribute
           url: `${pathToFileURL(file.path).href}?${esmIdentifier}`,
           // run in current execution context
-          initializeImportMeta: (meta: { url: string }, _: any) => {
+          initializeImportMeta: (meta) => {
             meta.url = pathToFileURL(file.path).href;
           },
-          importModuleDynamically: async (
-            specifier: any,
-            module: { context: any },
-          ) => {
+          importModuleDynamically: async (specifier, module) => {
             const result = await _require(path.dirname(file.path), specifier, {
               esmMode: EsmMode.Evaluated,
             });
             return asModule(result, module.context);
           },
-        } as any);
+        };
+        esm = new vm.SourceTextModule(file.content, sourceTextModuleOptions);
         esmCache.set(file.path, esm);
       }
       if (context.esmMode === EsmMode.Unlinked) return esm;
@@ -81,11 +81,7 @@ export class EsmRunner extends CommonJsRunner {
         await esm.link(async (specifier, referencingModule) => {
           return asModule(
             await _require(
-              path.dirname(
-                referencingModule.identifier
-                  ? referencingModule.identifier.slice(esmIdentifier.length + 1)
-                  : fileURLToPath((referencingModule as any).url),
-              ),
+              path.dirname(referencingModule.identifier),
               specifier,
               {
                 esmMode: EsmMode.Unlinked,

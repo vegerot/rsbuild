@@ -8,13 +8,15 @@
  */
 import type { IncomingMessage } from 'node:http';
 import { URL } from 'node:url';
-import { logger } from '../logger';
+import { LOCALHOST } from '../constants';
+import type { Logger } from '../logger';
 import type { HistoryApiFallbackOptions, RequestHandler } from '../types';
 
 export function historyApiFallbackMiddleware(
+  logger: Logger,
   options: HistoryApiFallbackOptions = {},
 ): RequestHandler {
-  return (req, _res, next) => {
+  return function historyApiFallbackMiddleware(req, _res, next) {
     const { headers } = req;
 
     if (!req.url) {
@@ -44,7 +46,7 @@ export function historyApiFallbackMiddleware(
       return;
     }
 
-    if (headers.accept.indexOf('application/json') === 0) {
+    if (headers.accept.startsWith('application/json')) {
       logger.debug(
         'Not rewriting',
         req.method,
@@ -92,7 +94,7 @@ export function historyApiFallbackMiddleware(
           ? rule
           : rule({ parsedUrl, match, request: req });
 
-      if (rewriteTarget.charAt(0) !== '/') {
+      if (!rewriteTarget.startsWith('/')) {
         logger.debug(
           'We recommend using an absolute path for the rewrite target.',
           'Received a non-absolute rewrite target',
@@ -133,8 +135,7 @@ export function historyApiFallbackMiddleware(
 
 function parseReqUrl(req: IncomingMessage) {
   const proto = req.headers['x-forwarded-proto'] || 'http';
-  const host =
-    req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || LOCALHOST;
   try {
     return new URL(req.url || '/', `${proto}://${host}`);
   } catch {

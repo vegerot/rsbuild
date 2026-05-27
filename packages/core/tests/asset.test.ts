@@ -1,9 +1,10 @@
-import { createStubRsbuild } from '@scripts/test-helper';
+import { matchRules } from '@scripts/test-helper';
+import { createRsbuild } from '../src';
 import { FONT_EXTENSIONS } from '../src/constants';
-import { getRegExpForExts, pluginAsset } from '../src/plugins/asset';
+import { getRegExpForExts } from '../src/plugins/asset';
 
 describe('getRegExpForExts', () => {
-  it('should get correct RegExp of exts', () => {
+  it('should return the correct RegExp for extensions', () => {
     expect(getRegExpForExts(['woff'])).toEqual(/\.woff$/i);
 
     expect(getRegExpForExts(FONT_EXTENSIONS)).toEqual(
@@ -14,18 +15,15 @@ describe('getRegExpForExts', () => {
 
 describe('plugin-asset', () => {
   test('should add image rules correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginAsset()],
-    });
+    const rsbuild = await createRsbuild();
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = (await rsbuild.initConfigs())[0];
+    expect(matchRules(config, 'a.png')).toMatchSnapshot();
   });
 
-  test('should allow to use distPath.image to modify dist path', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginAsset()],
-      rsbuildConfig: {
+  test('should allow using distPath.image to modify dist path', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           distPath: {
             image: 'foo',
@@ -34,14 +32,13 @@ describe('plugin-asset', () => {
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = (await rsbuild.initConfigs())[0];
+    expect(matchRules(config, 'a.png')).toMatchSnapshot();
   });
 
   test('should add image rules correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginAsset()],
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           distPath: {
             image: '',
@@ -50,14 +47,13 @@ describe('plugin-asset', () => {
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = (await rsbuild.initConfigs())[0];
+    expect(matchRules(config, 'a.png')).toMatchSnapshot();
   });
 
-  test('should allow to use filename.image to modify filename', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginAsset()],
-      rsbuildConfig: {
+  test('should allow using filename.image to modify filename', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           filename: {
             image: 'foo[ext]',
@@ -66,7 +62,7 @@ describe('plugin-asset', () => {
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = (await rsbuild.initConfigs())[0];
+    expect(matchRules(config, 'a.png')).toMatchSnapshot();
   });
 });

@@ -1,22 +1,10 @@
-import path from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import { pluginCheckSyntax } from '@rsbuild/plugin-check-syntax';
-import { normalizeToPosixPath } from '@scripts/test-helper';
+import { expect, test, toPosixPath } from '@e2e/helper';
 
-test('should not compile specified file when source.exclude', async () => {
+test('should not compile specified file when source.exclude', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    plugins: [pluginCheckSyntax()],
     catchBuildError: true,
-    rsbuildConfig: {
-      source: {
-        exclude: [path.resolve(__dirname, './src/test.js')],
-      },
-      output: {
-        overrideBrowserslist: ['android >= 4.4'],
-      },
-    },
   });
 
   expect(rsbuild.buildError).toBeTruthy();
@@ -25,7 +13,7 @@ test('should not compile specified file when source.exclude', async () => {
     rsbuild.logs.find(
       (log) =>
         log.includes('source:') &&
-        normalizeToPosixPath(log).includes('/dist/static/js/index'),
+        toPosixPath(log).includes('/dist/static/js/index'),
     ),
   ).toBeTruthy();
 });

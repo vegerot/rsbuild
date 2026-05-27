@@ -1,6 +1,10 @@
+---
+description: 'Rsbuild 内置了一个轻量的命令行工具，包含 rsbuild dev、rsbuild build 等命令。'
+---
+
 # 命令行工具
 
-Rsbuild 内置了一个轻量的命令行工具，包含 [rsbuild dev](#rsbuild-dev)、[rsbuild build](#rsbuild-build) 等命令。
+Rsbuild 内置了一个轻量的命令行工具，包含 [rsbuild dev](#rsbuild)、[rsbuild build](#rsbuild-build) 等命令。
 
 ## 查看所有命令
 
@@ -14,7 +18,7 @@ npx rsbuild -h
 
 ```
 Usage:
-  $ rsbuild <command> [options]
+  $ rsbuild [command] [options]
 
 Commands:
   dev      Start the dev server
@@ -27,37 +31,44 @@ Commands:
 
 Rsbuild CLI 提供了一些公共选项，可以用于所有命令：
 
-| 选项                       | 描述                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `--base <base>`            | 指定服务端的基础路径，详见 [server.base](/config/server/base)                                              |
-| `-c, --config <config>`    | 指定配置文件路径（相对路径或绝对路径），详见 [指定配置文件](/guide/configuration/rsbuild#指定配置文件)     |
-| `--config-loader <loader>` | 指定配置文件加载方式（`jiti` \| `native`），详见 [指定加载方式](/guide/configuration/rsbuild#指定加载方式) |
-| `--env-mode <mode>`        | 指定 env 模式来加载 `.env.[mode]` 文件，详见 [Env 模式](/guide/advanced/env-vars#env-模式)                 |
-| `--env-dir <dir>`          | 指定目录来加载 `.env` 文件，详见 [Env 目录](/guide/advanced/env-vars#env-目录)                             |
-| `--environment <name>`     | 指定需要构建的 environment 名称，详见 [构建指定环境](/guide/advanced/environments#构建指定环境)            |
-| `-h, --help`               | 显示命令帮助                                                                                               |
-| `--log-level <level>`      | 指定日志级别（`info` \| `warn` \| `error` \| `silent`），详见 [logLevel](/config/log-level)                |
-| `-m, --mode <mode>`        | 指定构建模式（`development` \| `production` \| `none`），详见 [mode](/config/mode)                         |
-| `--no-env`                 | 禁用 `.env` 文件的加载                                                                                     |
-| `-r, --root <root>`        | 指定项目根目录（绝对路径或者相对于 [cwd](https://nodejs.org/api/process.html#processcwd) 的路径）          |
+| 选项                       | 描述                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--base <base>`            | 指定服务端的基础路径，详见 [server.base](/config/server/base)                                                        |
+| `-c, --config <config>`    | 指定配置文件路径（相对路径或绝对路径），详见 [指定配置文件](/guide/configuration/rsbuild#指定配置文件)               |
+| `--config-loader <loader>` | 指定配置文件加载方式（`auto` \| `jiti` \| `native`），详见 [指定加载方式](/guide/configuration/rsbuild#指定加载方式) |
+| `--env-mode <mode>`        | 指定 env 模式来加载 `.env.[mode]` 文件，详见 [Env 模式](/guide/advanced/env-vars#env-模式)                           |
+| `--env-dir <dir>`          | 指定目录来加载 `.env` 文件，详见 [Env 目录](/guide/advanced/env-vars#env-目录)                                       |
+| `--environment <name>`     | 指定需要构建的 environment 名称，详见 [构建指定环境](/guide/advanced/environments#构建指定环境)                      |
+| `-h, --help`               | 显示命令帮助                                                                                                         |
+| `--log-level <level>`      | 指定日志级别（`info` \| `warn` \| `error` \| `silent`），详见 [logLevel](/config/log-level)                          |
+| `-m, --mode <mode>`        | 指定构建模式（`development` \| `production` \| `none`），详见 [mode](/config/mode)                                   |
+| `--no-env`                 | 禁用 `.env` 文件的加载                                                                                               |
+| `-r, --root <root>`        | 指定项目根目录（绝对路径或者相对于 [cwd](https://nodejs.org/api/process.html#processcwd) 的路径）                    |
 
-## rsbuild dev
+## rsbuild
 
-`rsbuild dev` 命令用于启动一个本地开发服务器，对源代码进行开发模式编译。
+`rsbuild` 命令用于启动本地开发服务器，并以开发模式编译源代码。`rsbuild dev` 是 `rsbuild` 的别名。
 
 ```bash
-Usage: rsbuild dev [options]
+Usage:
+  rsbuild [options]
+  rsbuild dev [options]
 
 Options:
   -o, --open [url]      启动时是否在浏览器中打开页面
   --port <port>         设置 Rsbuild server 监听的端口号
-  --host <host>         指定 Rsbuild server 启动时监听的 host
+  --host [host]         指定 Rsbuild server 启动时监听的 host
 ```
 
-你也可以直接运行 `rsbuild` 来启动 dev server，等同于运行 `rsbuild dev`。
+### 指定 Host \{#specifying-host}
+
+默认情况下，dev server 仅监听 `localhost`。当传入 `--host` 且未指定值时，服务器会监听所有网络接口：
 
 ```bash
-npx rsbuild
+npx rsbuild --host
+
+# 等同于：
+npx rsbuild --host 0.0.0.0
 ```
 
 ### 打开页面
@@ -65,19 +76,19 @@ npx rsbuild
 通过 `--open` 选项可以在启动 dev server 时自动打开页面，等同于将 [server.open](/config/server/open) 设置为 `true`。
 
 ```bash
-rsbuild dev --open
+rsbuild --open
 ```
 
 `--open` 选项也支持指定需要打开的 URL 地址，比如：
 
 ```bash
-rsbuild dev --open http://localhost:3000/foo
+rsbuild --open http://localhost:3000/foo
 ```
 
 `--open` 选项也可以缩写为 `-o`：
 
 ```bash
-rsbuild dev -o
+rsbuild -o
 ```
 
 :::tip
@@ -105,7 +116,7 @@ Usage: rsbuild preview [options]
 Options:
   -o, --open [url]      启动时是否在浏览器中打开页面
   --port <port>         设置 Rsbuild server 监听的端口号
-  --host <host>         指定 Rsbuild server 启动时监听的 host
+  --host [host]         指定 Rsbuild server 启动时监听的 host
 ```
 
 :::tip

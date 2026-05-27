@@ -1,39 +1,30 @@
 import path from 'node:path';
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest('should compile CSS Modules composes correctly', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
-  const files = await rsbuild.getDistFiles();
-
-  const content =
-    files[Object.keys(files).find((file) => file.endsWith('.css'))!];
-
+test('should compile CSS Modules composes correctly', async ({ build }) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, 'index.css');
   expect(content).toMatch(
     /.*\{color:#ff0;background:red\}.*\{background:#00f\}/,
   );
 });
 
-rspackOnlyTest(
-  'should compile CSS Modules composes with external correctly',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      rsbuildConfig: {
-        source: {
-          entry: { external: path.resolve(__dirname, './src/external.js') },
+test('should compile CSS Modules composes with external correctly', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
+      source: {
+        entry: {
+          external: path.resolve(import.meta.dirname, './src/external.js'),
         },
       },
-    });
-    const files = await rsbuild.getDistFiles();
-
-    const content =
-      files[Object.keys(files).find((file) => file.endsWith('.css'))!];
-
-    expect(content).toMatch(
-      /.*\{color:#000;background:#0ff\}.*\{background:green\}/,
-    );
-  },
-);
+    },
+  });
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, 'external.css');
+  expect(content).toMatch(
+    /.*\{color:#000;background:#0ff\}.*\{background:green\}/,
+  );
+});

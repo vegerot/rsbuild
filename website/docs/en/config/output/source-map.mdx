@@ -1,3 +1,7 @@
+---
+description: 'Configures whether to generate source map files and which source map format to generate.'
+---
+
 # output.sourceMap
 
 - **Type:**
@@ -8,6 +12,14 @@ type SourceMap =
   | {
       js?: Rspack.Configuration['devtool'];
       css?: boolean;
+      extract?:
+        | boolean
+        | {
+            /** @default /\.(?:js|mjs|cjs|jsx)$/ */
+            test?: Rspack.RuleSetCondition;
+            include?: Rspack.RuleSetCondition[];
+            exclude?: Rspack.RuleSetCondition[];
+          };
     };
 ```
 
@@ -17,27 +29,28 @@ type SourceMap =
 const defaultSourceMap = {
   js: mode === 'development' ? 'cheap-module-source-map' : false,
   css: false,
+  extract: false,
 };
 ```
 
 Configures whether to generate source map files and which source map format to generate.
 
 :::tip What is a source map
-A source map is an information file that stores the source code mapping relationship. It records each location of the compiled code and the corresponding pre-compilation location. With source maps, you can directly view the source code when debugging compiled code.
+A source map is an information file that stores source code mapping relationships. It records each location of the compiled code and its corresponding pre-compilation location. With source maps, you can directly view source code when debugging compiled code.
 :::
 
 ## Default behavior
 
-By default, Rsbuild generates source maps using these rules:
+Rsbuild generates source maps using these rules by default:
 
 - In development mode, source maps for JS files are generated for development debugging, while source maps for CSS files are not generated.
 - In production mode, source maps for JS and CSS files are not generated to improve build performance.
 
 ## Boolean value
 
-If `output.sourceMap` is `true`, source maps will be generated according to the [mode](/config/mode), equivalent to:
+If `output.sourceMap` is `true`, source maps are generated according to the [mode](/config/mode), equivalent to:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     sourceMap: {
@@ -50,7 +63,7 @@ export default {
 
 If `output.sourceMap` is `false`, no source map will be generated, equivalent to:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     sourceMap: {
@@ -67,7 +80,7 @@ The source map for JS files is controlled by `sourceMap.js` and accepts any sour
 
 For example, to generate high-quality source maps in all environments:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     sourceMap: {
@@ -79,7 +92,7 @@ export default {
 
 You can also set different source map formats based on the environment.
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     sourceMap: {
@@ -104,7 +117,7 @@ The source map for CSS files is controlled by `sourceMap.css`. Setting it to `tr
 
 To generate a source map for CSS files:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     sourceMap: {
@@ -118,7 +131,7 @@ In production builds, it is not recommended to enable both [output.injectStyles]
 
 You can only enable the CSS file source map in development mode:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     injectStyles: true,
@@ -128,3 +141,67 @@ export default {
   },
 };
 ```
+
+## Extract source map
+
+Use `sourceMap.extract` to extract existing source maps from matched files. This is useful when a third-party package already ships both output files and source map files, such as `.js` and `.js.map`.
+
+:::tip
+This option is implemented based on Rspack's [`module.rules[].extractSourceMap`](https://rspack.rs/config/module-rules#rulesextractsourcemap) and can replace `source-map-loader`.
+:::
+
+:::note
+CSS source maps are handled by the CSS build pipeline when `output.sourceMap.css` is enabled. In most cases, you do not need `sourceMap.extract` to preserve existing CSS source maps.
+:::
+
+To enable extraction for all JavaScript files:
+
+```ts title="rsbuild.config.ts"
+export default {
+  output: {
+    sourceMap: {
+      js: 'source-map',
+      extract: true,
+    },
+  },
+};
+```
+
+When `extract` is enabled, Rsbuild extracts existing source maps from JavaScript files by default.
+
+Use `include` or `exclude` to limit extraction to specific files, which can help reduce performance overhead:
+
+```ts title="rsbuild.config.ts"
+export default {
+  output: {
+    sourceMap: {
+      js: 'source-map',
+      extract: {
+        include: [/node_modules[\\/]some-package[\\/]/],
+      },
+    },
+  },
+};
+```
+
+Use `test` only when you need a custom file matcher:
+
+```ts title="rsbuild.config.ts"
+export default {
+  output: {
+    sourceMap: {
+      js: 'source-map',
+      extract: {
+        test: /node_modules[\\/]some-package[\\/].*\.mjs$/,
+      },
+    },
+  },
+};
+```
+
+## Version history
+
+| Version | Changes                                                               |
+| ------- | --------------------------------------------------------------------- |
+| v2.0.0  | Added `sourceMap.extract` option                                      |
+| v2.0.3  | Added `test`, `include`, and `exclude` options to `sourceMap.extract` |

@@ -2,16 +2,13 @@ import fs from 'node:fs';
 import path, { isAbsolute } from 'node:path';
 import type { EntryDescription } from '@rspack/core';
 import {
+  reduceConfigsAsyncWithContext,
   reduceConfigsMergeContext,
   reduceConfigsWithContext,
 } from 'reduce-configs';
-import {
-  castArray,
-  color,
-  getPublicPathFromChain,
-  isFileExists,
-  isPlainObject,
-} from '../helpers';
+import { castArray, color, isPlainObject } from '../helpers';
+import { findExists, isFileExists } from '../helpers/fs';
+import { getPublicPathFromChain } from '../helpers/url';
 import {
   entryNameSymbol,
   type HtmlExtraData,
@@ -43,7 +40,7 @@ function getInject(entryName: string, config: NormalizedEnvironmentConfig) {
 }
 
 const getDefaultTemplateContent = (mountId: string) =>
-  `<!doctype html><html><head></head><body><div id="${mountId}"></div></body></html>`;
+  `<!DOCTYPE html><html><head></head><body><div id="${mountId}"></div></body></html>`;
 
 const existTemplatePath = new Set<string>();
 
@@ -133,7 +130,7 @@ function getTemplateParameters(
   config: NormalizedEnvironmentConfig,
   assetPrefix: string,
 ): HtmlRspackPlugin.Options['templateParameters'] {
-  return (compilation, assets, assetTags, pluginOptions) => {
+  return async (compilation, assets, assetTags, pluginOptions) => {
     const { mountId, templateParameters } = config.html;
     const rspackConfig = compilation.options;
     const htmlPlugin = {
@@ -149,19 +146,9 @@ function getTemplateParameters(
       compilation,
       htmlPlugin,
       rspackConfig,
-      /**
-       * compatible with html-webpack-plugin
-       * @deprecated may be removed in a future major version, use `rspackConfig` instead
-       */
-      webpackConfig: rspackConfig,
-      /**
-       * compatible with html-webpack-plugin
-       * @deprecated may be removed in a future major version, use `htmlPlugin` instead
-       */
-      htmlWebpackPlugin: htmlPlugin,
     };
 
-    return reduceConfigsWithContext({
+    return reduceConfigsAsyncWithContext({
       initial: defaultOptions,
       config: templateParameters,
       ctx: { entryName },
@@ -217,6 +204,31 @@ export const pluginHtml = (context: InternalContext): RsbuildPlugin => ({
   name: 'rsbuild:html',
 
   setup(api) {
+    let defaultFavicon: string | undefined;
+
+    const resolveDefaultFavicon = () => {
+      if (defaultFavicon) {
+        return defaultFavicon;
+      }
+
+      const { publicDir } = api.getNormalizedConfig().server;
+      const extensions = ['ico', 'png', 'svg'];
+      const publicDirs = Array.from(new Set(publicDir.map(({ name }) => name)));
+
+      const faviconPaths: string[] = [];
+      for (const publicDir of publicDirs) {
+        for (const ext of extensions) {
+          faviconPaths.push(path.join(publicDir, `favicon.${ext}`));
+        }
+      }
+
+      const faviconPath = findExists(faviconPaths);
+      if (faviconPath) {
+        defaultFavicon = faviconPath;
+      }
+      return defaultFavicon;
+    };
+
     api.modifyBundlerChain(
       async (chain, { HtmlPlugin, CHAIN_ID, environment }) => {
         const { config, htmlPaths } = environment;
@@ -234,13 +246,7 @@ export const pluginHtml = (context: InternalContext): RsbuildPlugin => ({
 
         const finalOptions = await Promise.all(
           entryNames.map(async (entryName) => {
-            // EntryDescription type is different between webpack and Rspack
-            const entryValue = entries[entryName].values() as (
-              | string
-              | string[]
-              | EntryDescription
-            )[];
-
+            const entryValue = entries[entryName].values();
             const chunks = getChunks(entryName, entryValue);
             const inject = getInject(entryName, config);
             const filename = htmlPaths[entryName];
@@ -264,7 +270,9 @@ export const pluginHtml = (context: InternalContext): RsbuildPlugin => ({
               filename,
               entryName,
               templateParameters,
-              scriptLoading: config.html.scriptLoading,
+              scriptLoading: config.output.module
+                ? 'module'
+                : config.html.scriptLoading,
             };
 
             if (templatePath) {
@@ -296,7 +304,8 @@ export const pluginHtml = (context: InternalContext): RsbuildPlugin => ({
 
             pluginOptions.title = getTitle(entryName, config);
 
-            const favicon = getFavicon(entryName, config);
+            const favicon =
+              getFavicon(entryName, config) || resolveDefaultFavicon();
             if (favicon) {
               extraData.favicon = favicon;
             }
@@ -331,10 +340,11 @@ export const pluginHtml = (context: InternalContext): RsbuildPlugin => ({
         });
 
         const getExtraData = (entryName: string) => extraDataMap.get(entryName);
+        const getHTMLPlugin = () => HtmlPlugin;
 
         chain
           .plugin('rsbuild-html-plugin')
-          .use(RsbuildHtmlPlugin, [getExtraData]);
+          .use(RsbuildHtmlPlugin, [getExtraData, getHTMLPlugin]);
 
         if (config.html) {
           const { crossorigin } = config.html;

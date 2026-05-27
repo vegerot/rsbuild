@@ -1,18 +1,16 @@
 import path from 'node:path';
-import { readDirContents, rspackOnlyTest, runCliSync } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, readDirContents, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should set NODE_ENV correctly when running build command',
-  async () => {
-    delete process.env.NODE_ENV;
-    runCliSync('build', {
-      cwd: __dirname,
-    });
+test('should set NODE_ENV correctly when running build command', async ({
+  execCliSync,
+}) => {
+  delete process.env.NODE_ENV;
+  execCliSync('build');
 
-    const outputs = await readDirContents(path.join(__dirname, 'dist-prod'));
-    const outputFiles = Object.keys(outputs);
+  const outputs = await readDirContents(
+    path.join(import.meta.dirname, 'dist-prod'),
+  );
+  const outputFiles = Object.keys(outputs);
 
-    expect(outputFiles.length > 1).toBeTruthy();
-  },
-);
+  expect(outputFiles.length > 1).toBeTruthy();
+});

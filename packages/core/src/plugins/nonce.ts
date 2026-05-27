@@ -1,4 +1,6 @@
-import { applyToCompiler, createVirtualModule } from '../helpers';
+import { rspack } from '@rspack/core';
+import { createVirtualModule } from '../helpers';
+import { applyToCompiler } from '../helpers/compiler';
 import type { RsbuildPlugin } from '../types';
 
 export const pluginNonce = (): RsbuildPlugin => ({
@@ -7,11 +9,9 @@ export const pluginNonce = (): RsbuildPlugin => ({
   setup(api) {
     api.onAfterCreateCompiler(({ compiler, environments }) => {
       const environmentList = Object.values(environments);
-      const nonces = environmentList.map((environment) => {
-        const { nonce } = environment.config.security;
-
-        return nonce;
-      });
+      const nonces = Object.values(environments).map(
+        (environment) => environment.config.security.nonce,
+      );
 
       if (!nonces.some((nonce) => !!nonce)) {
         return;
@@ -33,7 +33,7 @@ export const pluginNonce = (): RsbuildPlugin => ({
         const injectCode = createVirtualModule(
           `__webpack_nonce__ = "${nonce}";`,
         );
-        new compiler.webpack.EntryPlugin(compiler.context, injectCode, {
+        new rspack.EntryPlugin(compiler.context, injectCode, {
           name: undefined,
         }).apply(compiler);
       });

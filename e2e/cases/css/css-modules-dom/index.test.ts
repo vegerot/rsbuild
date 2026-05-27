@@ -1,29 +1,14 @@
-import { resolve } from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import { pluginReact } from '@rsbuild/plugin-react';
-
-const fixtures = resolve(__dirname);
+import { expect, findFile, test } from '@e2e/helper';
 
 test('should inject styles and not emit CSS files when output.injectStyles is true', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: fixtures,
-    page,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
-      output: {
-        injectStyles: true,
-      },
-    },
-  });
+  const rsbuild = await buildPreview();
 
   // injectStyles worked
-  const files = await rsbuild.getDistFiles();
-  const cssFiles = Object.keys(files).filter((file) => file.endsWith('.css'));
-
-  expect(cssFiles.length).toBe(0);
+  const files = rsbuild.getDistFiles();
+  expect(() => findFile(files, '.css')).toThrowError();
 
   // scss worked
   const header = page.locator('#header');
@@ -32,6 +17,4 @@ test('should inject styles and not emit CSS files when output.injectStyles is tr
   // less worked
   const title = page.locator('#title');
   await expect(title).toHaveCSS('font-size', '20px');
-
-  await rsbuild.close();
 });

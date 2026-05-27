@@ -1,11 +1,17 @@
+---
+description: '为 HTML 所引入的 script 和 link 标签添加完整性属性 —— integrity，使浏览器能够验证引入资源的完整性，以此防止下载的资源被篡改。'
+---
+
 # security.sri
 
 - **类型：**
 
 ```ts
+type SriAlgorithm = 'sha256' | 'sha384' | 'sha512';
+
 type SriOptions = {
   enable?: 'auto' | boolean;
-  algorithm?: 'sha256' | 'sha384' | 'sha512';
+  algorithm?: SriAlgorithm | SriAlgorithm[];
 };
 ```
 
@@ -27,7 +33,7 @@ type SriOptions = {
 
 在使用 SRI 时，你需要启用 [html.crossorigin](/config/html/crossorigin)，这可以确保资源在跨域加载时，SRI 也能正常校验。
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   security: {
     sri: {
@@ -62,6 +68,8 @@ export default {
 />
 ```
 
+此外，Rsbuild 生成的 [manifest 文件](/config/output/manifest#sri) 也会包含 `integrity` 字段。
+
 ## 注意
 
 Rsbuild 的 `security.sri` 仅会作用于 Rspack 和 Rsbuild 生成的标签，不会作用于：
@@ -84,7 +92,7 @@ Rsbuild 会处理以下几种 `<link>` 标签：
 
 是否启用 SRI。`'auto'` 表示在生产构建时开启，开发构建时关闭。
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   security: {
     sri: {
@@ -98,14 +106,14 @@ export default {
 
 ### algorithm
 
-- **类型：** `'sha256' | 'sha384' | 'sha512'`
+- **类型：** `SriAlgorithm | SriAlgorithm[]`
 - **默认值：** `'sha384'`
 
 指定用于计算 integrity hash 的算法。
 
 比如设置为 `sha512`：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   security: {
     sri: {
@@ -126,4 +134,22 @@ export default {
 ></script>
 ```
 
+或者配置多种算法：
+
+```ts title="rsbuild.config.ts"
+export default {
+  security: {
+    sri: {
+      algorithm: ['sha384', 'sha256'],
+    },
+  },
+};
+```
+
 > 参考：[Cryptographic hash functions](https://www.w3.org/TR/SRI/#cryptographic-hash-functions)。
+
+## 版本历史
+
+| 版本    | 变更内容         |
+| ------- | ---------------- |
+| v1.6.15 | 支持配置多种算法 |

@@ -1,8 +1,7 @@
 import { exec } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import { CREATE_RSBUILD_BIN_PATH } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { CREATE_RSBUILD_BIN_PATH, expect } from '@e2e/helper';
 import fse from 'fs-extra';
 
 export const expectPackageJson = (
@@ -10,7 +9,7 @@ export const expectPackageJson = (
   name: string,
 ) => {
   expect(pkgJson.name).toBe(name);
-  expect(pkgJson.scripts.dev).toBe('rsbuild dev --open');
+  expect(pkgJson.scripts.dev).toBe('rsbuild --open');
   expect(pkgJson.scripts.build).toBe('rsbuild build');
   expect(pkgJson.devDependencies['@rsbuild/core']).toBeTruthy();
 };
@@ -31,7 +30,7 @@ export const createAndValidate = async (
   const dir = path.join(cwd, name);
   await fse.remove(dir);
 
-  let command = `node ${CREATE_RSBUILD_BIN_PATH} -d ${name} -t ${template}`;
+  let command = `node ${CREATE_RSBUILD_BIN_PATH} ${name} -t ${template}`;
   if (tools.length) {
     const toolsCmd = tools.map((tool) => `--tools ${tool}`).join(' ');
     command += ` ${toolsCmd}`;

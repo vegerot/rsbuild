@@ -1,11 +1,8 @@
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-test('should allow dev.assetPrefix to be `auto`', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should allow dev.assetPrefix to be `auto`', async ({ page, dev }) => {
+  await dev({
+    config: {
       dev: {
         assetPrefix: 'auto',
       },
@@ -17,15 +14,11 @@ test('should allow dev.assetPrefix to be `auto`', async ({ page }) => {
 
   const testEl2 = page.locator('#test2');
   await expect(testEl2).toHaveText('auto');
-
-  await rsbuild.close();
 });
 
-test('should allow dev.assetPrefix to be true', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should allow dev.assetPrefix to be true', async ({ page, dev }) => {
+  const result = await dev({
+    config: {
       dev: {
         assetPrefix: true,
       },
@@ -33,17 +26,15 @@ test('should allow dev.assetPrefix to be true', async ({ page }) => {
   });
 
   const testEl = page.locator('#test');
-  await expect(testEl).toHaveText(`http://localhost:${rsbuild.port}`);
-  await rsbuild.close();
+  await expect(testEl).toHaveText(`http://localhost:${result.port}`);
 });
 
 test('should allow dev.assetPrefix to have <port> placeholder', async ({
   page,
+  dev,
 }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  const result = await dev({
+    config: {
       dev: {
         assetPrefix: 'http://localhost:<port>/',
       },
@@ -51,19 +42,18 @@ test('should allow dev.assetPrefix to have <port> placeholder', async ({
   });
 
   const testEl = page.locator('#test');
-  await expect(testEl).toHaveText(`http://localhost:${rsbuild.port}`);
+  await expect(testEl).toHaveText(`http://localhost:${result.port}`);
 
   const testEl2 = page.locator('#test2');
-  await expect(testEl2).toHaveText(`http://localhost:${rsbuild.port}`);
-
-  await rsbuild.close();
+  await expect(testEl2).toHaveText(`http://localhost:${result.port}`);
 });
 
-test('should allow output.assetPrefix to be `auto`', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should allow output.assetPrefix to be `auto`', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview({
+    config: {
       output: {
         assetPrefix: 'auto',
       },
@@ -72,16 +62,14 @@ test('should allow output.assetPrefix to be `auto`', async ({ page }) => {
 
   const testEl = page.locator('#test');
   await expect(testEl).toHaveText('auto');
-  await rsbuild.close();
 });
 
 test('should inject assetPrefix to env var and template correctly', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await buildPreview({
+    config: {
       html: {
         template: './src/template.html',
       },
@@ -94,13 +82,11 @@ test('should inject assetPrefix to env var and template correctly', async ({
 
   await expect(page.locator('#prefix1')).toHaveText('http://example.com');
   await expect(page.locator('#prefix2')).toHaveText('http://example.com');
-  await rsbuild.close();
 });
 
-test('should use output.assetPrefix in none mode', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+test('should use output.assetPrefix in none mode', async ({ build }) => {
+  const result = await build({
+    config: {
       mode: 'none',
       dev: {
         assetPrefix: 'http://dev.com',
@@ -111,9 +97,8 @@ test('should use output.assetPrefix in none mode', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
-  const indexHtml =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const files = result.getDistFiles();
+  const indexHtml = getFileContent(files, 'index.html');
   expect(indexHtml).toContain('http://prod.com');
   expect(indexHtml).not.toContain('http://dev.com');
 });

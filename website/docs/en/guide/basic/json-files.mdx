@@ -1,6 +1,10 @@
+---
+description: 'Rsbuild supports importing JSON files in code, and also supports importing YAML and TOML files, converting them to JSON format.'
+---
+
 # JSON
 
-Rsbuild supports importing JSON files in code, and also supports importing [YAML](https://yaml.org/) and [TOML](https://toml.io/en/) files and converting them to JSON format.
+Rsbuild supports importing JSON files in code, and also supports importing [YAML](https://yaml.org/) and [TOML](https://toml.io/en/) files, converting them to JSON format.
 
 ## JSON file
 
@@ -24,7 +28,7 @@ console.log(example.items); // [1, 2];
 
 ### Named import
 
-Rsbuild also supports importing JSON files via named import:
+Rsbuild also supports importing JSON files using named imports:
 
 ```js
 import { name } from './example.json';
@@ -36,7 +40,7 @@ console.log(name); // 'foo';
 
 [YAML](https://yaml.org/) is a data serialization language commonly used for writing configuration files.
 
-Rsbuild provides the [@rsbuild/plugin-yaml](https://github.com/rspack-contrib/rsbuild-plugin-yaml). After registering the plugin, you can import `.yaml` or `.yml` files in JavaScript and they will be automatically converted to JavaScript objects.
+Rsbuild provides the [@rsbuild/plugin-yaml](https://github.com/rstackjs/rsbuild-plugin-yaml). After registering the plugin, you can import `.yaml` or `.yml` files in JavaScript and they will be automatically converted to JavaScript objects.
 
 ```ts title="rsbuild.config.ts"
 import { pluginYaml } from '@rsbuild/plugin-yaml';
@@ -66,7 +70,7 @@ console.log(example.foo); // { bar: 'baz' };
 
 [TOML](https://toml.io/) is a semantically explicit, easy-to-read configuration file format.
 
-Rsbuild provides the [@rsbuild/plugin-toml](https://github.com/rspack-contrib/rsbuild-plugin-toml). After registering the plugin, you can import `.toml` files in JavaScript and it will be automatically converted to JavaScript objects.
+Rsbuild provides the [@rsbuild/plugin-toml](https://github.com/rstackjs/rsbuild-plugin-toml). After registering the plugin, you can import `.toml` files in JavaScript and it will be automatically converted to JavaScript objects.
 
 ```ts title="rsbuild.config.ts"
 import { pluginToml } from '@rsbuild/plugin-toml';

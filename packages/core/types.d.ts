@@ -11,7 +11,7 @@
  * }
  * ```
  */
-// biome-ignore lint/suspicious/noEmptyInterface: placeholder
+// rslint-disable-next-line @typescript-eslint/no-empty-interface
 interface RsbuildTypeOptions {}
 
 /**
@@ -20,8 +20,7 @@ interface RsbuildTypeOptions {}
 type ImportMetaEnvFallbackKey =
   'strictImportMetaEnv' extends keyof RsbuildTypeOptions ? never : string;
 
-interface ImportMetaEnv {
-  [key: ImportMetaEnvFallbackKey]: any;
+interface ImportMetaEnv extends Record<ImportMetaEnvFallbackKey, any> {
   /**
    * The value of the `mode` configuration.
    * @example
@@ -68,6 +67,12 @@ interface ImportMetaEnv {
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;
+}
+
+declare namespace Rspack {
+  interface Hot {
+    on: <Data = any>(event: string, cb: (data: Data) => void) => void;
+  }
 }
 
 /**
@@ -234,14 +239,50 @@ declare module '*.toml' {
 
 /**
  * Imports the file as a URL string.
- * @note Only works for static assets by default.
+ * @note Only works for static assets and CSS files by default.
  * @example
  * import logoUrl from './logo.png?url'
  * console.log(logoUrl) // 'http://example.com/logo.123456.png'
+ *
+ * import cssUrl from './style.css?url'
+ * console.log(cssUrl) // 'http://example.com/style.123456.css'
  */
 declare module '*?url' {
   const content: string;
   export default content;
+}
+
+/**
+ * Imports the file as a Web Worker constructor.
+ * @example
+ * import MyWorker from './worker.ts?worker';
+ * const worker = new MyWorker();
+ */
+declare module '*?worker' {
+  const WorkerConstructor: {
+    new (options?: { name?: string }): Worker;
+  };
+  export default WorkerConstructor;
+}
+
+/**
+ * Imports the file as an inline Web Worker constructor.
+ * @example
+ * import MyWorker from './worker.ts?worker&inline';
+ * const worker = new MyWorker();
+ */
+declare module '*?worker&inline' {
+  const WorkerConstructor: {
+    new (options?: { name?: string }): Worker;
+  };
+  export default WorkerConstructor;
+}
+
+declare module '*?inline&worker' {
+  const WorkerConstructor: {
+    new (options?: { name?: string }): Worker;
+  };
+  export default WorkerConstructor;
 }
 
 /**
@@ -281,9 +322,7 @@ declare module '*?raw' {
 /**
  * CSS Modules
  */
-type CSSModuleClasses = {
-  readonly [key: string]: string;
-};
+type CSSModuleClasses = Readonly<Record<string, string>>;
 declare module '*.module.css' {
   const classes: CSSModuleClasses;
   export default classes;

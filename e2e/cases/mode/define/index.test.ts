@@ -1,5 +1,4 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 declare global {
   interface Window {
@@ -7,11 +6,12 @@ declare global {
   }
 }
 
-test('should define vars in build correctly', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should define vars in build correctly', async ({
+  page,
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview({
+    config: {
       mode: 'production',
     },
   });
@@ -54,15 +54,11 @@ test('should define vars in build correctly', async ({ page }) => {
     '[condition] import.meta.env.MODE === "development"',
   );
   expect(content).not.toContain('[condition] import.meta.env.DEV');
-
-  await rsbuild.close();
 });
 
-test('should define vars in dev', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should define vars in dev', async ({ page, buildPreview }) => {
+  const rsbuild = await buildPreview({
+    config: {
       mode: 'development',
     },
   });
@@ -99,15 +95,14 @@ test('should define vars in dev', async ({ page }) => {
   expect(await page.evaluate(() => window.destructedValues)).toBe(
     'MODE:development,DEV:true,PROD:false',
   );
-
-  await rsbuild.close();
 });
 
-test('should define vars in none mode correctly', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should define vars in none mode correctly', async ({
+  page,
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview({
+    config: {
       mode: 'none',
     },
   });
@@ -150,14 +145,11 @@ test('should define vars in none mode correctly', async ({ page }) => {
   expect(await page.evaluate(() => window.destructedValues)).toBe(
     'MODE:none,DEV:false,PROD:false',
   );
-
-  await rsbuild.close();
 });
 
-rspackOnlyTest('should allow to disable NODE_ENV injection', async () => {
+test('should allow to disable NODE_ENV injection', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       mode: 'production',
       tools: {
         rspack: {

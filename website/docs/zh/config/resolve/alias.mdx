@@ -1,3 +1,7 @@
+---
+description: '设置模块路径的别名，用于简化导入路径或重定向模块引用。'
+---
+
 # resolve.alias
 
 - **类型：**
@@ -19,10 +23,6 @@ const defaultAlias = {
 设置模块路径的别名，用于简化导入路径或重定向模块引用。
 
 对于 TypeScript 项目，你只需要在 `tsconfig.json` 中配置 [compilerOptions.paths](https://typescriptlang.org/tsconfig#paths) 即可，Rsbuild 会自动识别它，不需要额外配置 `resolve.alias` 字段，详见 [「路径别名」](/guide/advanced/alias)。
-
-:::tip
-在 Rsbuild 1.1.7 之前的版本，你可以使用 `source.alias` 来设置 alias，但该字段将在下一个大版本中被移除。
-:::
 
 ## 基本用法
 

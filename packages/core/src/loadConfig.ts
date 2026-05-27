@@ -1,9 +1,8 @@
 import fs from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { __filename } from './constants';
 import { color, getNodeEnv, isObject } from './helpers';
-import { logger } from './logger';
+import { defaultLogger } from './logger';
 import type { RsbuildConfig } from './types';
 
 export type ConfigParams = {
@@ -45,10 +44,11 @@ export type LoadConfigOptions = {
    */
   envMode?: string;
   /**
-   * Specify the config loader, can be `jiti` or `native`.
+   * Specify the config loader, can be `auto`, `jiti` or `native`.
+   * - 'auto': Use native Node.js loader first, fallback to jiti if failed
    * - 'jiti': Use `jiti` as loader, which supports TypeScript and ESM out of the box
    * - 'native': Use native Node.js loader, requires TypeScript support in Node.js >= 22.6
-   * @default 'jiti'
+   * @default 'auto'
    */
   loader?: ConfigLoader;
 };
@@ -87,18 +87,20 @@ const resolveConfigPath = (root: string, customConfig?: string) => {
     if (fs.existsSync(customConfigPath)) {
       return customConfigPath;
     }
-    logger.warn(`Cannot find config file: ${color.dim(customConfigPath)}\n`);
+    throw new Error(
+      `${color.dim('[rsbuild:loadConfig]')} Cannot find config file: ${color.dim(customConfigPath)}`,
+    );
   }
 
+  // Resolve the most commonly used config file types first
+  // to improve lookup performance.
   const CONFIG_FILES = [
-    // `.mjs` and `.ts` are the most used configuration types,
-    // so we resolve them first for performance
-    'rsbuild.config.mjs',
     'rsbuild.config.ts',
     'rsbuild.config.js',
-    'rsbuild.config.cjs',
     'rsbuild.config.mts',
+    'rsbuild.config.mjs',
     'rsbuild.config.cts',
+    'rsbuild.config.cjs',
   ];
 
   for (const file of CONFIG_FILES) {
@@ -112,19 +114,19 @@ const resolveConfigPath = (root: string, customConfig?: string) => {
   return null;
 };
 
-export type ConfigLoader = 'jiti' | 'native';
+export type ConfigLoader = 'auto' | 'jiti' | 'native';
 
 export async function loadConfig({
   cwd = process.cwd(),
   path,
   envMode,
   meta,
-  loader = 'jiti',
+  loader = 'auto',
 }: LoadConfigOptions = {}): Promise<LoadConfigResult> {
   const configFilePath = resolveConfigPath(cwd, path);
 
   if (!configFilePath) {
-    logger.debug('no config file found.');
+    defaultLogger.debug('no config file found.');
     return {
       content: {},
       filePath: configFilePath,
@@ -136,45 +138,55 @@ export async function loadConfig({
     return config;
   };
 
-  let configExport: RsbuildConfigExport;
+  let configExport: RsbuildConfigExport | undefined;
 
-  if (loader === 'native' || /\.(?:js|mjs|cjs)$/.test(configFilePath)) {
+  // Determine the loading strategy based on the config loader type
+  const useNative = Boolean(
+    loader === 'native' ||
+    (loader === 'auto' &&
+      (process.features.typescript ||
+        process.versions.bun ||
+        process.versions.deno)),
+  );
+
+  if (useNative || /\.(?:js|mjs|cjs)$/.test(configFilePath)) {
     try {
       const configFileURL = pathToFileURL(configFilePath).href;
       const exportModule = await import(`${configFileURL}?t=${Date.now()}`);
       configExport = exportModule.default ? exportModule.default : exportModule;
     } catch (err) {
+      const errorMessage = `Failed to load file with native loader: ${color.dim(configFilePath)}`;
       if (loader === 'native') {
-        logger.error(
-          `Failed to load file with native loader: ${color.dim(configFilePath)}`,
-        );
+        defaultLogger.error(errorMessage);
         throw err;
       }
-      logger.debug(
-        `failed to load file with dynamic import: ${color.dim(configFilePath)}`,
-      );
+
+      defaultLogger.debug(`${errorMessage}, fallback to jiti.`);
+      defaultLogger.debug(err);
     }
   }
 
-  try {
-    if (configExport! === undefined) {
+  if (configExport === undefined) {
+    try {
       const { createJiti } = await import('jiti');
-      const jiti = createJiti(__filename, {
+      const jiti = createJiti(import.meta.filename, {
         // disable require cache to support restart CLI and read the new config
         moduleCache: false,
         interopDefault: true,
         // Always use native `require()` for these packages,
         // This avoids `@rspack/core` being loaded twice.
-        nativeModules: ['@rspack/core', 'typescript'],
+        nativeModules: ['typescript'],
       });
 
       configExport = await jiti.import<RsbuildConfigExport>(configFilePath, {
         default: true,
       });
+    } catch (err) {
+      defaultLogger.error(
+        `Failed to load file with jiti: ${color.dim(configFilePath)}`,
+      );
+      throw err;
     }
-  } catch (err) {
-    logger.error(`Failed to load file with jiti: ${color.dim(configFilePath)}`);
-    throw err;
   }
 
   if (typeof configExport === 'function') {
@@ -209,7 +221,7 @@ export async function loadConfig({
     );
   }
 
-  logger.debug('configuration loaded from:', configFilePath);
+  defaultLogger.debug('configuration loaded from:', configFilePath);
 
   return {
     content: applyMetaInfo(configExport),

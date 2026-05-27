@@ -1,3 +1,7 @@
+---
+description: 'Set the crossorigin attribute of the script and style tags.'
+---
+
 # html.crossorigin
 
 - **Type:** `boolean | 'anonymous' | 'use-credentials'`
@@ -10,7 +14,7 @@ Set the [crossorigin](https://developer.mozilla.org/en-US/docs/Web/HTML/Attribut
 
 ## Example
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     crossorigin: 'anonymous',

@@ -1,31 +1,15 @@
-import { join } from 'node:path';
-import { build, dev, readDirContents } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { getPolyfillContent } from '../helper';
 
-test('should read browserslist for development env correctly', async ({
-  page,
-}) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
+test('should read browserslist correctly', async ({ runBoth }) => {
+  await runBoth(async ({ mode, result }) => {
+    const files = result.getDistFiles({ sourceMaps: true });
+    const content = getPolyfillContent(files);
+
+    if (mode === 'dev') {
+      expect(content.includes('es.string.replace-all')).toBeFalsy();
+    } else {
+      expect(content.includes('es.string.replace-all')).toBeTruthy();
+    }
   });
-
-  const outputs = await readDirContents(join(__dirname, 'dist'));
-  const content = getPolyfillContent(outputs);
-
-  expect(content.includes('es.string.replace-all')).toBeFalsy();
-
-  await rsbuild.close();
-});
-
-test('should read browserslist for production env correctly', async () => {
-  await build({
-    cwd: __dirname,
-  });
-
-  const outputs = await readDirContents(join(__dirname, 'dist'));
-  const content = getPolyfillContent(outputs);
-
-  expect(content.includes('es.string.replace-all')).toBeTruthy();
 });

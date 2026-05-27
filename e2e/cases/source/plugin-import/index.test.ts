@@ -1,13 +1,11 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { cases, copyPkgToNodeModules, findEntry, shareTest } from './helper';
 
-test('should import with template config', async () => {
+test('should import with template config', async ({ build }) => {
   copyPkgToNodeModules();
 
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       source: {
         transformImport: [
           {
@@ -16,32 +14,23 @@ test('should import with template config', async () => {
           },
         ],
       },
-      performance: {
-        chunkSplit: {
-          strategy: 'all-in-one',
-        },
-      },
+      splitChunks: false,
     },
   });
-  const files = await rsbuild.getDistFiles({ sourceMaps: true });
+  const files = rsbuild.getDistFiles({ sourceMaps: true });
   const entry = findEntry(files);
   expect(files[entry]).toContain('transformImport test succeed');
 });
 
-test('should not transformImport by default', async () => {
+test('should not transformImport by default', async ({ build }) => {
   copyPkgToNodeModules();
 
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
-      performance: {
-        chunkSplit: {
-          strategy: 'all-in-one',
-        },
-      },
+    config: {
+      splitChunks: false,
     },
   });
-  const files = await rsbuild.getDistFiles({ sourceMaps: true });
+  const files = rsbuild.getDistFiles({ sourceMaps: true });
   const entry = findEntry(files);
   expect(files[entry]).toContain('test succeed');
 });

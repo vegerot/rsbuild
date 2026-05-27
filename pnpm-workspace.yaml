@@ -5,17 +5,42 @@ packages:
   - packages/**
   - examples/**
   - '!**/compiled/**'
-  - '!**/dist-types/**'
+  - '!**/dist/**'
+  - '!**/dist-*/**'
   - '!**/create-rsbuild/template-*/**'
   - '!**/test-temp-*/**'
+  - '!**/_node_modules/**'
+
+allowBuilds:
+  '@parcel/watcher': false
+  core-js: false
+  simple-git-hooks: false
+  svelte-preprocess: false
+
+dedupePeers: true
+
+engineStrict: true
 
 hoistPattern: []
 
+# Reduce the risk of installing compromised packages
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@rspack/*'
+  - '@rsbuild/*'
+  - '@rslib/*'
+  - '@rspress/*'
+  - '@rstest/*'
+  - '@rsdoctor/*'
+  - '@rslint/*'
+  # Renovate security update: svelte@5.55.7
+  - svelte@5.55.7
+
 patchedDependencies:
-  css-loader@7.1.2: patches/css-loader@7.1.2.patch
-  file-loader: patches/file-loader@6.2.0.patch
-  http-proxy@1.18.1: patches/http-proxy@1.18.1.patch
-  postcss-loader@8.2.0: patches/postcss-loader@8.2.0.patch
-  url-loader: patches/url-loader@4.1.1.patch
+  css-loader@7.1.4: patches/css-loader@7.1.4.patch
+  postcss-loader@8.2.1: patches/postcss-loader@8.2.1.patch
+
+# Prevent un-reviewed build scripts
+strictDepBuilds: true
 
 strictPeerDependencies: false

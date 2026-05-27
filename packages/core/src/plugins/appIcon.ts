@@ -1,14 +1,11 @@
 import path from 'node:path';
-import { promisify } from 'node:util';
+import { color, pick } from '../helpers';
 import {
   addCompilationError,
-  color,
-  ensureAssetPrefix,
-  fileExistsByCompilation,
   getPublicPathFromCompiler,
-  isURL,
-  pick,
-} from '../helpers';
+} from '../helpers/compiler';
+import { fileExistsByCompilation, readFileAsync } from '../helpers/fs';
+import { ensureAssetPrefix, isURL } from '../helpers/url';
 import type { AppIconItem, HtmlBasicTag, RsbuildPlugin } from '../types';
 
 type IconExtra = {
@@ -25,7 +22,7 @@ type IconExtra = {
 );
 
 export const pluginAppIcon = (): RsbuildPlugin => ({
-  name: 'rsbuild:app-icon',
+  name: 'rsbuild:appIcon',
 
   setup(api) {
     const htmlTagsMap = new Map<string, HtmlBasicTag[]>();
@@ -38,7 +35,8 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
       lookup: (extension: string) => string | undefined,
     ): AppIconItem & IconExtra => {
       const { src, size } = icon;
-      const cached = iconFormatMap.get(src);
+      const cacheKey = `${distDir}|${publicPath}|${src}`;
+      const cached = iconFormatMap.get(cacheKey);
 
       if (cached) {
         return cached;
@@ -55,7 +53,7 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
           mimeType: lookup(src),
         };
 
-        iconFormatMap.set(src, formatted);
+        iconFormatMap.set(cacheKey, formatted);
         return formatted;
       }
 
@@ -77,7 +75,7 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
         mimeType: lookup(absolutePath),
       };
 
-      iconFormatMap.set(src, formatted);
+      iconFormatMap.set(cacheKey, formatted);
       return formatted;
     };
 
@@ -91,7 +89,7 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
           return;
         }
 
-        const { lookup } = await import('../../compiled/mrmime/index.js');
+        const { lookup } = await import('mrmime');
 
         const distDir = config.output.distPath.image;
         const manifestFile = appIcon.filename ?? 'manifest.webmanifest';
@@ -105,7 +103,7 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
           if (icon.target === 'web-app-manifest' && !appIcon.name) {
             addCompilationError(
               compilation,
-              `${color.dim('[rsbuild:app-icon]')} ${color.yellow(
+              `${color.dim('[rsbuild:appIcon]')} ${color.yellow(
                 '"appIcon.name"',
               )} is required when ${color.yellow('"target"')} is ${color.yellow(
                 '"web-app-manifest"',
@@ -118,7 +116,7 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
             if (!compilation.inputFileSystem) {
               addCompilationError(
                 compilation,
-                `${color.dim('[rsbuild:app-icon]')} Failed to read the icon file as ${color.yellow(
+                `${color.dim('[rsbuild:appIcon]')} Failed to read the icon file as ${color.yellow(
                   '"compilation.inputFileSystem"',
                 )} is not available.`,
               );
@@ -130,26 +128,17 @@ export const pluginAppIcon = (): RsbuildPlugin => ({
             ) {
               addCompilationError(
                 compilation,
-                `${color.dim('[rsbuild:app-icon]')} Failed to find the icon file at ${color.yellow(
+                `${color.dim('[rsbuild:appIcon]')} Failed to find the icon file at ${color.yellow(
                   icon.absolutePath,
                 )}.`,
               );
               continue;
             }
 
-            const source = await promisify(
-              compilation.inputFileSystem.readFile,
-            )(icon.absolutePath);
-
-            if (!source) {
-              addCompilationError(
-                compilation,
-                `${color.dim('[rsbuild:app-icon]')} Failed to read the icon file at ${color.yellow(
-                  icon.absolutePath,
-                )}.`,
-              );
-              continue;
-            }
+            const source = await readFileAsync(
+              compilation.inputFileSystem,
+              icon.absolutePath,
+            );
 
             compilation.emitAsset(
               icon.relativePath,

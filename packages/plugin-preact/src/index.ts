@@ -16,13 +16,13 @@ export type PluginPreactOptions = {
   prefreshEnabled?: boolean;
   /**
    * Include files to be processed by the `@rspack/plugin-preact-refresh` plugin.
-   * The value is the same as the `rule.test` option in Rspack.
+   * The value is the same as the `rules[].test` option in Rspack.
    * @default /\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts)$/
    */
   include?: Rspack.RuleSetCondition;
   /**
    * Exclude files from being processed by the `@rspack/plugin-preact-refresh` plugin.
-   * The value is the same as the `rule.exclude` option in Rspack.
+   * The value is the same as the `rules[].exclude` option in Rspack.
    * @default /[\\/]node_modules[\\/]/
    */
   exclude?: Rspack.RuleSetCondition;
@@ -51,6 +51,7 @@ export const pluginPreact = (
 
     api.modifyEnvironmentConfig((config, { mergeEnvironmentConfig }) => {
       const isDev = config.mode === 'development';
+      const isV1 = api.context.version.startsWith('1.');
       const usePrefresh =
         isDev &&
         options.prefreshEnabled &&
@@ -68,15 +69,19 @@ export const pluginPreact = (
         tools: {
           swc: {
             jsc: {
+              ...(isV1
+                ? {
+                    parser: {
+                      syntax: 'typescript',
+                      // enable supports for JSX/TSX compilation
+                      tsx: true,
+                    },
+                  }
+                : {}),
               experimental: {
                 plugins: usePrefresh
                   ? [[require.resolve('@swc/plugin-prefresh'), {}]]
                   : undefined,
-              },
-              parser: {
-                syntax: 'typescript',
-                // enable supports for JSX/TSX compilation
-                tsx: true,
               },
               transform: {
                 react: reactOptions,
@@ -117,9 +122,8 @@ export const pluginPreact = (
         return;
       }
 
-      const { default: PreactRefreshPlugin } = await import(
-        '@rspack/plugin-preact-refresh'
-      );
+      const { default: PreactRefreshPlugin } =
+        await import('@rspack/plugin-preact-refresh');
 
       const preactPath = require.resolve('preact', {
         paths: [api.context.rootPath],

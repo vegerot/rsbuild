@@ -1,16 +1,15 @@
-const POLYFILL_RE = /\/lib-polyfill/;
+import { findFile } from '@e2e/helper';
 
 export const getPolyfillContent = (files: Record<string, string>) => {
-  const polyfillFileName = Object.keys(files).find(
-    (file) => POLYFILL_RE.test(file) && file.endsWith('.js.map'),
-  );
+  let polyfillFileName: string | undefined;
 
-  const indexFileName = Object.keys(files).find(
-    (file) => file.includes('index') && file.endsWith('.js.map'),
-  )!;
+  try {
+    polyfillFileName = findFile(files, 'lib-polyfill.js.map');
+  } catch {
+    polyfillFileName = undefined;
+  }
 
-  const content = polyfillFileName
-    ? files[polyfillFileName]
-    : files[indexFileName];
-  return content;
+  const indexFileName = findFile(files, 'index.js.map');
+
+  return files[polyfillFileName ?? indexFileName];
 };

@@ -1,3 +1,7 @@
+---
+description: '修改构建产物中 script 标签在 HTML 中的插入位置。'
+---
+
 # html.inject
 
 - **类型：** `'head' | 'body' | boolean | Function`
@@ -34,7 +38,7 @@
 
 添加如下配置，可以将 `<script>` 插入至 `<body>` 标签：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     inject: 'body',
@@ -63,7 +67,10 @@ export default {
 - **类型：**
 
 ```ts
-type InjectFunction = ({ value: ScriptInject; entryName: string }) => string | void;
+type InjectFunction = (context: {
+  value: ScriptInject;
+  entryName: string;
+}) => ScriptInject | void;
 ```
 
 当 `html.inject` 为 Function 类型时，函数接收一个对象作为入参，对象的值包括：
@@ -73,7 +80,7 @@ type InjectFunction = ({ value: ScriptInject; entryName: string }) => string | v
 
 在 MPA（多页面应用）场景下，你可以基于入口名称设置不同的 `inject` 方式：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     inject({ entryName }) {

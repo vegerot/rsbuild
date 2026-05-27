@@ -1,24 +1,24 @@
-import { createStubRsbuild } from '@scripts/test-helper';
+import { createRsbuild } from '@rsbuild/core';
 import { pluginReact } from '../src';
 
 describe('splitChunks', () => {
   it('should apply antd/semi/... splitChunks rule when pkg is installed', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         performance: {},
       },
     });
 
     rsbuild.addPlugins([pluginReact()]);
 
-    const config = await rsbuild.unwrapConfig();
+    const config = await rsbuild.initConfigs();
 
-    expect(config.optimization.splitChunks).toMatchSnapshot();
+    expect(config[0]?.optimization?.splitChunks).toMatchSnapshot();
   });
 
   it('should not apply splitChunks rule when strategy is not split-by-experience', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         performance: {
           chunkSplit: {
             strategy: 'single-vendor',
@@ -29,14 +29,14 @@ describe('splitChunks', () => {
 
     rsbuild.addPlugins([pluginReact()]);
 
-    const config = await rsbuild.unwrapConfig();
+    const config = await rsbuild.initConfigs();
 
-    expect(config.optimization.splitChunks).toMatchSnapshot();
+    expect(config[0]?.optimization?.splitChunks).toMatchSnapshot();
   });
 
   it('should apply splitChunks.react/router plugin option when strategy is split-by-experience', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         performance: {
           chunkSplit: {
             strategy: 'split-by-experience',
@@ -54,8 +54,7 @@ describe('splitChunks', () => {
       }),
     ]);
 
-    const config = await rsbuild.unwrapConfig();
-
-    expect(config.optimization.splitChunks).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0]?.optimization?.splitChunks).toMatchSnapshot();
   });
 });

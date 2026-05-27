@@ -1,25 +1,19 @@
-import { logger } from '../logger';
+import { defaultLogger, isDebug } from '../logger';
 import type { LogLevel } from '../types';
 import { setupCommands } from './commands';
 
 const { argv } = process;
 
-function initNodeEnv() {
+function initNodeEnv(command: string | undefined) {
   if (!process.env.NODE_ENV) {
-    const command = argv[2];
-    process.env.NODE_ENV = ['build', 'preview'].includes(command)
-      ? 'production'
-      : 'development';
+    process.env.NODE_ENV =
+      command === 'build' || command === 'preview'
+        ? 'production'
+        : 'development';
   }
 }
 
 function showGreeting() {
-  // Skip greeting when help is requested, as cac's help output already contains
-  // information that would be redundant with the greeting message
-  if (argv.some((item) => item === '--help' || item === '-h')) {
-    return;
-  }
-
   // Ensure consistent spacing before the greeting message.
   // Different package managers handle output formatting differently - some automatically
   // add a blank line before command output, while others do not.
@@ -29,34 +23,38 @@ function showGreeting() {
   const isBun = npm_execpath?.includes('.bun');
   const isNodeRun = Boolean(NODE_RUN_SCRIPT_NAME);
   const prefix = isNpx || isBun || isNodeRun ? '\n' : '';
-  logger.greet(`${prefix}  Rsbuild v${RSBUILD_VERSION}\n`);
+  defaultLogger.greet(`${prefix}Rsbuild v${RSBUILD_VERSION}\n`);
 }
 
 // ensure log level is set before any log is printed
 function setupLogLevel() {
-  const logLevelIndex = process.argv.findIndex(
+  if (argv.length <= 3) {
+    return;
+  }
+
+  const logLevelIndex = argv.findIndex(
     (item) => item === '--log-level' || item === '--logLevel',
   );
   if (logLevelIndex !== -1) {
     const level = process.argv[logLevelIndex + 1];
-    if (level && ['warn', 'error', 'silent'].includes(level)) {
-      logger.level = level as LogLevel;
+    if (level && ['warn', 'error', 'silent'].includes(level) && !isDebug()) {
+      defaultLogger.level = level as LogLevel;
     }
   }
 }
 
 export function runCLI(): void {
-  // make it easier to identify the process via activity monitor or other tools
-  process.title = 'rsbuild-node';
+  const command = argv[2];
 
-  initNodeEnv();
+  initNodeEnv(command);
   setupLogLevel();
   showGreeting();
 
   try {
     setupCommands();
   } catch (err) {
-    logger.error('Failed to start Rsbuild CLI.');
-    logger.error(err);
+    defaultLogger.error('Failed to start Rsbuild CLI.');
+    defaultLogger.error(err);
+    process.exit(1);
   }
 }

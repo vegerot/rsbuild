@@ -3,6 +3,7 @@ analyse
 antd
 apng
 applescript
+atrule
 atrules
 attributify
 biomejs
@@ -18,6 +19,7 @@ classname
 codegen
 codesandbox
 codeva
+chenjiahan
 compat
 consolas
 contentful
@@ -30,6 +32,7 @@ datauri
 deepmerge
 docgen
 dotenvx
+downleveling
 dppx
 envinfo
 estree
@@ -43,10 +46,12 @@ frontends
 fullhash
 fullhref
 gzipped
+httpxy
 icss
 idents
 iife
 imagex
+inlines
 jfif
 jiti
 jridgewell
@@ -111,10 +116,12 @@ rspack
 rspeedy
 rspress
 rstack
+rstackjs
 rstest
 ruleset
 selfsign
 selfsigned
+serviceworker
 shiki
 shikijs
 sirv
@@ -142,7 +149,10 @@ tsbuildinfo
 tsdoc
 tsgo
 twoslash
+TYPELESS
 uncompiled
+unminified
+unjs
 unocss
 unpatch
 unplugin

@@ -1,36 +1,28 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, findFile, test } from '@e2e/helper';
 
-rspackOnlyTest('should process assets when target is web', async () => {
+test('should process assets when target is web', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
         target: 'web',
       },
     },
   });
 
-  const files = await rsbuild.getDistFiles();
-  const indexJs = Object.keys(files).find(
-    (file) => file.includes('index') && file.endsWith('.js'),
-  );
-  expect(indexJs).toBeFalsy();
+  const files = rsbuild.getDistFiles();
+  expect(() => findFile(files, 'index.js')).toThrow();
 });
 
-rspackOnlyTest('should not process assets when target is not web', async () => {
+test('should not process assets when target is not web', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
         target: 'web-worker',
       },
     },
   });
 
-  const files = await rsbuild.getDistFiles();
-  const indexJs = Object.keys(files).find(
-    (file) => file.includes('index') && file.endsWith('.js'),
-  );
+  const files = rsbuild.getDistFiles();
+  const indexJs = findFile(files, 'index.js');
   expect(indexJs).toBeTruthy();
 });

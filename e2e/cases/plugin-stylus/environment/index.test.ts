@@ -1,19 +1,13 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow to configure Stylus plugin for specific environment',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-    });
-    const files = await rsbuild.getDistFiles();
+test('should allow to configure Stylus plugin for specific environment', async ({
+  build,
+}) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, '.css');
 
-    const content =
-      files[Object.keys(files).find((file) => file.endsWith('.css'))!];
-
-    expect(content).toMatch(
-      /body{color:red;font:14px Arial,sans-serif}\.title-class-\w{6}{font-size:14px}/,
-    );
-  },
-);
+  expect(content).toMatch(
+    /body{color:red;font:14px Arial,sans-serif}\.title-class-\w{6}{font-size:14px}/,
+  );
+});

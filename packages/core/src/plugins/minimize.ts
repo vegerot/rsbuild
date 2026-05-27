@@ -7,10 +7,40 @@ import { isPlainObject, pick } from '../helpers';
 import type { NormalizedEnvironmentConfig, RsbuildPlugin } from '../types';
 import { getLightningCSSLoaderOptions } from './css';
 
-export const getSwcMinimizerOptions = (
+const CONSOLE_METHODS = [
+  'assert',
+  'clear',
+  'count',
+  'countReset',
+  'debug',
+  'dir',
+  'dirxml',
+  'error',
+  'group',
+  'groupCollapsed',
+  'groupEnd',
+  'info',
+  'log',
+  'profile',
+  'profileEnd',
+  'table',
+  'time',
+  'timeEnd',
+  'timeLog',
+  'timeStamp',
+  'trace',
+  'warn',
+];
+
+const getConsolePureFuncs = (methods: readonly string[]) =>
+  methods.map((method) => `console.${method}`);
+
+const ALL_CONSOLE_PURE_FUNCS = getConsolePureFuncs(CONSOLE_METHODS);
+
+export function getSwcMinimizerOptions(
   config: NormalizedEnvironmentConfig,
   jsOptions?: SwcJsMinimizerRspackPluginOptions,
-): SwcJsMinimizerRspackPluginOptions => {
+): SwcJsMinimizerRspackPluginOptions {
   const options: SwcJsMinimizerRspackPluginOptions = {};
 
   options.minimizerOptions ||= {};
@@ -20,12 +50,11 @@ export const getSwcMinimizerOptions = (
 
   if (removeConsole === true) {
     options.minimizerOptions.compress = {
-      drop_console: true,
+      pure_funcs: ALL_CONSOLE_PURE_FUNCS,
     };
   } else if (Array.isArray(removeConsole)) {
-    const pureFuncs = removeConsole.map((method) => `console.${method}`);
     options.minimizerOptions.compress = {
-      pure_funcs: pureFuncs,
+      pure_funcs: getConsolePureFuncs(removeConsole),
     };
   }
 
@@ -54,18 +83,16 @@ export const getSwcMinimizerOptions = (
   }
 
   return options;
-};
+}
 
-export const parseMinifyOptions = (
-  config: NormalizedEnvironmentConfig,
-): {
+export function parseMinifyOptions(config: NormalizedEnvironmentConfig): {
   minifyJs: boolean;
   minifyCss: boolean;
   jsOptions?: SwcJsMinimizerRspackPluginOptions;
   cssOptions?: LightningCssMinimizerRspackPluginOptions;
-} => {
+} {
   const isProd = config.mode === 'production';
-  const { minify } = config.output;
+  const { minify = true } = config.output;
 
   if (typeof minify === 'boolean') {
     const shouldMinify = minify && isProd;
@@ -81,14 +108,12 @@ export const parseMinifyOptions = (
     jsOptions: minify.jsOptions,
     cssOptions: minify.cssOptions,
   };
-};
+}
 
 export const pluginMinimize = (): RsbuildPlugin => ({
   name: 'rsbuild:minimize',
 
   setup(api) {
-    const isRspack = api.context.bundlerType === 'rspack';
-
     api.modifyBundlerChain((chain, { environment, CHAIN_ID, rspack }) => {
       const { config } = environment;
       const { minifyJs, minifyCss, jsOptions, cssOptions } =
@@ -96,7 +121,7 @@ export const pluginMinimize = (): RsbuildPlugin => ({
 
       chain.optimization.minimize(minifyJs || minifyCss);
 
-      if (minifyJs && isRspack) {
+      if (minifyJs) {
         chain.optimization
           .minimizer(CHAIN_ID.MINIMIZER.JS)
           .use(rspack.SwcJsMinimizerRspackPlugin, [
@@ -105,7 +130,7 @@ export const pluginMinimize = (): RsbuildPlugin => ({
           .end();
       }
 
-      if (minifyCss && isRspack) {
+      if (minifyCss) {
         const loaderOptions = getLightningCSSLoaderOptions(
           config,
           environment.browserslist,
@@ -121,7 +146,7 @@ export const pluginMinimize = (): RsbuildPlugin => ({
               ? environment.browserslist
               : loaderOptions.targets,
             ...pick(loaderOptions, [
-              'draft',
+              'drafts',
               'include',
               'exclude',
               'nonStandard',

@@ -1,22 +1,36 @@
-import { createRsbuild, type RsbuildPluginAPI } from '@rsbuild/core';
+import { createRsbuild, type Rspack } from '@rsbuild/core';
+import { createRsbuild as createRsbuildV1 } from '@rsbuild/core-v1';
 import { matchRules } from '@scripts/test-helper';
 import { pluginLess } from '../src';
 
 describe('plugin-less', () => {
   it('should add less-loader', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [pluginLess()],
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(matchRules(bundlerConfigs[0], 'a.less')).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchRules(rspackConfigs[0], 'a.less')).toMatchSnapshot();
+  });
+
+  it('should add less-loader for Rsbuild v1', async () => {
+    const rsbuild = await createRsbuildV1({
+      config: {
+        plugins: [pluginLess()],
+      },
+    });
+
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(
+      matchRules(rspackConfigs[0] as Rspack.Configuration, 'a.less'),
+    ).toMatchSnapshot();
   });
 
   it('should add less-loader and css-loader when injectStyles', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [pluginLess()],
         output: {
           injectStyles: true,
@@ -24,13 +38,13 @@ describe('plugin-less', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(matchRules(bundlerConfigs[0], 'a.less')).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchRules(rspackConfigs[0], 'a.less')).toMatchSnapshot();
   });
 
   it('should add less-loader with tools.less', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [
           pluginLess({
             lessLoaderOptions: {
@@ -43,13 +57,13 @@ describe('plugin-less', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(matchRules(bundlerConfigs[0], 'a.less')).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchRules(rspackConfigs[0], 'a.less')).toMatchSnapshot();
   });
 
   it('should add less-loader with excludes', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [
           pluginLess({
             lessLoaderOptions(_config, { addExcludes }) {
@@ -60,8 +74,8 @@ describe('plugin-less', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(matchRules(bundlerConfigs[0], 'a.less')).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchRules(rspackConfigs[0], 'a.less')).toMatchSnapshot();
   });
 
   it('should allow to use Less plugins', async () => {
@@ -75,7 +89,7 @@ describe('plugin-less', () => {
 
     const mockPlugin = new MockPlugin({ foo: 'bar' });
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [
           pluginLess({
             lessLoaderOptions: {
@@ -88,14 +102,14 @@ describe('plugin-less', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
+    const rspackConfigs = await rsbuild.initConfigs();
 
-    expect(matchRules(bundlerConfigs[0], 'a.less')).toMatchSnapshot();
+    expect(matchRules(rspackConfigs[0], 'a.less')).toMatchSnapshot();
   });
 
   it('should allow to add multiple less rules', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [
           pluginLess({
             include: [/a\.less/, /b\.less/],
@@ -107,36 +121,8 @@ describe('plugin-less', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(matchRules(bundlerConfigs[0], 'a.less').length).toBe(2);
-    expect(matchRules(bundlerConfigs[0], 'b.less').length).toBe(5);
-  });
-
-  it('should be compatible with Rsbuild < 1.3.0', async () => {
-    const rsbuild = await createRsbuild({
-      rsbuildConfig: {
-        plugins: [
-          {
-            name: 'rsbuild-plugin-test',
-            post: ['rsbuild:css'],
-            setup(api: RsbuildPluginAPI) {
-              // Mock the behavior of Rsbuild < 1.3.0
-              api.modifyBundlerChain((chain, { CHAIN_ID }) => {
-                chain.module.rules.delete(CHAIN_ID.RULE.CSS_INLINE);
-                // @ts-expect-error
-                delete CHAIN_ID.RULE.CSS_INLINE;
-              });
-            },
-          },
-          pluginLess(),
-        ],
-      },
-    });
-
-    await rsbuild.initConfigs();
-
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(matchRules(bundlerConfigs[0], 'a.less').length).toBe(2);
-    expect(matchRules(bundlerConfigs[0], 'a.less?inline').length).toBe(0);
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchRules(rspackConfigs[0], 'a.less').length).toBe(1);
+    expect(matchRules(rspackConfigs[0], 'b.less').length).toBe(2);
   });
 });

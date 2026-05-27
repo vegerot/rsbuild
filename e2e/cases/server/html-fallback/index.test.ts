@@ -1,26 +1,10 @@
-import fs from 'node:fs';
-import { join } from 'node:path';
-import { dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-
-const cwd = __dirname;
+import { expect, getFileContent, test } from '@e2e/helper';
 
 test('should access / success and htmlFallback success by default', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
-      dev: {
-        writeToDisk: true,
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-0',
-        },
-      },
-    },
-  });
+  const rsbuild = await devOnly();
 
   const url = new URL(`http://localhost:${rsbuild.port}/`);
 
@@ -40,24 +24,13 @@ test('should access / success and htmlFallback success by default', async ({
   await page.goto(`http://localhost:${rsbuild.port}//aaaaa`);
 
   await expect(page.locator('#test')).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
-test('should return 404 when htmlFallback false', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
-      dev: {
-        writeToDisk: true,
-      },
+test('should return 404 when htmlFallback false', async ({ page, devOnly }) => {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         htmlFallback: false,
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-0-1',
-        },
       },
     },
   });
@@ -67,17 +40,17 @@ test('should return 404 when htmlFallback false', async ({ page }) => {
   const res = await page.goto(url.href);
 
   expect(res?.status()).toBe(404);
-
-  await rsbuild.close();
 });
 
-test('should access /main with query or hash success', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should access /main with query or hash success', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
       },
     },
@@ -97,28 +70,18 @@ test('should access /main with query or hash success', async ({ page }) => {
   const res1 = await page.goto(url1.href);
 
   expect(res1?.status()).toBe(200);
-
-  await rsbuild.close();
 });
 
 test('should access /main.html success when entry is main', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-1',
-        },
-      },
-      dev: {
-        writeToDisk: true,
       },
     },
   });
@@ -129,26 +92,18 @@ test('should access /main.html success when entry is main', async ({
 
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
-test('should access /main success when entry is main', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should access /main success when entry is main', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-2',
-        },
-      },
-      dev: {
-        writeToDisk: true,
       },
     },
   });
@@ -161,28 +116,18 @@ test('should access /main success when entry is main', async ({ page }) => {
 
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
 test('should access /main success when entry is main and use memoryFs', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-3',
-        },
-      },
-      dev: {
-        writeToDisk: true,
       },
     },
   });
@@ -193,28 +138,20 @@ test('should access /main success when entry is main and use memoryFs', async ({
 
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
 test('should access /main success when entry is main and set assetPrefix', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
-        },
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-4',
+          main: './src/index.js',
         },
       },
       dev: {
-        writeToDisk: true,
         assetPrefix: '/aaaa/',
       },
     },
@@ -226,31 +163,21 @@ test('should access /main success when entry is main and set assetPrefix', async
 
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
 test('should access /main success when entry is main and outputPath is /main/index.html', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
-        },
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-5',
+          main: './src/index.js',
         },
       },
       html: {
         outputStructure: 'nested',
-      },
-      dev: {
-        writeToDisk: true,
       },
     },
   });
@@ -261,26 +188,15 @@ test('should access /main success when entry is main and outputPath is /main/ind
 
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
-test('should return 404 when page is not found', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should return 404 when page is not found', async ({ page, devOnly }) => {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
-      },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-6',
-        },
-      },
-      dev: {
-        writeToDisk: true,
       },
     },
   });
@@ -290,29 +206,23 @@ test('should return 404 when page is not found', async ({ page }) => {
   const res = await page.goto(url.href);
 
   expect(res?.status()).toBe(404);
-
-  await rsbuild.close();
 });
 
 test('should access /html/main success when entry is main and outputPath is /html/main.html', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
       },
       output: {
         distPath: {
-          root: 'dist-html-fallback-5',
           html: 'html',
         },
-      },
-      dev: {
-        writeToDisk: true,
       },
     },
   });
@@ -331,40 +241,30 @@ test('should access /html/main success when entry is main and outputPath is /htm
   const res = await page.goto(url1.href);
 
   expect(res?.status()).toBe(404);
-
-  await rsbuild.close();
 });
 
 test('should access /main success when modify publicPath in compiler', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
+          main: './src/index.js',
         },
       },
-      output: {
-        distPath: {
-          root: 'dist-html-fallback-6',
+      plugins: [
+        {
+          name: 'foo',
+          setup(api: any) {
+            api.modifyBundlerChain((chain: any) => {
+              chain.output.publicPath('/aaaa/');
+            });
+          },
         },
-      },
-      dev: {
-        writeToDisk: true,
-      },
+      ],
     },
-    plugins: [
-      {
-        name: 'foo',
-        setup(api: any) {
-          api.modifyBundlerChain((chain: any) => {
-            chain.output.publicPath('/aaaa/');
-          });
-        },
-      },
-    ],
   });
 
   const url = new URL(`http://localhost:${rsbuild.port}/main`);
@@ -374,30 +274,21 @@ test('should access /main success when modify publicPath in compiler', async ({
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
 
-  const content = fs.readFileSync(
-    join(cwd, 'dist-html-fallback-6', 'main.html'),
-    'utf-8',
-  );
+  const files = rsbuild.getDistFiles();
+  const htmlContent = getFileContent(files, 'main.html');
 
-  expect(content.includes('/aaaa/static/js/main.js')).toBeTruthy();
-
-  await rsbuild.close();
+  expect(htmlContent.includes('/aaaa/static/js/main.js')).toBeTruthy();
 });
 
 test('should access /main success when distPath is absolute', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       source: {
         entry: {
-          main: join(cwd, 'src/index.js'),
-        },
-      },
-      output: {
-        distPath: {
-          root: join(cwd, 'dist-html-fallback-7'),
+          main: './src/index.js',
         },
       },
     },
@@ -410,6 +301,4 @@ test('should access /main success when distPath is absolute', async ({
 
   const locator = page.locator('#test');
   await expect(locator).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });

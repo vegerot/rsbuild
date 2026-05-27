@@ -1,5 +1,5 @@
-import { createRequire } from 'node:module';
 import path from 'node:path';
+import { require } from '../../helpers';
 import { BasicRunner } from './basic';
 import type {
   BasicGlobalContext,
@@ -8,8 +8,6 @@ import type {
   ModuleObject,
   RunnerRequirer,
 } from './type';
-
-const require = createRequire(import.meta.url);
 
 const define = (...args: unknown[]) => {
   const factory = args.pop() as () => void;
@@ -20,12 +18,8 @@ export class CommonJsRunner extends BasicRunner {
   protected createGlobalContext(): BasicGlobalContext {
     return {
       console: console,
-      setTimeout: ((
-        cb: (...args: any[]) => void,
-        ms: number | undefined,
-        ...args: any
-      ) => {
-        const timeout = setTimeout(cb, ms, ...args);
+      setTimeout: ((...args: Parameters<typeof setTimeout>) => {
+        const timeout = setTimeout(...args);
         timeout.unref();
         return timeout;
       }) as typeof setTimeout,
@@ -39,7 +33,7 @@ export class CommonJsRunner extends BasicRunner {
       console: this.globalContext!.console,
       setTimeout: this.globalContext!.setTimeout,
       clearTimeout: this.globalContext!.clearTimeout,
-      nsObj: (m: Record<string, any>) => {
+      nsObj: (m: Record<string, unknown>) => {
         Object.defineProperty(m, Symbol.toStringTag, {
           value: 'Module',
         });
@@ -78,6 +72,7 @@ export class CommonJsRunner extends BasicRunner {
         paths: [_currentDirectory],
       });
 
+      // rslint-disable-next-line @typescript-eslint/no-require-imports
       return require(
         resolvedPath.startsWith('node:') ? resolvedPath.slice(5) : resolvedPath,
       );
@@ -85,7 +80,8 @@ export class CommonJsRunner extends BasicRunner {
   }
 
   protected createCjsRequirer(): RunnerRequirer {
-    const requireCache = Object.create(null);
+    const requireCache: Record<string, ModuleObject> = Object.create(null);
+    // rslint-disable-next-line @typescript-eslint/no-require-imports
     const vm = require('node:vm') as typeof import('node:vm');
 
     return (currentDirectory, modulePath, context = {}) => {
@@ -110,17 +106,12 @@ export class CommonJsRunner extends BasicRunner {
 
       const args = Object.keys(currentModuleScope);
       const argValues = args.map((arg) => currentModuleScope[arg]);
-      const code = `(function(${args.join(', ')}) {
-        ${file.content}
-      })`;
-
-      this.preExecute(code, file);
+      this.preExecute(file.content, file);
       const dynamicImport = new Function(
         'specifier',
         'return import(specifier)',
       );
-      // Runs the compiled code contained by the `vm.Script` within the context of the current `global` object.
-      const fn = vm.runInThisContext(code, {
+      const fn = vm.compileFunction(file.content, args, {
         filename: file.path,
         // Specify how the modules should be loaded during the evaluation of this script when `import()` is called.
         importModuleDynamically: async (specifier) => {

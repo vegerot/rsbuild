@@ -1,3 +1,7 @@
+---
+description: 'Configure whether to enable gzip compression for static assets served by the dev server or preview server.'
+---
+
 # server.compress
 
 - **Type:**
@@ -7,6 +11,7 @@ type Compress =
   | boolean
   | {
       filter?: (req: IncomingMessage, res: ServerResponse) => boolean;
+      level?: number;
     };
 ```
 

@@ -1,32 +1,11 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should glob import components in dev build correctly',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-    });
-
+test('should glob import components correctly', async ({
+  page,
+  runBothServe,
+}) => {
+  await runBothServe(async () => {
     await expect(page.locator('#header')).toHaveText('Header');
     await expect(page.locator('#footer')).toHaveText('Footer');
-
-    await rsbuild.close();
-  },
-);
-
-rspackOnlyTest(
-  'should glob import components in build correctly',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-    });
-
-    await expect(page.locator('#header')).toHaveText('Header');
-    await expect(page.locator('#footer')).toHaveText('Footer');
-
-    await rsbuild.close();
-  },
-);
+  });
+});

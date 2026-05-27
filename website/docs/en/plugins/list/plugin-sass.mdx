@@ -1,16 +1,20 @@
+---
+description: 'Use Sass as the CSS preprocessor, implemented based on sass-loader.'
+---
+
 # Sass plugin
 
-import { SourceCode } from '@rspress/core/theme';
+import { SourceCode } from '@theme';
 
 <SourceCode href="https://github.com/web-infra-dev/rsbuild/tree/main/packages/plugin-sass" />
 
-Use [Sass](https://sass-lang.com/) as the CSS preprocessor, implemented based on [sass-loader](https://github.com/webpack-contrib/sass-loader).
+Use [Sass](https://sass-lang.com/) as the CSS preprocessor, implemented based on [sass-loader](https://github.com/webpack/sass-loader).
 
 ## Quick start
 
 ### Install plugin
 
-You can install the plugin using the following command:
+Install the plugin using this command:
 
 import { PackageManagerTabs } from '@theme';
 
@@ -19,13 +23,13 @@ import { PackageManagerTabs } from '@theme';
 :::tip
 
 - The Sass plugin only supports @rsbuild/core versions >= 0.7.0.
-- If the @rsbuild/core version is lower than 0.7.0, it has built-in support for the Sass plugin, you do not need to install it.
+- If the @rsbuild/core version is lower than 0.7.0, it has built-in support for the Sass plugin; you don't need to install it.
 
 :::
 
 ### Register plugin
 
-You can register the plugin in the `rsbuild.config.ts` file:
+Register the plugin in your `rsbuild.config.ts` file:
 
 ```ts title="rsbuild.config.ts"
 import { pluginSass } from '@rsbuild/plugin-sass';
@@ -43,7 +47,7 @@ To customize the compilation behavior of Sass, use the following options.
 
 ### sassLoaderOptions
 
-Modify the config of [sass-loader](https://github.com/webpack-contrib/sass-loader).
+Modify the config of [sass-loader](https://github.com/webpack/sass-loader).
 
 - **Type:** `Object | Function`
 - **Default:**
@@ -86,11 +90,11 @@ pluginSass({
 
 ### include
 
-- **Type:** [RuleSetCondition](https://rspack.rs/config/module#condition)
+- **Type:** [Rspack.RuleSetCondition](https://rspack.rs/config/module-rules#condition)
 - **Default:** `/\.s(?:a|c)ss$/`
 - **Version:** `>= 1.1.0`
 
-Include some `.scss` or `.sass` files, they will be transformed by `sass-loader`. The value is the same as the `rule.test` option in Rspack.
+Include some `.scss` or `.sass` files, they will be transformed by `sass-loader`. The value is the same as the [rules[].test](https://rspack.rs/config/module-rules#rulestest) option in Rspack.
 
 For example:
 
@@ -102,7 +106,7 @@ pluginSass({
 
 ### exclude
 
-- **Type:** [RuleSetCondition](https://rspack.rs/config/module#condition)
+- **Type:** [Rspack.RuleSetCondition](https://rspack.rs/config/module-rules#condition)
 - **Default:** `undefined`
 
 Exclude some `.sass` or `.scss` files, they will not be transformed by `sass-loader`.
@@ -141,7 +145,7 @@ Sass provides several implementations, including [sass](https://npmjs.com/packag
 
 Rsbuild uses the latest `sass-embedded` implementation by default. `sass-embedded` is a JavaScript wrapper around the native Dart Sass executable, providing a consistent API and optimal performance.
 
-To use a different Sass implementation instead of the built-in `sass-embedded` included in Rsbuild, install the preferred Sass implementation in your project and specify it using the `sass-loader`'s [implementation](https://github.com/webpack-contrib/sass-loader?tab=readme-ov-file#implementation) option.
+To use a different Sass implementation instead of the built-in `sass-embedded` included in Rsbuild, install the preferred Sass implementation in your project and specify it using the `sass-loader`'s [implementation](https://github.com/webpack/sass-loader#implementation) option.
 
 ```ts
 pluginSass({

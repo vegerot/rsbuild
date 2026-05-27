@@ -1,11 +1,7 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest('should build basic Vue jsx correctly', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-  });
+test('should build basic Vue jsx correctly', async ({ page, buildPreview }) => {
+  const rsbuild = await buildPreview();
 
   const reactUrl = new URL(`http://localhost:${rsbuild.port}/react`);
 
@@ -19,6 +15,4 @@ rspackOnlyTest('should build basic Vue jsx correctly', async ({ page }) => {
 
   const button1 = page.locator('#button1');
   await expect(button1).toHaveText('A: 0');
-
-  await rsbuild.close();
 });

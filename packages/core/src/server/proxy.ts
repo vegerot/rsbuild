@@ -1,77 +1,63 @@
-import type { RequestHandler } from '../../compiled/http-proxy-middleware/index.js';
-import { logger } from '../logger';
+import type { RequestHandler } from 'http-proxy-middleware';
+import { color } from '../helpers';
+import type { Logger } from '../logger';
 import type {
   RequestHandler as Middleware,
   ProxyConfig,
   ProxyOptions,
 } from '../types';
-import type { UpgradeEvent } from './helper';
+import { HttpCode, type UpgradeEvent } from './helper';
 
-function formatProxyOptions(proxyOptions: ProxyConfig) {
-  const ret: ProxyOptions[] = [];
+function formatProxyOptions(proxyOptions: ProxyConfig, logger: Logger) {
+  const logPrefix = color.dim('[http-proxy-middleware]: ');
+  const defaultOptions: ProxyOptions = {
+    changeOrigin: true,
+    logger: {
+      info(msg: string) {
+        logger.debug(logPrefix + msg);
+      },
+      warn: (msg: string) => {
+        logger.warn(logPrefix + msg);
+      },
+      error: (msg: string) => {
+        logger.error(logPrefix + msg);
+      },
+    },
+  };
 
   if (Array.isArray(proxyOptions)) {
-    ret.push(...proxyOptions);
-  } else if ('target' in proxyOptions) {
-    ret.push(proxyOptions);
-  } else {
-    for (const [context, options] of Object.entries(proxyOptions)) {
-      const opts: ProxyOptions = {
-        context,
-        changeOrigin: true,
-        logLevel: 'warn',
-        logProvider: () => logger,
-      };
-      if (typeof options === 'string') {
-        opts.target = options;
-      } else {
-        Object.assign(opts, options);
-      }
-      ret.push(opts);
-    }
+    return proxyOptions.map((options) => ({
+      ...defaultOptions,
+      ...options,
+    }));
   }
 
-  return ret;
+  return Object.entries(proxyOptions).map(([pathFilter, value]) => ({
+    ...defaultOptions,
+    pathFilter,
+    ...(typeof value === 'string' ? { target: value } : value),
+  }));
 }
 
-export const createProxyMiddleware = async (
+export async function createProxyMiddleware(
   proxyOptions: ProxyConfig,
+  logger: Logger,
 ): Promise<{
   middlewares: Middleware[];
   upgrade: UpgradeEvent;
-}> => {
+}> {
   // If it is not an array, it may be an object that uses the context attribute
   // or an object in the form of { source: ProxyDetail }
-  const formattedOptions = formatProxyOptions(proxyOptions);
+  const formattedOptions = formatProxyOptions(proxyOptions, logger);
   const proxyMiddlewares: RequestHandler[] = [];
   const middlewares: Middleware[] = [];
 
   const { createProxyMiddleware: baseMiddleware } = await import(
-    '../../compiled/http-proxy-middleware/index.js'
+    /* webpackChunkName: "http-proxy-middleware" */ 'http-proxy-middleware'
   );
 
   for (const opts of formattedOptions) {
-    const { onProxyRes } = opts;
-
-    /**
-     * Fix SSE close events
-     * Can be removed after updating to http-proxy-middleware v3
-     * @link https://github.com/chimurai/http-proxy-middleware/issues/678
-     * @link https://github.com/http-party/node-http-proxy/issues/1520#issue-877626125
-     */
-    opts.onProxyRes = (proxyRes, _req, res) => {
-      // call user's onProxyRes if provided
-      if (onProxyRes) {
-        onProxyRes(proxyRes, _req, res);
-      }
-      res.on('close', () => {
-        if (!res.writableEnded) {
-          proxyRes.destroy();
-        }
-      });
-    };
-
-    const proxyMiddleware = baseMiddleware(opts.context!, opts);
+    const proxyMiddleware = baseMiddleware(opts);
 
     const middleware: Middleware = async (req, res, next) => {
       const bypassUrl =
@@ -80,7 +66,7 @@ export const createProxyMiddleware = async (
           : null;
 
       if (bypassUrl === false) {
-        res.statusCode = 404;
+        res.statusCode = HttpCode.NotFound;
         next();
       } else if (typeof bypassUrl === 'string') {
         req.url = bypassUrl;
@@ -96,7 +82,9 @@ export const createProxyMiddleware = async (
 
     // only proxy WebSocket request when user specified
     // fix WebSocket error when user forget filter HMR path
-    opts.ws && proxyMiddlewares.push(proxyMiddleware);
+    if (opts.ws) {
+      proxyMiddlewares.push(proxyMiddleware);
+    }
   }
 
   const handleUpgrade: UpgradeEvent = (req, socket, head) => {
@@ -111,4 +99,4 @@ export const createProxyMiddleware = async (
     middlewares,
     upgrade: handleUpgrade,
   };
-};
+}

@@ -1,3 +1,7 @@
+---
+description: '在生产模式构建后，Rsbuild 会自动在文件名中间添加 hash 值，如果不需要添加，可以将 output.filenameHash 设置为 false 来禁用该行为。'
+---
+
 # output.filename
 
 - **类型：**
@@ -24,25 +28,25 @@ const devDefaultFilename = {
   html: '[name].html',
   js: '[name].js',
   css: '[name].css',
-  svg: '[name].[contenthash:8].svg',
-  font: '[name].[contenthash:8][ext]',
-  wasm: '[contenthash:8].module.wasm',
-  image: '[name].[contenthash:8][ext]',
-  media: '[name].[contenthash:8][ext]',
-  assets: '[name].[contenthash:8][ext]',
+  svg: '[name].[contenthash:10].svg',
+  font: '[name].[contenthash:10][ext]',
+  wasm: '[contenthash:10].module.wasm',
+  image: '[name].[contenthash:10][ext]',
+  media: '[name].[contenthash:10][ext]',
+  assets: '[name].[contenthash:10][ext]',
 };
 
 // 生产模式构建
 const prodDefaultFilename = {
   html: '[name].html',
-  js: output.target === 'node' ? '[name].js' : '[name].[contenthash:8].js',
-  css: '[name].[contenthash:8].css',
-  svg: '[name].[contenthash:8].svg',
-  font: '[name].[contenthash:8][ext]',
-  wasm: '[contenthash:8].module.wasm',
-  image: '[name].[contenthash:8][ext]',
-  media: '[name].[contenthash:8][ext]',
-  assets: '[name].[contenthash:8][ext]',
+  js: output.target === 'node' ? '[name].js' : '[name].[contenthash:10].js',
+  css: '[name].[contenthash:10].css',
+  svg: '[name].[contenthash:10].svg',
+  font: '[name].[contenthash:10][ext]',
+  wasm: '[contenthash:10].module.wasm',
+  image: '[name].[contenthash:10][ext]',
+  media: '[name].[contenthash:10][ext]',
+  assets: '[name].[contenthash:10][ext]',
 };
 ```
 
@@ -95,7 +99,7 @@ const isProd = process.env.NODE_ENV === 'production';
 export default {
   output: {
     filename: {
-      js: isProd ? '[name]_script.[contenthash:8].js' : '[name]_script.js',
+      js: isProd ? '[name]_script.[contenthash:10].js' : '[name]_script.js',
     },
   },
 };
@@ -107,22 +111,22 @@ export default {
 如果你在开发模式下设置了文件名的 hash，那么可能会导致热更新不生效（尤其是 CSS 文件）。这是因为每次文件内容变化时，都会引起 hash 变化，导致打包工具无法读取到最新的文件内容。
 :::
 
-## 模板字符串
+## 文件名占位符
 
-在 `output.filename` 的值中，你可以使用模板字符串来动态生成文件名。
+在 `output.filename` 的值中，你可以使用文件名占位符来动态生成文件名。
 
-常用的模板字符串有：
+常用的文件名占位符有：
 
 - `[name]` - entry 名称，即 [source.entry](/config/source/entry) 的 key。
 - `[contenthash]` - 基于文件内容生成的 hash 值。
 - `[contenthash:<length>]` - 基于文件内容生成的 hash 值，并指定 hash 长度。
 - `[ext]` - 文件后缀名，包含点号。
 
-> 更多模板字符串可以参考 [Rspack - Template String](https://rspack.rs/zh/config/output#template-string)。
+> 更多文件名占位符可以参考 [Rspack - 文件名占位符](https://rspack.rs/zh/config/filename-placeholders)。
 
 :::tip
 
-- `filename.html` 只能使用部分模板字符串，如 `[name]`、`[contenthash:<length>]`。
+- `filename.html` 只能使用部分文件名占位符，如 `[name]`、`[contenthash:<length>]`。
 - `filename.js` 和 `filename.css` 不支持 `[ext]`。
 
 :::
@@ -132,7 +136,7 @@ export default {
 当你在代码中通过 dynamic import 的方式引入模块时，该模块会被单独打包成一个文件，它默认的命名规则如下：
 
 - 在开发模式下会基于模块路径生成名称，比如 `dist/static/js/async/src_add_ts.js`。
-- 在生产模式下会是一个随机的数字 id，比如 `dist/static/js/async/798.27e3083e.js`，这是为了避免在生产模式中泄露源代码的路径，同时字符数也更少。
+- 在生产模式下会是一个随机的数字 id，比如 `dist/static/js/async/798.27e3083eab.js`，这是为了避免在生产模式中泄露源代码的路径，同时字符数也更少。
 
 ```js title="src/index.ts"
 const { add } = await import('./add.ts');
@@ -169,7 +173,7 @@ export default {
         console.log(pathData); // 你可以在这里查看 pathData 的内容
 
         if (pathData.chunk?.name === 'index') {
-          return isProd ? '[name].[contenthash:8].js' : '[name].js';
+          return isProd ? '[name].[contenthash:10].js' : '[name].js';
         }
         return '/some-path/[name].js';
       },
@@ -188,7 +192,7 @@ export default {
     filename: {
       css: (pathData, assetInfo) => {
         if (pathData.chunk?.name === 'index') {
-          return isProd ? '[name].[contenthash:8].css' : '[name].css';
+          return isProd ? '[name].[contenthash:10].css' : '[name].css';
         }
         return '/some-path/[name].css';
       },
@@ -228,8 +232,8 @@ const isProd = process.env.NODE_ENV === 'production';
 export default {
   output: {
     filename: {
-      js: isProd ? '[name].js?v=[contenthash:8]' : `[name].js`,
-      css: isProd ? '[name].css?v=[contenthash:8]' : `[name].css`,
+      js: isProd ? '[name].js?v=[contenthash:10]' : `[name].js`,
+      css: isProd ? '[name].css?v=[contenthash:10]' : `[name].css`,
     },
   },
 };
@@ -238,11 +242,11 @@ export default {
 在这种情况下，JS、CSS 的文件名将不包含 hash，而 HTML 中的 URL 将包含 hash query。
 
 ```html
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <script defer src="/static/js/index.js?v=b8565050"></script>
-    <link href="/static/css/index.css?v=02d157ca" rel="stylesheet" />
+    <script defer src="/static/js/index.js?v=b8565050ab"></script>
+    <link href="/static/css/index.css?v=02d157caab" rel="stylesheet" />
   </head>
 </html>
 ```

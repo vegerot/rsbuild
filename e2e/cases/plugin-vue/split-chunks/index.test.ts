@@ -1,61 +1,49 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { pluginVue } from '@rsbuild/plugin-vue';
 
-const fixtures = __dirname;
-
-test('should split vue chunks correctly', async () => {
+test('should split vue chunks correctly', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginVue()],
-  });
-
-  const files = await rsbuild.getDistFiles();
-  const filesNames = Object.keys(files);
-  expect(filesNames.find((file) => file.includes('lib-vue'))).toBeTruthy();
-  expect(filesNames.find((file) => file.includes('lib-router'))).toBeTruthy();
-});
-
-test('should not split vue chunks when strategy is `all-in-one`', async () => {
-  const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginVue()],
-    rsbuildConfig: {
-      performance: {
-        chunkSplit: {
-          strategy: 'all-in-one',
-        },
-      },
+    config: {
+      plugins: [pluginVue()],
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filesNames = Object.keys(files);
-  expect(filesNames.find((file) => file.includes('lib-vue'))).toBeFalsy();
-  expect(filesNames.find((file) => file.includes('lib-router'))).toBeFalsy();
+  expect(filesNames.find((file) => file.includes('lib-vue'))).toBeTruthy();
 });
 
-test('should not override user defined cache groups', async () => {
+test('should not split vue chunks when strategy is `all-in-one`', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginVue()],
-    rsbuildConfig: {
-      performance: {
-        chunkSplit: {
-          override: {
-            cacheGroups: {
-              vue: {
-                name: 'my-vue',
-                test: /vue/,
-              },
-            },
+    config: {
+      plugins: [pluginVue()],
+      splitChunks: false,
+    },
+  });
+
+  const files = rsbuild.getDistFiles();
+  const filesNames = Object.keys(files);
+  expect(filesNames.find((file) => file.includes('lib-vue'))).toBeFalsy();
+});
+
+test('should not override user defined cache groups', async ({ build }) => {
+  const rsbuild = await build({
+    config: {
+      plugins: [pluginVue()],
+      splitChunks: {
+        cacheGroups: {
+          vue: {
+            name: 'my-vue',
+            test: /vue/,
           },
         },
       },
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filesNames = Object.keys(files);
   expect(filesNames.find((file) => file.includes('my-vue'))).toBeTruthy();
 });

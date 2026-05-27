@@ -1,5 +1,4 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import type { RsbuildPlugin } from '@rsbuild/core';
 
 const asyncPlugin = async (): Promise<RsbuildPlugin> => {
@@ -23,18 +22,16 @@ const asyncPlugin = async (): Promise<RsbuildPlugin> => {
   };
 };
 
-rspackOnlyTest(
-  'should allow to register async plugin in plugins field',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
+test('should allow to register async plugin in plugins field', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview({
+    config: {
       plugins: [asyncPlugin()],
-    });
+    },
+  });
 
-    const testEl = page.locator('#test-el');
-    await expect(testEl).toHaveText('aaaaa');
-
-    await rsbuild.close();
-  },
-);
+  const testEl = page.locator('#test-el');
+  await expect(testEl).toHaveText('aaaaa');
+});

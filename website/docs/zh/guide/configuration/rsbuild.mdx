@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 提供了丰富的配置项，并为每个配置项预设了一个通用的默认值，它可以满足大部分使用场景。因此，在大多数情况下，你不需要声明任何 Rsbuild 配置，直接开箱使用即可。'
+---
+
 # 配置 Rsbuild
 
 Rsbuild 提供了丰富的配置项，并为每个配置项预设了一个通用的默认值，它可以满足大部分使用场景。因此，在大多数情况下，你不需要声明任何 Rsbuild 配置，直接开箱使用即可。
@@ -33,7 +37,8 @@ export default {
   },
   server: {
     // 与 Rsbuild 服务器有关的选项
-    // 在本地开发和预览时都会生效
+    // 主要用于本地开发和预览
+    // 部分选项（如 publicDir、base）也会影响生产构建
   },
   security: {
     // 与 Web 安全有关的选项
@@ -54,16 +59,18 @@ export default {
 
 ## 配置文件
 
-当你使用 Rsbuild 的 CLI 命令时，Rsbuild 会自动读取当前项目根目录下的配置文件，按照以下顺序进行解析：
+当你使用 Rsbuild 的 CLI 命令时，或者在未指定 `path` 的情况下调用 `loadConfig` 时，Rsbuild 会自动读取当前项目根目录下的配置文件，并按以下顺序进行解析：
 
-- rsbuild.config.mjs
 - rsbuild.config.ts
 - rsbuild.config.js
-- rsbuild.config.cjs
 - rsbuild.config.mts
+- rsbuild.config.mjs
 - rsbuild.config.cts
+- rsbuild.config.cjs
 
-我们推荐使用 `.mjs` 或 `.ts` 格式的配置文件，并从 `@rsbuild/core` 中导入 `defineConfig` 工具函数, 它提供了友好的 TypeScript 类型推导和自动补全，可以帮助你避免配置中的错误。
+如果同时存在多个配置文件，Rsbuild 会使用这个列表中第一个匹配到的文件。
+
+我们推荐使用 `rsbuild.config.ts`，并从 `@rsbuild/core` 中导入 `defineConfig` 工具函数, 它提供了友好的 TypeScript 类型推导和自动补全，可以帮助你避免配置中的错误。
 
 比如在 `rsbuild.config.ts` 中，你可以定义 Rsbuild 的 [resolve.alias](/config/resolve/alias) 配置：
 
@@ -78,6 +85,10 @@ export default defineConfig({
   },
 });
 ```
+
+:::tip
+如果 Node.js 在加载 `rsbuild.config.ts` 时出现 `[MODULE_TYPELESS_PACKAGE_JSON]` 警告，你可以在 package.json 中添加 `"type": "module"`，或将文件重命名为 `rsbuild.config.mts` 来解决该警告。
+:::
 
 如果你在开发一个非 TypeScript 项目，可以使用 `.mjs` 格式的配置文件：
 
@@ -115,21 +126,41 @@ rsbuild build -c rsbuild.prod.config.mjs
 
 ## 指定加载方式
 
-当你使用 `.ts`, `.mts` 和 `.cts` 后缀的配置文件时，Rsbuild 会使用 [jiti](https://github.com/unjs/jiti) 来加载配置文件，提供 ESM 与 CommonJS 的互操作性，模块解析的行为与 Node.js 原生行为存在一定差异。
+Rsbuild 提供了三种配置文件加载方式：
 
-如果你使用的 JavaScript 运行时已经原生支持 TypeScript，可以使用 `--config-loader native` 选项来使用 Node.js 原生 loader 来加载配置文件。这可以保证模块解析的行为与 Node.js 原生行为一致，并且性能更好。
+- `auto`（默认）：优先使用 Node.js 原生 loader 来加载配置文件，失败时回退到使用 jiti 加载。
+- `jiti`：使用 [jiti](https://github.com/unjs/jiti) 来加载配置文件，提供 ESM 与 CommonJS 的互操作性，模块解析的行为与 Node.js 原生行为存在一定差异。
+- `native`：使用 Node.js 原生 loader 来加载配置文件，这可以保证模块解析的行为与 Node.js 原生行为一致，并且性能更好。这要求你使用的 JavaScript 运行时已经原生支持 TypeScript。
 
-例如，Node.js 从 v22.6.0 开始已经原生支持 TypeScript，你可以如下命令来使用 Node.js 原生 loader 来加载配置文件：
+  例如，Node.js 从 v22.6.0 开始已经原生支持 TypeScript，你可以运行如下命令来使用 Node.js 原生 loader 来加载配置文件：
 
-```bash
-# Node.js >= v22.18.0
-# 不需要设置 --experimental-strip-types
-npx rsbuild build --config-loader native
+  ```bash
+  # Node.js >= v22.18.0
+  # 不需要设置 --experimental-strip-types
+  npx rsbuild build --config-loader native
 
-# Node.js v22.6.0 - v22.17.0
-# 需要设置 --experimental-strip-types
-NODE_OPTIONS="--experimental-strip-types" npx rsbuild build --config-loader native
-```
+  # Node.js v22.6.0 - v22.17.1
+  # 需要设置 --experimental-strip-types
+  NODE_OPTIONS="--experimental-strip-types" npx rsbuild build --config-loader native
+  ```
+
+### 关于 Node.js 原生 loader
+
+使用 Node.js 原生 loader 时，请注意以下限制：
+
+1. 导入 JSON 文件时，需要使用 import attributes：
+
+   ```ts
+   import pkgJson from './package.json' with { type: 'json' }; // ✅ 正确
+   import pkgJson from './package.json'; // ❌ 错误
+   ```
+
+2. 导入 TypeScript 文件时，需要包含 `.ts` 扩展名：
+
+   ```ts
+   import baseConfig from './rsbuild.base.config.ts'; // ✅ 正确
+   import baseConfig from './rsbuild.base.config'; // ❌ 错误
+   ```
 
 > 详见 [Node.js - Running TypeScript Natively](https://nodejs.org/en/learn/typescript/run-natively#running-typescript-natively)。
 

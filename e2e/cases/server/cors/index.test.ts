@@ -1,5 +1,4 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { defaultAllowedOrigins } from '@rsbuild/core';
 
 test('should expose `defaultAllowedOrigins`', async () => {
@@ -7,122 +6,97 @@ test('should expose `defaultAllowedOrigins`', async () => {
 });
 
 test('should include CORS headers for dev server if `cors` is `true`', async ({
-  page,
   request,
+  dev,
 }) => {
   const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+    config: {
       server: {
         cors: true,
       },
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()['access-control-allow-origin']).toEqual('*');
-
-  await rsbuild.close();
 });
 
 test('should include CORS headers for preview server if `cors` is `true`', async ({
-  page,
   request,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       server: {
         cors: true,
       },
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()['access-control-allow-origin']).toEqual('*');
-
-  await rsbuild.close();
 });
 
-rspackOnlyTest(
-  'should include CORS headers for MF',
-  async ({ page, request }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
-        moduleFederation: {
-          options: {
-            name: 'foo',
-            exposes: {},
-          },
+test('should include CORS headers for MF', async ({ request, dev }) => {
+  const rsbuild = await dev({
+    config: {
+      moduleFederation: {
+        options: {
+          name: 'foo',
+          exposes: {},
         },
       },
-    });
+    },
+  });
 
-    const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
-    expect(response.headers()['access-control-allow-origin']).toEqual('*');
-
-    await rsbuild.close();
-  },
-);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
+  expect(response.headers()['access-control-allow-origin']).toEqual('*');
+});
 
 test('should not include CORS headers for dev server if `cors` is `false`', async ({
-  page,
   request,
+  dev,
 }) => {
   const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+    config: {
       server: {
         cors: false,
       },
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()).not.toHaveProperty('access-control-allow-origin');
-  await rsbuild.close();
 });
 
-test('should set `cors` to `false` by default', async ({ page, request }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-  });
-
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+test('should set `cors` to `false` by default', async ({
+  request,
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview();
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()).not.toHaveProperty('access-control-allow-origin');
-  await rsbuild.close();
 });
 
 test('should not include CORS headers for preview server if `cors` is `false`', async ({
-  page,
   request,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       server: {
         cors: false,
       },
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()).not.toHaveProperty('access-control-allow-origin');
-  await rsbuild.close();
 });
 
-test('should allow to configure CORS', async ({ page, request }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should allow to configure CORS', async ({ request, buildPreview }) => {
+  const rsbuild = await buildPreview({
+    config: {
       server: {
         cors: {
           origin: 'https://example.com',
@@ -131,22 +105,18 @@ test('should allow to configure CORS', async ({ page, request }) => {
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()['access-control-allow-origin']).toEqual(
     'https://example.com',
   );
-
-  await rsbuild.close();
 });
 
 test('should override `server.cors` for dev server when `server.headers` is set', async ({
-  page,
   request,
+  dev,
 }) => {
   const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+    config: {
       server: {
         cors: true,
         headers: {
@@ -156,22 +126,18 @@ test('should override `server.cors` for dev server when `server.headers` is set'
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()['access-control-allow-origin']).toEqual(
     'https://example.com',
   );
-
-  await rsbuild.close();
 });
 
 test('should override `server.cors` for preview server when `server.headers` is set', async ({
-  page,
   request,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       server: {
         cors: true,
         headers: {
@@ -181,10 +147,8 @@ test('should override `server.cors` for preview server when `server.headers` is 
     },
   });
 
-  const response = await request.get(`http://127.0.0.1:${rsbuild.port}`);
+  const response = await request.get(`http://localhost:${rsbuild.port}`);
   expect(response.headers()['access-control-allow-origin']).toEqual(
     'https://example.com',
   );
-
-  await rsbuild.close();
 });

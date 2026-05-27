@@ -2,7 +2,6 @@ import { promises } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { EnvironmentConfig, RsbuildPlugin } from '@rsbuild/core';
-import { logger } from '@rsbuild/core';
 import type { CompileOptions } from 'svelte/compiler';
 import { sveltePreprocess } from 'svelte-preprocess';
 
@@ -21,9 +20,9 @@ export interface SvelteLoaderOptions {
   hotOptions?: {
     /** Preserve local component state */
     preserveLocalState?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export type PluginSvelteOptions = {
@@ -66,7 +65,7 @@ export function pluginSvelte(options: PluginSvelteOptions = {}): RsbuildPlugin {
           }),
         );
       } catch (err) {
-        logger.error(
+        api.logger.error(
           'Cannot resolve `svelte` package under the project directory, did you forget to install it?',
         );
         throw new Error('[rsbuild:svelte] Failed to resolve `svelte` package', {
@@ -125,8 +124,14 @@ export function pluginSvelte(options: PluginSvelteOptions = {}): RsbuildPlugin {
             },
           };
 
+          // Compatibility for Rsbuild v1
+          const isV1 = api.context.version.startsWith('1.');
           const jsRule = chain.module.rules.get(CHAIN_ID.RULE.JS);
-          const swcUse = jsRule.uses.get(CHAIN_ID.USE.SWC);
+          const jsMainRule = isV1
+            ? jsRule
+            : jsRule.oneOfs.get(CHAIN_ID.ONE_OF.JS_MAIN);
+          const swcUse = jsMainRule.uses.get(CHAIN_ID.USE.SWC);
+
           const svelteRule = chain.module
             .rule(CHAIN_ID.RULE.SVELTE)
             .test(/\.svelte$/);

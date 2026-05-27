@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild JavaScript API 参考，涵盖 rsbuild.context、rsbuild.build 等核心接口和用法。'
+---
+
 # Rsbuild instance
 
 本章节介绍了 Rsbuild 实例对象上所有的属性和方法。
@@ -113,8 +117,11 @@ export const myPlugin = {
 
 ```ts
 type DevServer = {
+  /** 服务器运行时使用的 hostname */
   hostname: string;
+  /** 服务器实际监听的端口号 */
   port: number;
+  /** 是否使用 HTTPS 协议 */
   https: boolean;
 };
 ```
@@ -130,7 +137,8 @@ async function main() {
   });
   await rsbuild.startDevServer();
 
-  console.log(rsbuild.context.devServer); // { hostname: 'localhost', port: 3000, https: false }
+  // { hostname: 'localhost', port: 3000, https: false }
+  console.log(rsbuild.context.devServer);
 }
 ```
 
@@ -146,7 +154,7 @@ type Action = 'dev' | 'build' | 'preview' | undefined;
 
 `context.action` 在运行 CLI 命令或调用 Rsbuild 实例方法时设置：
 
-- `dev`: 当运行 [rsbuild dev](/guide/basic/cli#rsbuild-dev) 或 [rsbuild.startDevServer()](/api/javascript-api/instance#rsbuildstartdevserver) 时设置。
+- `dev`: 当运行 [rsbuild dev](/guide/basic/cli#rsbuild) 或 [rsbuild.startDevServer()](/api/javascript-api/instance#rsbuildstartdevserver) 时设置。
 - `build`: 当运行 [rsbuild build](/guide/basic/cli#rsbuild-build) 或 [rsbuild.build()](/api/javascript-api/instance#rsbuildbuild) 时设置。
 - `preview`: 当运行 [rsbuild preview](/guide/basic/cli#rsbuild-preview) 或 [rsbuild.preview()](/api/javascript-api/instance#rsbuildpreview) 时设置。
 
@@ -158,38 +166,18 @@ if (rsbuild.context.action === 'dev') {
 }
 ```
 
-### context.bundlerType
+## rsbuild.logger
 
-当前执行构建的构建工具类型。
+`rsbuild.logger` 表示当前 Rsbuild 实例所关联的 logger，详见 [日志](/guide/advanced/logging)。
 
-- **类型：**
+- **类型：** [Logger](/api/javascript-api/core#logger)
 
-```ts
-type bundlerType = 'rspack' | 'webpack';
-```
-
-> Rsbuild 内部支持切换到 webpack 进行对照测试，因此提供了该字段进行区分，通常你不需要使用此字段。
-
-## rsbuild.environments
-
-### target
-
-构建产物类型，对应 Rsbuild 的 [output.target](/config/output/target) 配置。
-
-- **类型：**
+- **示例：**
 
 ```ts
-type RsbuildTarget = 'web' | 'node' | 'web-worker';
-```
+const rsbuild = await createRsbuild();
 
-### tsconfigPath
-
-tsconfig.json 文件的绝对路径，若项目中不存在 tsconfig.json 文件，则为 `undefined`。
-
-- **类型：**
-
-```ts
-type TsconfigPath = string | undefined;
+rsbuild.logger.info('build started');
 ```
 
 ## rsbuild.build
@@ -206,10 +194,6 @@ type BuildOptions = {
    * @default false
    */
   watch?: boolean;
-  /**
-   * 使用自定义的 Rspack Compiler 对象
-   */
-  compiler?: Compiler | MultiCompiler;
 };
 
 function Build(options?: BuildOptions): Promise<{
@@ -305,21 +289,6 @@ if (stats) {
 }
 ```
 
-### 自定义 Compiler
-
-个别情况下，你可能希望使用自定义的 compiler：
-
-```ts
-import { rspack } from '@rsbuild/core';
-
-const compiler = rspack({
-  // ...
-});
-await rsbuild.build({
-  compiler,
-});
-```
-
 ## rsbuild.startDevServer
 
 启动本地 dev server。该方法会：
@@ -332,17 +301,13 @@ await rsbuild.build({
 ```ts
 type StartDevServerOptions = {
   /**
-   * 使用自定义的 Rspack Compiler 对象
-   */
-  compiler?: Compiler | MultiCompiler;
-  /**
    * 是否在启动时静默获取端口号，不输出任何日志
    * @default false
    */
   getPortSilently?: boolean;
 };
 
-type StartServerResult = {
+type StartDevServerResult = {
   /**
    * 服务器监听的 URLs
    */
@@ -351,18 +316,12 @@ type StartServerResult = {
    * 服务器实际使用的端口号
    */
   port: number;
-  server: {
-    /**
-     * 关闭服务器
-     * 在开发模式下，此方法会调用 `onCloseDevServer` 钩子
-     */
-    close: () => Promise<void>;
-  };
+  server: RsbuildDevServer;
 };
 
 function StartDevServer(
   options?: StartDevServerOptions,
-): Promise<StartServerResult>;
+): Promise<StartDevServerResult>;
 ```
 
 - **示例：**
@@ -388,15 +347,15 @@ try {
 成功启动 dev server 后，可以看到以下日志信息：
 
 ```
-  ➜ Local:    http://localhost:3000
-  ➜ Network:  http://192.168.0.1:3000
+  ➜  Local:    http://localhost:3000
+  ➜  Network:  use --host to expose
 ```
 
 `startDevServer` 会返回以下参数：
 
 - `urls`：访问 dev server 的 URLs
 - `port` 实际监听的端口号
-- `server`：Server 实例对象
+- `server`：Server 实例对象，详见 [Server API](/api/javascript-api/server-api)
 
 ```ts
 const { urls, port } = await rsbuild.startDevServer();
@@ -406,7 +365,7 @@ console.log(port); // 3000
 
 ### 关闭 server
 
-调用 `close()` 方法会关闭开发服务器，触发 [onCloseDevServer](/plugins/dev/hooks#onclosedevserver) 钩子，并执行必要的清理操作。
+调用 `server.close()` 方法会关闭开发服务器，触发 [onCloseDevServer](/plugins/dev/hooks#onclosedevserver) 钩子，并执行必要的清理操作。
 
 ```ts
 const { server } = await rsbuild.startDevServer();
@@ -423,26 +382,32 @@ await rsbuild.startDevServer({
 });
 ```
 
-### 自定义 Compiler
+## rsbuild.createDevServer
 
-个别情况下，你可能希望使用自定义的 compiler：
+- **类型：**
 
 ```ts
-import { rspack } from '@rsbuild/core';
+type CreateDevServerOptions = {
+  /**
+   * 是否在启动时静默获取端口号，不输出任何日志
+   * @default false
+   */
+  getPortSilently?: boolean;
+  /**
+   * 是否触发 Rsbuild 编译
+   * @default true
+   */
+  runCompile?: boolean;
+};
 
-const compiler = rspack({
-  // ...
-});
-await rsbuild.startDevServer({
-  compiler,
-});
+function createDevServer(
+  options?: CreateDevServerOptions,
+): Promise<RsbuildDevServer>;
 ```
-
-## rsbuild.createDevServer
 
 Rsbuild 配备了一个内置的开发服务器，当你执行 `rsbuild dev` 时，将启动 Rsbuild dev server，并提供页面预览、路由、模块热更新等功能。
 
-- 如果你需要将 Rsbuild dev server 集成到自定义的 server 中，可以通过 `createDevServer` 方法创建一个 dev server 实例，请参考 [Dev server API](/api/javascript-api/dev-server-api) 了解所有可用的 API。
+- 如果你需要将 Rsbuild dev server 集成到自定义的 server 中，可以通过 `createDevServer` 方法创建一个 dev server 实例，请参考 [Server API](/api/javascript-api/server-api) 了解所有可用的 API。
 - 如果你需要直接使用 Rsbuild dev server 启动项目，可以直接使用 [rsbuild.startDevServer](#rsbuildstartdevserver) 方法。 `rsbuild.startDevServer` 实际上是以下代码的语法糖：
 
 ```ts
@@ -470,7 +435,7 @@ type PreviewOptions = {
   checkDistDir?: boolean;
 };
 
-type StartServerResult = {
+type StartPreviewServerResult = {
   /**
    * 服务器监听的 URLs
    */
@@ -479,15 +444,10 @@ type StartServerResult = {
    * 服务器实际使用的端口号
    */
   port: number;
-  server: {
-    /**
-     * 关闭服务器
-     */
-    close: () => Promise<void>;
-  };
+  server: RsbuildPreviewServer;
 };
 
-function preview(options?: PreviewOptions): Promise<StartServerResult>;
+function preview(options?: PreviewOptions): Promise<StartPreviewServerResult>;
 ```
 
 - **示例：**
@@ -514,7 +474,7 @@ try {
 
 - `urls`：访问 Server 的 URLs
 - `port` 实际监听的端口号
-- `server`：Server 实例对象
+- `server`：Server 实例对象，详见 [Server API](/api/javascript-api/server-api)
 
 ```ts
 const { urls, port } = await rsbuild.preview();
@@ -613,18 +573,27 @@ console.log(rsbuild.getPlugins({ environment: 'web' }));
 - **类型：**
 
 ```ts
-function RemovePlugins(pluginNames: string[]): void;
+function RemovePlugins(
+  pluginNames: string[],
+  options?: {
+    /**
+     * 移除指定 environment 中的插件。
+     * 如果未指定 environment，则会从所有 environment 中移除。
+     */
+    environment?: string;
+  },
+): void;
 ```
 
 - **示例：**
 
 ```ts
 // 添加插件
-const pluginFoo = pluginFoo();
-rsbuild.addPlugins(pluginFoo);
+const foo = pluginFoo();
+rsbuild.addPlugins([foo]);
 
 // 移除插件
-rsbuild.removePlugins([pluginFoo.name]);
+rsbuild.removePlugins([foo.name]);
 ```
 
 ## rsbuild.isPluginExists
@@ -644,7 +613,7 @@ const pluginFoo = {
 };
 
 const rsbuild = createRsbuild({
-  rsbuildConfig: {
+  config: {
     plugins: [pluginFoo],
   },
 });
@@ -656,7 +625,7 @@ rsbuild.isPluginExists(pluginFoo.name); // true
 
 ```ts
 const rsbuild = createRsbuild({
-  rsbuildConfig: {
+  config: {
     environments: {
       web: {
         plugins: [pluginFoo],
@@ -933,34 +902,36 @@ rsbuild.onCloseDevServer(async () => {
 });
 ```
 
-## rsbuild.onBeforeStartProdServer
+## rsbuild.onBeforeStartPreviewServer
 
-> 功能与 [onBeforeStartProdServer](/plugins/dev/hooks#onbeforestartprodserver) 插件 hook 一致。
+> 功能与 [onBeforeStartPreviewServer](/plugins/dev/hooks#onbeforestartpreviewserver) 插件 hook 一致。
 
-import OnBeforeStartProdServer from '@zh/shared/onBeforeStartProdServer.mdx';
+import OnBeforeStartPreviewServer from '@zh/shared/onBeforeStartPreviewServer.mdx';
 
-<OnBeforeStartProdServer />
+<OnBeforeStartPreviewServer />
 
 - **示例：**
 
 ```ts
-rsbuild.onBeforeStartProdServer(() => {
+rsbuild.onBeforeStartPreviewServer(({ server, environments }) => {
   console.log('before start!');
+  console.log('the server is ', server);
+  console.log('the environments contexts are: ', environments);
 });
 ```
 
-## rsbuild.onAfterStartProdServer
+## rsbuild.onAfterStartPreviewServer
 
-> 功能与 [onAfterStartProdServer](/plugins/dev/hooks#onafterstartprodserver) 插件 hook 一致。
+> 功能与 [onAfterStartPreviewServer](/plugins/dev/hooks#onafterstartpreviewserver) 插件 hook 一致。
 
-import OnAfterStartProdServer from '@zh/shared/onAfterStartProdServer.mdx';
+import OnAfterStartPreviewServer from '@zh/shared/onAfterStartPreviewServer.mdx';
 
-<OnAfterStartProdServer />
+<OnAfterStartPreviewServer />
 
 - **示例：**
 
 ```ts
-rsbuild.onAfterStartProdServer(({ port, routes }) => {
+rsbuild.onAfterStartPreviewServer(({ port, routes }) => {
   console.log('this port is: ', port);
   console.log('this routes is: ', routes);
 });

@@ -1,14 +1,9 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow plugin to transform code with import attributes',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-    });
-
-    const indexJs = await rsbuild.getIndexBundle();
-    expect(indexJs).toContain('with import attributes');
-  },
-);
+test('should allow plugin to transform code with import attributes', async ({
+  build,
+}) => {
+  const rsbuild = await build();
+  const indexJs = await rsbuild.getIndexBundle();
+  expect(indexJs).toContain('with import attributes');
+});

@@ -1,3 +1,7 @@
+---
+description: '指定 Rsbuild 构建的模式，各个模式默认的行为和优化不同，比如 production 模式默认会压缩代码。'
+---
+
 # mode
 
 - **类型：** `'production' | 'development' | 'none'`
@@ -8,7 +12,7 @@
 Rsbuild `mode` 的值也会传递给 Rspack 的 [mode](https://rspack.rs/zh/config/mode) 配置。
 
 :::tip
-`mode` 的值不会影响 `.env` 文件的加载结果， 因为 `.env` 文件早于 Rsbuild 的配置文件被解析。
+`mode` 的值不会影响 `.env` 文件的加载结果，因为 `.env` 文件早于 Rsbuild 的配置文件被解析。
 
 Rsbuild CLI 支持使用 `--env-mode` 选项来指定 env 模式，详见 ["Env 模式"](/guide/advanced/env-vars#env-模式)。
 :::
@@ -33,7 +37,7 @@ export default {
 
 当你使用 Rsbuild 的命令行时：
 
-- `rsbuild dev` 会将 `NODE_ENV` 和 `mode` 的默认值设置为 `development`。
+- `rsbuild` 会将 `NODE_ENV` 和 `mode` 的默认值设置为 `development`。
 - `rsbuild build` 和 `rsbuild preview` 会将 `NODE_ENV` 和 `mode` 的默认值设置为 `production`。
 
 ### JavaScript API

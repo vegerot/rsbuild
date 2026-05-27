@@ -1,9 +1,14 @@
 import type { Hooks } from '../hooks';
+import type { Logger } from '../logger';
+import type { SocketServer } from '../server/socketServer';
 import type { NormalizedConfig, RsbuildConfig } from './config';
 import type { EnvironmentContext } from './hooks';
 import type { RsbuildPluginAPI } from './plugin';
+import type { RsbuildStats } from './rsbuild';
 
-export type BundlerType = 'rspack' | 'webpack';
+export type BundlerType = 'rspack';
+
+export type ActionType = 'dev' | 'build' | 'preview';
 
 /** The public context */
 export type RsbuildContext = {
@@ -28,14 +33,15 @@ export type RsbuildContext = {
    *     // ...
    *   });
    *   await rsbuild.startDevServer();
-   *   console.log(rsbuild.context.devServer); // { hostname: 'localhost', port: 3000, https: false }
+   *   console.log(rsbuild.context.devServer);
+   *   // { hostname: 'localhost', port: 3000, https: false }
    * }
    * ```
    */
   devServer?: {
     /** The hostname the server is running on. */
     hostname: string;
-    /** The port number the server is listening on. */
+    /** The actual port number the server is listening on. */
     port: number;
     /** Whether the server is using HTTPS protocol. */
     https: boolean;
@@ -46,9 +52,10 @@ export type RsbuildContext = {
    * - build: will be set when running `rsbuild build` or `rsbuild.build()`
    * - preview: will be set when running `rsbuild preview` or `rsbuild.preview()`
    */
-  action?: 'dev' | 'build' | 'preview';
+  action?: ActionType;
   /**
-   * The bundler type, can be `rspack` or `webpack`.
+   * The bundler type, currently only `rspack` is supported.
+   * @deprecated Do not use this field, it will be removed in future versions.
    */
   bundlerType: BundlerType;
   /**
@@ -61,8 +68,26 @@ export type RsbuildContext = {
   callerName: string;
 };
 
+export type BuildStatus = 'idle' | 'building' | 'done';
+
+export type BuildState = {
+  /**
+   * The stats object of the last build.
+   * Available after the build has been done.
+   */
+  stats: RsbuildStats | null;
+  /** Current build status */
+  status: BuildStatus;
+  /** Whether there are build errors */
+  hasErrors: boolean;
+  /** The build time of each environment */
+  time: Record<string, number>;
+};
+
 /** The inner context. */
 export type InternalContext = RsbuildContext & {
+  /** The logger associated with current Rsbuild instance. */
+  logger: Logger;
   /** All hooks. */
   hooks: Readonly<Hooks>;
   /** Current Rsbuild config. */
@@ -73,12 +98,23 @@ export type InternalContext = RsbuildContext & {
   normalizedConfig?: NormalizedConfig;
   /**
    * Get the plugin API.
-   *
-   * When environment is undefined, the global plugin API is returned, which can be used in all environments.
-   * */
+   * When environment is undefined, the global plugin API is returned, which
+   * can be used in all environments.
+   */
   getPluginAPI?: (environment?: string) => RsbuildPluginAPI;
-  /** The environment context. */
+  /** Context information for all environments. */
   environments: Record<string, EnvironmentContext>;
+  /** Array of all environments. */
+  environmentList: EnvironmentContext[];
   /** Only build specified environment. */
   specifiedEnvironments?: string[];
+  /** Build state information */
+  buildState: BuildState;
+  /** The socket server instance. */
+  socketServer?: SocketServer;
+  /**
+   * Pathnames derived from public paths, stripped of `server.base`.
+   * Used for static asset serving.
+   */
+  publicPathnames: string[];
 };

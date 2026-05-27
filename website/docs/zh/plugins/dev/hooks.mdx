@@ -1,3 +1,7 @@
+---
+description: '本章节介绍 Rsbuild 插件可用的 hooks。'
+---
+
 # 插件 hooks
 
 本章节介绍 Rsbuild 插件可用的 hooks。
@@ -20,34 +24,28 @@
 
 ### Dev hooks
 
-仅在执行 `rsbuild dev` 命令或 `rsbuild.startDevServer()` 方法时调用。
+在执行 `rsbuild dev` 命令或 `rsbuild.startDevServer()` 方法时调用：
 
 - [onBeforeStartDevServer](#onbeforestartdevserver)：在启动开发服务器前调用。
 - [onAfterStartDevServer](#onafterstartdevserver)：在启动开发服务器后调用。
 - [onBeforeDevCompile](#onbeforedevcompile)：在每次执行开发环境构建前调用。
 - [onAfterDevCompile](#onafterdevcompile)：在每次开发模式构建结束后调用。
-
-仅在 Rsbuild restart 时，或是执行 `rsbuild.startDevServer()` 的 [close()](/api/javascript-api/instance#关闭-server) 方法时调用。
-
 - [onCloseDevServer](#onclosedevserver)：在关闭开发服务器时调用。
 
 ### Build hooks
 
-仅在执行 `rsbuild build` 命令或 `rsbuild.build()` 方法时调用。
+在执行 `rsbuild build` 命令或 `rsbuild.build()` 方法时调用：
 
 - [onBeforeBuild](#onbeforebuild)：在执行生产模式构建前调用。
 - [onAfterBuild](#onafterbuild)：在执行生产模式构建后调用，可以获取到构建结果信息。
-
-仅在 Rsbuild restart 时，或是执行 `rsbuild.build()` 的 [close()](/api/javascript-api/instance#结束构建) 方法时调用。
-
 - [onCloseBuild](#onclosebuild)：在关闭构建时调用。
 
 ### Preview hooks
 
-仅在执行 `rsbuild preview` 命令或 `rsbuild.preview()` 方法时调用。
+在执行 `rsbuild preview` 命令或 `rsbuild.preview()` 方法时调用：
 
-- [onBeforeStartProdServer](#onbeforestartprodserver)：在启动生产服务器前调用。
-- [onAfterStartProdServer](#onafterstartprodserver)：在启动生产服务器后调用。
+- [onBeforeStartPreviewServer](#onbeforestartpreviewserver)：在启动预览服务器前调用。
+- [onAfterStartPreviewServer](#onafterstartpreviewserver)：在启动预览服务器后调用。
 
 ## Hooks 顺序
 
@@ -115,8 +113,8 @@
 
 - [modifyRsbuildConfig](#modifyrsbuildconfig)
 - [modifyEnvironmentConfig](#modifyenvironmentconfig)
-- [onBeforeStartProdServer](#onbeforestartprodserver)
-- [onAfterStartProdServer](#onafterstartprodserver)
+- [onBeforeStartPreviewServer](#onbeforestartpreviewserver)
+- [onAfterStartPreviewServer](#onafterstartpreviewserver)
 - [onExit](#onexit)
 
 ## Global hooks vs environment hooks
@@ -141,8 +139,8 @@
 - [onBeforeBuild](#onbeforebuild)
 - [onAfterBuild](#onafterbuild)
 - [onCloseBuild](#onclosebuild)
-- [onBeforeStartProdServer](#onbeforestartprodserver)
-- [onAfterStartProdServer](#onafterstartprodserver)
+- [onBeforeStartPreviewServer](#onbeforestartpreviewserver)
+- [onAfterStartPreviewServer](#onafterstartpreviewserver)
 - [onExit](#onexit)
 
 ### Environment hooks
@@ -430,8 +428,6 @@ function ModifyBundlerChain(
 - **示例：**
 
 ```ts
-import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
-
 const myPlugin = () => ({
   setup(api) {
     api.modifyBundlerChain((chain, utils) => {
@@ -439,7 +435,9 @@ const myPlugin = () => ({
         chain.devtool('eval');
       }
 
-      chain.plugin('bundle-analyze').use(BundleAnalyzerPlugin);
+      chain
+        .plugin('circular-dependency')
+        .use(utils.rspack.CircularDependencyRspackPlugin);
     });
   },
 });
@@ -810,7 +808,7 @@ const myPlugin = () => ({
   setup(api) {
     api.onBeforeStartDevServer(({ server }) => {
       // the returned callback will be called when the default
-      // middleware are registered
+      // middlewares are registered
       return () => {
         server.middlewares.use((req, res, next) => {
           next();
@@ -929,36 +927,38 @@ const myPlugin = () => ({
 
 ## Preview hooks
 
-### onBeforeStartProdServer
+### onBeforeStartPreviewServer
 
-import OnBeforeStartProdServer from '@zh/shared/onBeforeStartProdServer.mdx';
+import OnBeforeStartPreviewServer from '@zh/shared/onBeforeStartPreviewServer.mdx';
 
-<OnBeforeStartProdServer />
+<OnBeforeStartPreviewServer />
 
 - **示例：**
 
 ```ts
 const myPlugin = () => ({
   setup(api) {
-    api.onBeforeStartProdServer(() => {
+    api.onBeforeStartPreviewServer(({ server, environments }) => {
       console.log('before start!');
+      console.log('the server is ', server);
+      console.log('the environments contexts are: ', environments);
     });
   },
 });
 ```
 
-### onAfterStartProdServer
+### onAfterStartPreviewServer
 
-import OnAfterStartProdServer from '@zh/shared/onAfterStartProdServer.mdx';
+import OnAfterStartPreviewServer from '@zh/shared/onAfterStartPreviewServer.mdx';
 
-<OnAfterStartProdServer />
+<OnAfterStartPreviewServer />
 
 - **示例：**
 
 ```ts
 const myPlugin = () => ({
   setup(api) {
-    api.onAfterStartProdServer(({ port, routes }) => {
+    api.onAfterStartPreviewServer(({ port, routes }) => {
       console.log('this port is: ', port);
       console.log('this routes is: ', routes);
     });

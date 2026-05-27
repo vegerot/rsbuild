@@ -1,48 +1,41 @@
 import { join } from 'node:path';
-import { readDirContents, rspackOnlyTest, runCliSync } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import { remove } from 'fs-extra';
+import { expect, readDirContents, test } from '@e2e/helper';
+import fse from 'fs-extra';
 
-const distPath = join(__dirname, 'dist');
+const distPath = join(import.meta.dirname, 'dist');
 
 test.beforeEach(async () => {
-  await remove(distPath);
+  await fse.remove(distPath);
 });
 
-rspackOnlyTest(
-  'should only build specified environment when using --environment option',
-  async () => {
-    runCliSync('build --environment web2', {
-      cwd: __dirname,
-    });
+test('should only build specified environment when using --environment option', async ({
+  execCliSync,
+}) => {
+  execCliSync('build --environment web2');
 
-    const files = await readDirContents(distPath);
-    const outputFiles = Object.keys(files);
+  const files = await readDirContents(distPath);
+  const outputFiles = Object.keys(files);
 
-    expect(
-      outputFiles.find((item) => item.includes('web1/index.html')),
-    ).toBeFalsy();
-    expect(
-      outputFiles.find((item) => item.includes('web2/index.html')),
-    ).toBeTruthy();
-  },
-);
+  expect(
+    outputFiles.find((item) => item.includes('web1/index.html')),
+  ).toBeFalsy();
+  expect(
+    outputFiles.find((item) => item.includes('web2/index.html')),
+  ).toBeTruthy();
+});
 
-rspackOnlyTest(
-  'should build specified environments when using --environment shorten option',
-  async () => {
-    runCliSync('build --environment web1,web2', {
-      cwd: __dirname,
-    });
+test('should build specified environments when using --environment shorten option', async ({
+  execCliSync,
+}) => {
+  execCliSync('build --environment web1,web2');
 
-    const files = await readDirContents(distPath);
-    const outputFiles = Object.keys(files);
+  const files = await readDirContents(distPath);
+  const outputFiles = Object.keys(files);
 
-    expect(
-      outputFiles.find((item) => item.includes('web1/index.html')),
-    ).toBeTruthy();
-    expect(
-      outputFiles.find((item) => item.includes('web2/index.html')),
-    ).toBeTruthy();
-  },
-);
+  expect(
+    outputFiles.find((item) => item.includes('web1/index.html')),
+  ).toBeTruthy();
+  expect(
+    outputFiles.find((item) => item.includes('web2/index.html')),
+  ).toBeTruthy();
+});

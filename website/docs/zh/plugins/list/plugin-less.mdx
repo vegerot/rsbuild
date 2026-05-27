@@ -1,10 +1,14 @@
+---
+description: '使用 Less 作为 CSS 预处理器，基于 less-loader 实现。'
+---
+
 # Less 插件
 
-import { SourceCode } from '@rspress/core/theme';
+import { SourceCode } from '@theme';
 
 <SourceCode href="https://github.com/web-infra-dev/rsbuild/tree/main/packages/plugin-less" />
 
-使用 [Less](https://lesscss.org/) 作为 CSS 预处理器，基于 [less-loader](https://github.com/webpack-contrib/less-loader) 实现。
+使用 [Less](https://lesscss.org/) 作为 CSS 预处理器，基于 [less-loader](https://github.com/webpack/less-loader) 实现。
 
 ## 快速开始
 
@@ -43,7 +47,7 @@ export default {
 
 ### lessLoaderOptions
 
-修改 [less-loader](https://github.com/webpack-contrib/less-loader) 的配置。
+修改 [less-loader](https://github.com/webpack/less-loader) 的配置。
 
 - **类型：** `Object | Function`
 - **默认值：**
@@ -54,7 +58,6 @@ const defaultOptions = {
     javascriptEnabled: true,
     paths: [path.join(rootPath, 'node_modules')],
   },
-  implementation: require.resolve('less'),
   sourceMap: rsbuildConfig.output.sourceMap.css,
 };
 ```
@@ -91,11 +94,11 @@ pluginLess({
 
 ### include
 
-- **类型：** [RuleSetCondition](https://rspack.rs/zh/config/module#condition)
+- **类型：** [Rspack.RuleSetCondition](https://rspack.rs/zh/config/module-rules#condition)
 - **默认值：** `/\.less$/`
 - **版本：** `>= 1.1.0`
 
-用于指定一部分 `.less` 模块，这些模块会被 `less-loader` 编译。这个值与 Rspack 中的 `rule.test` 选项相同。
+用于指定一部分 `.less` 模块，这些模块会被 `less-loader` 编译。这个值与 Rspack 中的 [rules[].test](https://rspack.rs/zh/config/module-rules#rulestest) 选项相同。
 
 比如：
 
@@ -107,7 +110,7 @@ pluginLess({
 
 ### exclude
 
-- **类型：** [RuleSetCondition](https://rspack.rs/zh/config/module#condition)
+- **类型：** [Rspack.RuleSetCondition](https://rspack.rs/zh/config/module-rules#condition)
 - **默认值：** `undefined`
 
 用于排除一部分 `.less` 模块，这些模块不会被 `less-loader` 编译。
@@ -136,7 +139,7 @@ pluginLess({
 });
 ```
 
-> 详见 [Rspack - Rule.use.parallel](https://rspack.rs/config/module#ruleuseparallel)。
+> 详见 [Rspack - Rule.use.parallel](https://rspack.rs/zh/config/module-rules#rulesuseparallel)。
 
 ## 修改 Less 版本
 

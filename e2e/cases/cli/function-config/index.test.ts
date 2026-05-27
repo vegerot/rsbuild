@@ -1,23 +1,36 @@
 import path from 'node:path';
-import { readDirContents, rspackOnlyTest, runCliSync } from '@e2e/helper';
-import { expect } from '@playwright/test';
-import { remove } from 'fs-extra';
+import { expect, getFileContent, readDirContents, test } from '@e2e/helper';
+import fse from 'fs-extra';
 
-rspackOnlyTest(
-  'should support exporting a function from the config file',
-  async () => {
-    const targetDir = path.join(__dirname, 'dist-production-build');
+const distDir = path.join(import.meta.dirname, 'dist');
 
-    await remove(targetDir);
+test('should support exporting a function from the config file', async ({
+  execCliSync,
+}) => {
+  await fse.remove(distDir);
+  execCliSync('build');
+  const files = await readDirContents(distDir);
+  const content = getFileContent(files, 'index.js');
+  expect(content.includes('production-production-build')).toBeTruthy();
+});
 
-    delete process.env.NODE_ENV;
-    runCliSync('build', {
-      cwd: __dirname,
-    });
+test('should specify env as expected', async ({ execCliSync }) => {
+  await fse.remove(distDir);
+  execCliSync('build', {
+    env: {
+      ...process.env,
+      NODE_ENV: 'development',
+    },
+  });
+  const files = await readDirContents(distDir);
+  const content = getFileContent(files, 'index.js');
+  expect(content.includes('development-development-build')).toBeTruthy();
+});
 
-    const outputs = await readDirContents(targetDir);
-    const outputFiles = Object.keys(outputs);
-
-    expect(outputFiles.length > 1).toBeTruthy();
-  },
-);
+test('should specify env mode as expected', async ({ execCliSync }) => {
+  await fse.remove(distDir);
+  execCliSync('build --env-mode staging');
+  const files = await readDirContents(distDir);
+  const content = getFileContent(files, 'index.js');
+  expect(content.includes('production-staging-build')).toBeTruthy();
+});

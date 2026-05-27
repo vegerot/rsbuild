@@ -1,10 +1,8 @@
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, findFile, getFileContent, test } from '@e2e/helper';
 
-test('should emit apple-touch-icon to dist path', async () => {
+test('should emit apple-touch-icon to dist path', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           icons: [{ src: '../../../assets/icon.png', size: 180 }],
@@ -12,24 +10,21 @@ test('should emit apple-touch-icon to dist path', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
+  const appleIcon = findFile(files, 'static/image/icon.png');
 
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/icon.png')),
-  ).toBeTruthy();
+  expect(appleIcon.endsWith('static/image/icon.png')).toBeTruthy();
 
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="180x180" href="/static/image/icon.png">',
   );
 });
 
-test('should emit manifest.webmanifest to dist path', async () => {
+test('should emit manifest.webmanifest to dist path', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           name: 'My Website',
@@ -41,22 +36,15 @@ test('should emit manifest.webmanifest to dist path', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
+  const appleIcon = findFile(files, 'static/image/icon.png');
+  const largeIcon = findFile(files, 'static/image/image.png');
 
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/icon.png')),
-  ).toBeTruthy();
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/image.png')),
-  ).toBeTruthy();
+  expect(appleIcon.endsWith('static/image/icon.png')).toBeTruthy();
+  expect(largeIcon.endsWith('static/image/image.png')).toBeTruthy();
 
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.webmanifest'),
-  );
-  expect(manifestPath).toBeTruthy();
-
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const manifestPath = findFile(files, 'manifest.webmanifest');
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="180x180" href="/static/image/icon.png">',
@@ -67,7 +55,7 @@ test('should emit manifest.webmanifest to dist path', async () => {
   );
   expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest">');
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       { src: '/static/image/icon.png', sizes: '180x180', type: 'image/png' },
@@ -76,10 +64,9 @@ test('should emit manifest.webmanifest to dist path', async () => {
   });
 });
 
-test('should allow to specify URL as icon', async () => {
+test('should allow to specify URL as icon', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           name: 'My Website',
@@ -91,21 +78,17 @@ test('should allow to specify URL as icon', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.webmanifest'),
-  );
-
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const manifestPath = findFile(files, 'manifest.webmanifest');
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="192x192" href="https://example.com/icon-192.png">',
   );
   expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest">');
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       {
@@ -122,10 +105,9 @@ test('should allow to specify URL as icon', async () => {
   });
 });
 
-test('should allow to specify target for each icon', async () => {
+test('should allow to specify target for each icon', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           name: 'My Website',
@@ -150,25 +132,17 @@ test('should allow to specify target for each icon', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
+  const appleIcon = findFile(files, 'static/image/icon.png');
+  const largeIcon = findFile(files, 'static/image/image.png');
+  const svgIcon = findFile(files, 'static/image/circle.svg');
 
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/icon.png')),
-  ).toBeTruthy();
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/image.png')),
-  ).toBeTruthy();
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/circle.svg')),
-  ).toBeTruthy();
+  expect(appleIcon.endsWith('static/image/icon.png')).toBeTruthy();
+  expect(largeIcon.endsWith('static/image/image.png')).toBeTruthy();
+  expect(svgIcon.endsWith('static/image/circle.svg')).toBeTruthy();
 
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.webmanifest'),
-  );
-  expect(manifestPath).toBeTruthy();
-
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const manifestPath = findFile(files, 'manifest.webmanifest');
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="180x180" href="/static/image/icon.png">',
@@ -182,7 +156,7 @@ test('should allow to specify target for each icon', async () => {
   );
   expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest">');
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       {
@@ -195,10 +169,9 @@ test('should allow to specify target for each icon', async () => {
   });
 });
 
-test('should allow to specify purpose for each icon', async () => {
+test('should allow to specify purpose for each icon', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           name: 'My Website',
@@ -220,13 +193,10 @@ test('should allow to specify purpose for each icon', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.webmanifest'),
-  );
-  expect(manifestPath).toBeTruthy();
+  const files = rsbuild.getDistFiles();
+  const manifestPath = findFile(files, 'manifest.webmanifest');
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       {
@@ -245,10 +215,9 @@ test('should allow to specify purpose for each icon', async () => {
   });
 });
 
-test('should allow to customize manifest filename', async () => {
+test('should allow to customize manifest filename', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           filename: 'manifest.json',
@@ -262,18 +231,13 @@ test('should allow to customize manifest filename', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.json'),
-  );
-  expect(manifestPath).toBeTruthy();
-
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const files = rsbuild.getDistFiles();
+  const manifestPath = findFile(files, 'manifest.json');
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain('<link rel="manifest" href="/manifest.json">');
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       { src: '/static/image/icon.png', sizes: '180x180', type: 'image/png' },
@@ -282,14 +246,11 @@ test('should allow to customize manifest filename', async () => {
   });
 });
 
-test('should append dev.assetPrefix to icon URL', async ({ page }) => {
+test('should append dev.assetPrefix to icon URL', async ({ dev }) => {
   const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+    config: {
       dev: {
         assetPrefix: 'http://localhost:3000',
-        writeToDisk: true,
       },
       html: {
         appIcon: {
@@ -303,22 +264,15 @@ test('should append dev.assetPrefix to icon URL', async ({ page }) => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
+  const appleIcon = findFile(files, 'static/image/icon.png');
+  const largeIcon = findFile(files, 'static/image/image.png');
 
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/icon.png')),
-  ).toBeTruthy();
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/image.png')),
-  ).toBeTruthy();
+  expect(appleIcon.endsWith('static/image/icon.png')).toBeTruthy();
+  expect(largeIcon.endsWith('static/image/image.png')).toBeTruthy();
 
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.webmanifest'),
-  );
-  expect(manifestPath).toBeTruthy();
-
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const manifestPath = findFile(files, 'manifest.webmanifest');
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="180x180" href="http://localhost:3000/static/image/icon.png">',
@@ -327,7 +281,7 @@ test('should append dev.assetPrefix to icon URL', async ({ page }) => {
     '<link rel="manifest" href="http://localhost:3000/manifest.webmanifest">',
   );
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       {
@@ -342,14 +296,11 @@ test('should append dev.assetPrefix to icon URL', async ({ page }) => {
       },
     ],
   });
-
-  await rsbuild.close();
 });
 
-test('should append output.assetPrefix to icon URL', async () => {
+test('should append output.assetPrefix to icon URL', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
         assetPrefix: 'https://example.com',
       },
@@ -364,22 +315,15 @@ test('should append output.assetPrefix to icon URL', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
+  const appleIcon = findFile(files, 'static/image/icon.png');
+  const largeIcon = findFile(files, 'static/image/image.png');
 
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/icon.png')),
-  ).toBeTruthy();
-  expect(
-    Object.keys(files).some((file) => file.endsWith('static/image/image.png')),
-  ).toBeTruthy();
+  expect(appleIcon.endsWith('static/image/icon.png')).toBeTruthy();
+  expect(largeIcon.endsWith('static/image/image.png')).toBeTruthy();
 
-  const manifestPath = Object.keys(files).find((file) =>
-    file.endsWith('manifest.webmanifest'),
-  );
-  expect(manifestPath).toBeTruthy();
-
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const manifestPath = findFile(files, 'manifest.webmanifest');
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="180x180" href="https://example.com/static/image/icon.png">',
@@ -388,7 +332,7 @@ test('should append output.assetPrefix to icon URL', async () => {
     '<link rel="manifest" href="https://example.com/manifest.webmanifest">',
   );
 
-  expect(JSON.parse(files[manifestPath!])).toEqual({
+  expect(JSON.parse(files[manifestPath])).toEqual({
     name: 'My Website',
     icons: [
       {
@@ -405,10 +349,9 @@ test('should append output.assetPrefix to icon URL', async () => {
   });
 });
 
-test('should apply asset prefix to apple-touch-icon URL', async () => {
+test('should apply asset prefix to apple-touch-icon URL', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         appIcon: {
           icons: [{ src: '../../../assets/icon.png', size: 180 }],
@@ -419,7 +362,7 @@ test('should apply asset prefix to apple-touch-icon URL', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
   const {
     origin: { bundlerConfigs },
@@ -427,8 +370,7 @@ test('should apply asset prefix to apple-touch-icon URL', async () => {
 
   expect(bundlerConfigs[0].output?.publicPath).toBe('https://www.example.com/');
 
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain(
     '<link rel="apple-touch-icon" sizes="180x180" href="https://www.example.com/static/image/icon.png">',

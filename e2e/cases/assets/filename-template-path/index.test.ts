@@ -1,11 +1,8 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-test('should allow filename.image: "[path]"', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
-  const files = await rsbuild.getDistFiles();
+test('should allow filename.image: "[path]"', async ({ build }) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
   // Image
   expect(

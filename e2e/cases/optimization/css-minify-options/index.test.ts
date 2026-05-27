@@ -1,15 +1,9 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest('should allow to custom CSS minify options', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {},
-  });
-  const files = await rsbuild.getDistFiles();
-
-  const content =
-    files[Object.keys(files).find((file) => file.endsWith('.css'))!];
+test('should allow to custom CSS minify options', async ({ build }) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, '.css');
 
   expect(content).toEqual('.bar{color:green}');
 });

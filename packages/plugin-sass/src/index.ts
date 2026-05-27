@@ -100,6 +100,15 @@ export const pluginSass = (
   setup(api) {
     const { rewriteUrls = true, include = /\.s(?:a|c)ss$/ } = pluginOptions;
 
+    const CSS_MAIN = 'css';
+    const CSS_INLINE = 'css-inline';
+    const CSS_RAW = 'css-raw';
+    const SASS_MAIN = 'sass';
+    const SASS_URL = 'sass-url';
+    const SASS_INLINE = 'sass-inline';
+    const SASS_RAW = 'sass-raw';
+    const isV1 = api.context.version.startsWith('1.');
+
     api.onAfterCreateCompiler(({ compiler }) => {
       patchCompilerGlobalLocation(compiler);
     });
@@ -117,38 +126,57 @@ export const pluginSass = (
         rewriteUrls ? true : isUseSourceMap,
       );
 
-      const rule = chain.module
+      const sassRule = chain.module
         .rule(findRuleId(chain, CHAIN_ID.RULE.SASS))
         .test(include)
+        .dependency({ not: 'url' })
         .resolve.preferRelative(true)
         .end();
 
-      // Rsbuild < 1.3.0 does not have the raw and inline rules
-      const inlineRule = CHAIN_ID.RULE.CSS_INLINE
-        ? chain.module
-            .rule(findRuleId(chain, CHAIN_ID.RULE.SASS_INLINE))
-            .test(include)
-        : null;
+      const cssRule = chain.module.rule(CHAIN_ID.RULE.CSS);
+      const cssUrlRuleId = CHAIN_ID.ONE_OF.CSS_URL;
+      const hasCssUrlRule = cssUrlRuleId && cssRule.oneOfs.has(cssUrlRuleId);
 
-      // Support for importing raw Sass files
-      if (CHAIN_ID.RULE.CSS_RAW) {
-        const cssRawRule = chain.module.rules.get(CHAIN_ID.RULE.CSS_RAW);
-        chain.module
-          .rule(CHAIN_ID.RULE.SASS_RAW)
-          .test(include)
-          .type('asset/source')
-          .resourceQuery(cssRawRule.get('resourceQuery'));
+      if (isV1) {
+        chain.module.rule(SASS_RAW).test(include);
+        chain.module.rule(SASS_INLINE).test(include);
       }
 
-      // Update the normal rule and the inline rule
-      const updateRules = (
-        callback: (rule: RspackChain.Rule, type: 'normal' | 'inline') => void,
-      ) => {
-        callback(rule, 'normal');
-
-        if (inlineRule) {
-          callback(inlineRule, 'inline');
+      const getRule = (id: string) => {
+        // Compatibility for Rsbuild v1
+        if (isV1) {
+          return chain.module.rule(id);
         }
+        return (id.startsWith('sass') ? sassRule : cssRule).oneOf(id);
+      };
+
+      // Sass URL for `?url` imports.
+      const sassUrlRule = hasCssUrlRule && getRule(SASS_URL);
+
+      // Inline Sass for `?inline` imports
+      const sassInlineRule = getRule(SASS_INLINE);
+
+      // Raw Sass for `?raw` imports
+      getRule(SASS_RAW)
+        .type('asset/source')
+        .resourceQuery(getRule(CSS_RAW).get('resourceQuery'));
+
+      // Main Sass transform
+      const sassMainRule = getRule(SASS_MAIN);
+
+      // Update the main, inline and URL rules.
+      const updateRules = (
+        callback: (
+          rule: RspackChain.Rule<unknown>,
+          cssBranchRule: RspackChain.Rule<unknown>,
+          type: 'main' | 'inline' | 'url',
+        ) => void,
+      ) => {
+        if (sassUrlRule) {
+          callback(sassUrlRule, getRule(cssUrlRuleId), 'url');
+        }
+        callback(sassMainRule, getRule(CSS_MAIN), 'main');
+        callback(sassInlineRule, getRule(CSS_INLINE), 'inline');
       };
 
       const sassLoaderPath = path.join(
@@ -169,7 +197,7 @@ export const pluginSass = (
         sourceMap: false,
       };
 
-      updateRules((rule, type) => {
+      updateRules((rule, cssBranchRule, type) => {
         for (const item of excludes) {
           rule.exclude.add(item);
         }
@@ -178,15 +206,13 @@ export const pluginSass = (
         }
 
         // Copy the builtin CSS rules
-        const cssRule = chain.module.rules.get(
-          type === 'normal' ? CHAIN_ID.RULE.CSS : CHAIN_ID.RULE.CSS_INLINE,
-        );
-        rule.dependency(cssRule.get('dependency'));
-        rule.sideEffects(cssRule.get('sideEffects'));
-        rule.resourceQuery(cssRule.get('resourceQuery'));
+        if (type !== 'url') {
+          rule.sideEffects(true);
+        }
+        rule.resourceQuery(cssBranchRule.get('resourceQuery'));
 
-        for (const id of Object.keys(cssRule.uses.entries())) {
-          const loader = cssRule.uses.get(id);
+        for (const id of Object.keys(cssBranchRule.uses.entries())) {
+          const loader = cssBranchRule.uses.get(id);
           const options = loader.get('options') ?? {};
           const clonedOptions = deepmerge<Record<string, any>>({}, options);
 

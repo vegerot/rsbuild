@@ -1,37 +1,14 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-const fixtures = __dirname;
+test('should minify template success when inlineScripts & inlineStyles', async ({
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview();
 
-rspackOnlyTest(
-  'should minify template success when inlineScripts & inlineStyles',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: fixtures,
-      page,
-      rsbuildConfig: {
-        html: {
-          template: './static/index.html',
-          // avoid Minified React error #200;
-          inject: 'body',
-        },
-        output: {
-          inlineScripts: true,
-          inlineStyles: true,
-        },
-      },
-    });
+  const files = rsbuild.getDistFiles();
 
-    const files = await rsbuild.getDistFiles();
+  const content = getFileContent(files, '.html');
 
-    const content =
-      files[Object.keys(files).find((file) => file.endsWith('.html'))!];
-
-    expect(content.includes('html,body{margin:0;padding:0}')).toBeTruthy();
-    expect(
-      /let \w+=document\.createElement\("div"\)/.test(content),
-    ).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
+  expect(content.includes('html,body{margin:0;padding:0}')).toBeTruthy();
+  expect(/let \w+=document\.createElement\("div"\)/.test(content)).toBeTruthy();
+});

@@ -1,21 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
 
-test('should compile less npm import correctly', async () => {
+import { expect, getFileContent, test } from '@e2e/helper';
+
+test('should compile less npm import correctly', async ({ build }) => {
   fs.cpSync(
-    path.resolve(__dirname, '_node_modules'),
-    path.resolve(__dirname, 'node_modules'),
+    path.resolve(import.meta.dirname, '_node_modules'),
+    path.resolve(import.meta.dirname, 'node_modules'),
     { recursive: true },
   );
 
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+  const rsbuild = await build();
 
-  const files = await rsbuild.getDistFiles();
-  const cssFiles = Object.keys(files).find((file) => file.endsWith('.css'))!;
+  const files = rsbuild.getDistFiles();
+  const cssContent = getFileContent(files, '.css');
 
-  expect(files[cssFiles]).toEqual('html{height:100%}body{color:red}');
+  expect(cssContent).toEqual('html{height:100%}body{color:red}');
 });

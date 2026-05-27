@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild JavaScript API 参考，涵盖createRsbuild、loadConfig、loadEnv等核心接口和用法。'
+---
+
 # Rsbuild core
 
 本章节介绍了 Rsbuild 提供的一些核心方法。
@@ -20,7 +24,7 @@ function createRsbuild(
 import { createRsbuild } from '@rsbuild/core';
 
 const rsbuild = await createRsbuild({
-  rsbuildConfig: {
+  config: {
     // Rsbuild configuration
   },
 });
@@ -36,7 +40,7 @@ type CreateRsbuildOptions = {
   callerName?: string;
   environment?: string[];
   loadEnv?: boolean | LoadEnvOptions;
-  rsbuildConfig?: RsbuildConfig | (() => Promise<RsbuildConfig>);
+  config?: RsbuildConfig | (() => Promise<RsbuildConfig>);
 };
 ```
 
@@ -44,17 +48,21 @@ type CreateRsbuildOptions = {
 - `callerName`：当前调用者的名称，默认值为 `'rsbuild'`，详见 [指定调用者名称](#指定调用者名称)。
 - `environment`：只构建指定的 [environments](/guide/advanced/environments)，如果未指定或传入空数组，则构建所有环境。
 - `loadEnv`：是否调用 [loadEnv](/api/javascript-api/core#loadenv) 方法来加载环境变量，并通过 [source.define](/config/source/define) 定义为全局变量。
-- `rsbuildConfig`：Rsbuild 配置对象。参考 [配置总览](/config/) 查看所有可用的配置项。
+- `config`：Rsbuild 配置对象。参考 [配置总览](/config/) 查看所有可用的配置项。
+
+:::tip
+`config` 是 Rsbuild 1.6 新增的选项。在旧版本中，可使用 `rsbuildConfig` 作为替代。
+:::
 
 ### 异步加载配置
 
-`rsbuildConfig` 也可以是一个异步函数，你可以通过该函数来动态加载 Rsbuild 配置，并进行一些自定义操作。
+`config` 也可以是一个异步函数，你可以通过该函数来动态加载 Rsbuild 配置，并进行一些自定义操作。
 
 ```ts
 import { createRsbuild, loadConfig } from '@rsbuild/core';
 
 const rsbuild = await createRsbuild({
-  rsbuildConfig: async () => {
+  config: async () => {
     const { content } = await loadConfig();
     someFunctionToUpdateConfig(content);
     return content;
@@ -98,7 +106,7 @@ import { myPlugin } from './myPlugin';
 
 const rsbuild = await createRsbuild({
   callerName: 'rslib',
-  rsbuildConfig: {
+  config: {
     plugins: [myPlugin],
   },
 });
@@ -133,7 +141,15 @@ function loadConfig(params?: {
   path?: string;
   meta?: Record<string, unknown>;
   envMode?: string;
-  loader?: 'jiti' | 'native';
+  /**
+   * 指定配置文件加载器，可选值为 `auto`、`jiti` 或 `native`。
+   * - `auto`：优先使用 Node.js 原生加载器，若加载失败则回退到 jiti
+   * - `jiti`：使用 jiti 作为加载器，开箱即用地支持 TypeScript 和 ESM
+   * - `native`：使用 Node.js 原生加载器。TypeScript 配置文件要求运行时原生支持
+   *   TypeScript，例如 Node.js 22.6+
+   * @default 'auto'
+   */
+  loader?: 'auto' | 'jiti' | 'native';
 }): Promise<{
   content: RsbuildConfig;
   filePath: string | null;
@@ -145,17 +161,28 @@ function loadConfig(params?: {
 ```ts
 import { loadConfig } from '@rsbuild/core';
 
-// 默认加载 `rsbuild.config.*` 配置文件
+// 按默认查找顺序从 cwd 加载 `rsbuild.config.*` 配置文件
 const { content } = await loadConfig();
 
 console.log(content); // -> Rsbuild config object
 
 const rsbuild = await createRsbuild({
-  rsbuildConfig: content,
+  config: content,
 });
 ```
 
 如果 cwd 目录下不存在 Rsbuild 配置文件，loadConfig 方法的返回值为 `{ content: {}, filePath: null }`。
+
+当未指定 `path` 时，`loadConfig` 会按以下顺序查找配置文件：
+
+- `rsbuild.config.ts`
+- `rsbuild.config.js`
+- `rsbuild.config.mts`
+- `rsbuild.config.mjs`
+- `rsbuild.config.cts`
+- `rsbuild.config.cjs`
+
+如果同时存在多个配置文件，`loadConfig` 会使用这个列表中第一个匹配到的文件。
 
 ### 指定配置文件
 
@@ -260,7 +287,7 @@ type LoadEnvResult = {
   cleanup: () => void;
 };
 
-function loadEnv(options: LoadEnvOptions): LoadEnvResult;
+function loadEnv(options?: LoadEnvOptions): LoadEnvResult;
 ````
 
 - **示例：**
@@ -307,12 +334,14 @@ loadEnv({ processEnv: { ...process.env } });
 
 用于合并多份 Rsbuild 配置对象。
 
-`mergeRsbuildConfig` 函数接收多个配置对象作为参数，它会将每一个配置对象进行深层合并，自动将多个函数项合并为顺序执行的函数数组，返回一个合并后的配置对象。
+`mergeRsbuildConfig` 函数接收多个配置对象作为参数。它会对每个配置对象进行深层合并，自动将多个函数项合并为顺序执行的函数数组，并返回一个新的合并配置对象，不会修改传入的配置对象。
 
 - **类型：**
 
 ```ts
-function mergeRsbuildConfig(...configs: RsbuildConfig[]): RsbuildConfig;
+function mergeRsbuildConfig(
+  ...configs: (RsbuildConfig | undefined)[]
+): RsbuildConfig;
 ```
 
 ### 基础示例
@@ -321,19 +350,19 @@ function mergeRsbuildConfig(...configs: RsbuildConfig[]): RsbuildConfig;
 import { mergeRsbuildConfig } from '@rsbuild/core';
 
 const config1 = {
-  dev: {
-    https: false,
+  server: {
+    compress: false,
   },
 };
 const config2 = {
-  dev: {
-    https: true,
+  server: {
+    compress: true,
   },
 };
 
 const mergedConfig = mergeRsbuildConfig(config1, config2);
 
-console.log(mergedConfig); // { dev: { https: true } }
+console.log(mergedConfig); // { server: { compress: true } }
 ```
 
 > 该方法不会修改入参中的 config 对象。
@@ -402,83 +431,39 @@ const mergedConfig = {
 
 在 Rsbuild 中，大部分支持函数值的选项都使用上述规则，比如 `tools.postcss`、`tools.less`、`tools.bundlerChain` 等。
 
+## createLogger
+
+创建一个独立的 logger 实例，创建出的 logger 也可以传给 [customLogger](/config/custom-logger) 配置项使用。
+
+> 详见 [日志](/guide/advanced/logging)。
+
+- **示例：**
+
+```ts
+import { createLogger } from '@rsbuild/core';
+
+const logger = createLogger({ level: 'warn' });
+
+logger.warn('This is a warning message');
+logger.error('This is an error message');
+
+// Will not print
+logger.info('This is an info message');
+```
+
 ## logger
 
-提供统一日志输出格式的实例，可以用于代替 `console.log`，保持与 Rsbuild 一致的日志输出格式。
+全局 logger 实例，可以用于输出与 Rsbuild 一致的日志格式。
 
-基于 [rslog](https://github.com/rspack-contrib/rslog)。
+> 详见 [日志](/guide/advanced/logging)。
 
 - **示例：**
 
 ```ts
 import { logger } from '@rsbuild/core';
 
-// A gradient welcome log
-logger.greet(`\n➜ Rsbuild v1.0.0\n`);
-
 // Info
 logger.info('This is an info message');
-
-// Start
-logger.start('This is a start message');
-
-// Warn
-logger.warn('This is a warning message');
-
-// Ready
-logger.ready('This is a ready message');
-
-// Success
-logger.success('This is a success message');
-
-// Error
-logger.error('This is an error message');
-logger.error(new Error('This is an error message with stack'));
-
-// Debug
-logger.debug('This is a debug message');
-
-// Same as console.log
-logger.log('This is a log message');
-```
-
-### 自定义 Logger
-
-你可以使用 `logger.override` 方法来覆盖默认 logger 的部分或全部方法：
-
-```ts
-import { logger } from '@rsbuild/core';
-
-logger.override({
-  log: (message) => {
-    console.log(`[log] ${message}`);
-  },
-  info: (message) => {
-    console.log(`[info] ${message}`);
-  },
-  warn: (message) => {
-    console.warn(`[warn] ${message}`);
-  },
-  start: (message) => {
-    console.log(`[start] ${message}`);
-  },
-  ready: (message) => {
-    console.log(`[ready] ${message}`);
-  },
-  error: (message) => {
-    console.error(`[error] ${message}`);
-  },
-  success: (message) => {
-    console.error(`[success] ${message}`);
-  },
-  debug: (message) => {
-    if (process.env.DEBUG) {
-      console.log(`[debug] ${message}`);
-    }
-  },
-});
-
-logger.info('hello'); // [info] hello
 ```
 
 ## rspack
@@ -528,9 +513,11 @@ function ensureAssetPrefix(
   // 需要处理的 URL 字符串。可以是相对路径或绝对 URL
   url: string,
   // 需要拼接的 URL 前缀
-  assetPrefix: string
+  assetPrefix?: Rspack.PublicPath,
 ) => string;
 ```
+
+如果未传入 `assetPrefix`，Rsbuild 会使用默认的资源前缀 `/`。如果 `assetPrefix` 为 `'auto'` 或函数，该函数会直接返回传入的 URL。
 
 - **示例：**
 

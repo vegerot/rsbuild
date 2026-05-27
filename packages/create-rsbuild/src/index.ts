@@ -1,17 +1,17 @@
+import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   type Argv,
   checkCancel,
+  copyFolder,
   create,
   type ESLintTemplateName,
+  type RslintTemplateName,
   select,
 } from 'create-rstack';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 const frameworkAlias: Record<string, string> = {
-  vue: 'vue3',
+  vue3: 'vue',
   'solid-js': 'solid',
 };
 
@@ -29,10 +29,8 @@ async function getTemplateName({ template }: Argv) {
       message: 'Select framework',
       options: [
         { value: 'vanilla', label: 'Vanilla' },
-        { value: 'react', label: 'React 19' },
-        { value: 'react18', label: 'React 18' },
-        { value: 'vue3', label: 'Vue 3' },
-        { value: 'vue2', label: 'Vue 2' },
+        { value: 'react', label: 'React' },
+        { value: 'vue', label: 'Vue' },
         { value: 'lit', label: 'Lit' },
         { value: 'preact', label: 'Preact' },
         { value: 'svelte', label: 'Svelte' },
@@ -61,35 +59,60 @@ function mapESLintTemplate(templateName: string): ESLintTemplateName {
     case 'svelte-js':
     case 'svelte-ts':
       return templateName;
-    case 'vue2-js':
+    case 'vue-js':
     case 'vue3-js':
       return 'vue-js';
-    case 'vue2-ts':
+    case 'vue-ts':
     case 'vue3-ts':
       return 'vue-ts';
-    case 'react18-js':
-      return 'react-js';
-    case 'react18-ts':
-      return 'react-ts';
+    default:
+      return `vanilla-${templateName.split('-')[1]}` as ESLintTemplateName;
   }
-  const language = templateName.split('-')[1];
-  return `vanilla-${language}` as ESLintTemplateName;
 }
 
+function mapRstestTemplate(templateName: string): string {
+  switch (templateName) {
+    case 'react-js':
+      return 'react-js';
+    case 'react-ts':
+      return 'react-ts';
+    case 'vue-js':
+    case 'vue3-js':
+      return 'vue-js';
+    case 'vue-ts':
+    case 'vue3-ts':
+      return 'vue-ts';
+    default:
+      return `vanilla-${templateName.split('-')[1]}`;
+  }
+}
+
+function mapRslintTemplate(templateName: string): RslintTemplateName {
+  switch (templateName) {
+    case 'react-js':
+    case 'react-ts':
+      return templateName;
+    default:
+      return `vanilla-${templateName.split('-')[1]}` as RslintTemplateName;
+  }
+}
+
+const root = path.join(import.meta.dirname, '..');
+
 create({
-  root: path.resolve(__dirname, '..'),
+  root,
   name: 'rsbuild',
   templates: [
     'vanilla-js',
     'vanilla-ts',
     'react-js',
     'react-ts',
-    'react18-js',
-    'react18-ts',
-    'vue3-js',
-    'vue3-ts',
-    'vue2-js',
-    'vue2-ts',
+    'vue-js',
+    'vue-ts',
+    'lit-js',
+    'lit-ts',
+    'preact-js',
+    'preact-ts',
     'svelte-js',
     'svelte-ts',
     'solid-js',
@@ -97,4 +120,89 @@ create({
   ],
   getTemplateName,
   mapESLintTemplate,
+  mapRslintTemplate,
+  extraTools: [
+    {
+      value: 'rstest',
+      label: 'Rstest - testing',
+      order: 'pre',
+      action: ({ templateName, distFolder, addAgentsMdSearchDirs }) => {
+        const rstestTemplate = mapRstestTemplate(templateName);
+        const toolFolder = path.join(root, 'template-rstest');
+        const subFolder = path.join(toolFolder, rstestTemplate);
+
+        copyFolder({
+          from: subFolder,
+          to: distFolder,
+          isMergePackageJson: true,
+        });
+        addAgentsMdSearchDirs(toolFolder);
+      },
+    },
+    {
+      value: 'react-compiler',
+      label: 'React Compiler - optimization',
+      order: 'pre',
+      when: ({ templateName }) =>
+        ['react-js', 'react-ts'].includes(templateName),
+      action: ({ templateName, distFolder }) => {
+        const toolFolder = path.join(root, 'template-react-compiler');
+        copyFolder({
+          from: path.join(toolFolder, templateName),
+          to: distFolder,
+          isMergePackageJson: true,
+        });
+      },
+    },
+    {
+      value: 'tailwindcss',
+      label: 'Tailwind CSS - styling',
+      action: async ({ distFolder }) => {
+        const from = path.join(root, 'template-tailwindcss');
+        copyFolder({
+          from: from,
+          to: distFolder,
+          isMergePackageJson: true,
+        });
+
+        // Insert tailwindcss import to main CSS file
+        const mainCssFile = ['index.css', 'App.css'];
+        for (const cssFile of mainCssFile) {
+          const filePath = path.join(distFolder, 'src', cssFile);
+          if (fs.existsSync(filePath)) {
+            const content = await fs.promises.readFile(filePath, 'utf-8');
+            await fs.promises.writeFile(
+              filePath,
+              `@import 'tailwindcss';\n\n${content}`,
+            );
+            break;
+          }
+        }
+      },
+    },
+    {
+      value: 'storybook',
+      label: 'Storybook - component development',
+      command: 'npm create storybook@latest -- --skip-install --features docs',
+    },
+  ],
+  extraSkills: [
+    {
+      value: 'rsbuild-best-practices',
+      label: 'Rsbuild best practices',
+      source: 'rstackjs/agent-skills',
+    },
+    {
+      value: 'rstest-best-practices',
+      label: 'Rstest best practices',
+      source: 'rstackjs/agent-skills',
+      when: ({ tools }) => tools.includes('rstest'),
+    },
+    {
+      value: 'vercel-react-best-practices',
+      label: 'React best practices',
+      source: 'vercel-labs/agent-skills',
+      when: ({ templateName }) => templateName.startsWith('react-'),
+    },
+  ],
 });

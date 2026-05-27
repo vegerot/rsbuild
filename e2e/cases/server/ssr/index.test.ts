@@ -1,29 +1,22 @@
-import { dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest('support SSR', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-  });
+test('support SSR', async ({ page, devOnly }) => {
+  const rsbuild = await devOnly();
 
   const url = new URL(`http://localhost:${rsbuild.port}`);
 
-  const res = await page.goto(url.href);
-
-  expect(await res?.text()).toMatch(/Rsbuild with React/);
+  await page.goto(url.href);
+  await expect(page.locator('body')).toContainText('Rsbuild with React');
 
   await page.goto(url.href);
 
   // bundle result should cacheable and only load once.
   expect(rsbuild.logs.filter((log) => log.includes('load SSR')).length).toBe(1);
-
-  await rsbuild.close();
 });
 
-rspackOnlyTest('support SSR with external', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    rsbuildConfig: {
+test('support SSR with external', async ({ page, devOnly }) => {
+  const rsbuild = await devOnly({
+    config: {
       output: {
         externals: {
           react: 'react',
@@ -35,42 +28,33 @@ rspackOnlyTest('support SSR with external', async ({ page }) => {
 
   const url = new URL(`http://localhost:${rsbuild.port}`);
 
-  const res = await page.goto(url.href);
-
-  expect(await res?.text()).toMatch(/Rsbuild with React/);
+  await page.goto(url.href);
+  await expect(page.locator('body')).toContainText('Rsbuild with React');
 
   await page.goto(url.href);
 
   // bundle result should cacheable and only load once.
   expect(rsbuild.logs.filter((log) => log.includes('load SSR')).length).toBe(1);
-
-  await rsbuild.close();
 });
 
-rspackOnlyTest('support SSR with esm target', async ({ page }) => {
+test('support SSR with esm target', async ({ page, devOnly }) => {
   process.env.TEST_ESM_LIBRARY = '1';
 
-  const rsbuild = await dev({
-    cwd: __dirname,
-  });
+  const rsbuild = await devOnly();
 
   const url1 = new URL(`http://localhost:${rsbuild.port}`);
 
-  const res = await page.goto(url1.href);
-
-  expect(await res?.text()).toMatch(/Rsbuild with React/);
-
-  await rsbuild.close();
+  await page.goto(url1.href);
+  await expect(page.locator('body')).toContainText('Rsbuild with React');
 
   delete process.env.TEST_ESM_LIBRARY;
 });
 
-rspackOnlyTest('support SSR with esm target & external', async ({ page }) => {
+test('support SSR with esm target & external', async ({ page, devOnly }) => {
   process.env.TEST_ESM_LIBRARY = '1';
 
-  const rsbuild = await dev({
-    cwd: __dirname,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       output: {
         externals: {
           react: 'react',
@@ -82,30 +66,20 @@ rspackOnlyTest('support SSR with esm target & external', async ({ page }) => {
 
   const url1 = new URL(`http://localhost:${rsbuild.port}`);
 
-  const res = await page.goto(url1.href);
-
-  expect(await res?.text()).toMatch(/Rsbuild with React/);
-
-  await rsbuild.close();
+  await page.goto(url1.href);
+  await expect(page.locator('body')).toContainText('Rsbuild with React');
 
   delete process.env.TEST_ESM_LIBRARY;
 });
 
-rspackOnlyTest('support SSR with split chunk', async ({ page }) => {
+test('support SSR with split chunk', async ({ page, devOnly }) => {
   process.env.TEST_SPLIT_CHUNK = '1';
 
-  const rsbuild = await dev({
-    cwd: __dirname,
-    rsbuildConfig: {},
-  });
-
+  const rsbuild = await devOnly();
   const url1 = new URL(`http://localhost:${rsbuild.port}`);
 
-  const res = await page.goto(url1.href);
-
-  expect(await res?.text()).toMatch(/Rsbuild with React/);
-
-  await rsbuild.close();
+  await page.goto(url1.href);
+  await expect(page.locator('body')).toContainText('Rsbuild with React');
 
   delete process.env.TEST_SPLIT_CHUNK;
 });

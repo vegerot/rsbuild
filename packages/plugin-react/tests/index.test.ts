@@ -1,23 +1,29 @@
-import { createStubRsbuild, matchRules } from '@scripts/test-helper';
+import { createRsbuild } from '@rsbuild/core';
+import { createRsbuild as createRsbuildV1 } from '@rsbuild/core-v1';
+import { matchPlugin, matchRules } from '@scripts/test-helper';
 import { pluginReact } from '../src';
 
 describe('plugins/react', () => {
+  afterEach(() => {
+    rs.unstubAllEnvs();
+  });
+
   it('should work with swc-loader', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         mode: 'development',
       },
     });
 
     rsbuild.addPlugins([pluginReact()]);
-    const config = await rsbuild.unwrapConfig();
+    const config = await rsbuild.initConfigs();
 
-    expect(matchRules(config, 'a.js')).toMatchSnapshot();
+    expect(matchRules(config[0], 'a.js')).toMatchSnapshot();
   });
 
   it('should configuring `tools.swc` to override react runtime', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         mode: 'development',
         tools: {
           swc: {
@@ -34,14 +40,28 @@ describe('plugins/react', () => {
     });
 
     rsbuild.addPlugins([pluginReact()]);
-    const config = await rsbuild.unwrapConfig();
+    const config = await rsbuild.initConfigs();
 
-    expect(matchRules(config, 'a.js')).toMatchSnapshot();
+    expect(matchRules(config[0], 'a.js')).toMatchSnapshot();
+  });
+
+  it('should set `parser.javascript.jsx` to `true` when using `preserve` react runtime', async () => {
+    const rsbuild = await createRsbuild();
+
+    rsbuild.addPlugins([
+      pluginReact({
+        swcReactOptions: {
+          runtime: 'preserve',
+        },
+      }),
+    ]);
+    const config = await rsbuild.initConfigs();
+    expect(config[0].module?.parser?.javascript).toMatchSnapshot();
   });
 
   it('should not apply react refresh when dev.hmr is false', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         dev: {
           hmr: false,
         },
@@ -49,15 +69,13 @@ describe('plugins/react', () => {
     });
 
     rsbuild.addPlugins([pluginReact()]);
-
-    expect(
-      await rsbuild.matchBundlerPlugin('ReactRefreshRspackPlugin'),
-    ).toBeFalsy();
+    const config = await rsbuild.initConfigs();
+    expect(matchPlugin(config[0], 'ReactRefreshRspackPlugin')).toBeFalsy();
   });
 
   it('should set transpilation scope for react refresh plugin correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         mode: 'development',
         source: {
           include: [/foo/, /bar/],
@@ -68,14 +86,15 @@ describe('plugins/react', () => {
 
     rsbuild.addPlugins([pluginReact()]);
 
+    const config = await rsbuild.initConfigs();
     expect(
-      await rsbuild.matchBundlerPlugin('ReactRefreshRspackPlugin'),
+      matchPlugin(config[0], 'ReactRefreshRspackPlugin'),
     ).toMatchSnapshot();
   });
 
   it('should not apply react refresh when target is node', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           target: 'node',
         },
@@ -84,14 +103,13 @@ describe('plugins/react', () => {
 
     rsbuild.addPlugins([pluginReact()]);
 
-    expect(
-      await rsbuild.matchBundlerPlugin('ReactRefreshRspackPlugin'),
-    ).toBeFalsy();
+    const config = await rsbuild.initConfigs();
+    expect(matchPlugin(config[0], 'ReactRefreshRspackPlugin')).toBeFalsy();
   });
 
   it('should not apply react refresh when target is web-worker', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           target: 'web-worker',
         },
@@ -100,14 +118,25 @@ describe('plugins/react', () => {
 
     rsbuild.addPlugins([pluginReact()]);
 
-    expect(
-      await rsbuild.matchBundlerPlugin('ReactRefreshRspackPlugin'),
-    ).toBeFalsy();
+    const config = await rsbuild.initConfigs();
+    expect(matchPlugin(config[0], 'ReactRefreshRspackPlugin')).toBeFalsy();
+  });
+
+  it('should throw an error when using Rsbuild v1', async () => {
+    const rsbuild = await createRsbuildV1({
+      config: {
+        plugins: [pluginReact()],
+      },
+    });
+
+    await expect(() => rsbuild.initConfigs()).rejects.toThrow(
+      /"@rsbuild\/plugin-react" v2 requires "@rsbuild\/core" >= 2\.0\. Please upgrade "@rsbuild\/core" or use "@rsbuild\/plugin-react" v1\./,
+    );
   });
 
   it('should not apply splitChunks rule when strategy is not split-by-experience', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         performance: {
           chunkSplit: {
             strategy: 'single-vendor',
@@ -118,15 +147,12 @@ describe('plugins/react', () => {
 
     rsbuild.addPlugins([pluginReact()]);
 
-    const config = await rsbuild.unwrapConfig();
-
-    expect(config.optimization.splitChunks).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toMatchSnapshot();
   });
 
   it('should allow to custom jsxImportSource', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {},
-    });
+    const rsbuild = await createRsbuild();
 
     rsbuild.addPlugins([
       pluginReact({
@@ -135,16 +161,17 @@ describe('plugins/react', () => {
         },
       }),
     ]);
-    const config = await rsbuild.unwrapConfig();
-
-    expect(JSON.stringify(config)).toContain(`"importSource":"@emotion/react"`);
+    const config = await rsbuild.initConfigs();
+    expect(JSON.stringify(config[0])).toContain(
+      `"importSource":"@emotion/react"`,
+    );
   });
 
   it('should allow to add react plugin as single environment plugin', async () => {
-    process.env.NODE_ENV = 'production';
+    rs.stubEnv('NODE_ENV', 'production');
 
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         environments: {
           web: {},
           web1: {},
@@ -170,7 +197,5 @@ describe('plugins/react', () => {
 
     expect(bundlerConfigs[1]).not.toContain('lib-react');
     expect(environmentConfigs[1]).not.toContain('keep_classnames');
-
-    delete process.env.NODE_ENV;
   });
 });

@@ -1,3 +1,7 @@
+---
+description: 'Reference for the Rsbuild JavaScript API, covering rsbuild.context, rsbuild.build, rsbuild.startDevServer and related methods.'
+---
+
 # Rsbuild instance
 
 This section describes all the properties and methods on the Rsbuild instance object.
@@ -53,9 +57,9 @@ type RootPath = string;
 
 The absolute path of the output directory, corresponding to the [output.distPath.root](/config/output/dist-path) config in `RsbuildConfig`.
 
-When there are multiple environments, Rsbuild will try to get the parent distPath of all environments as `context.distPath`.
+When multiple environments exist, Rsbuild attempts to find the parent distPath of all environments as `context.distPath`.
 
-If you want to get the absolute path to the output directory of a specified environment, it is recommended to use [environment.distPath](/api/javascript-api/environment-api#distpath).
+To get the absolute path to a specific environment's output directory, use [environment.distPath](/api/javascript-api/environment-api#distpath).
 
 - **Type:**
 
@@ -113,8 +117,11 @@ Dev server information when running in dev mode. Available after the dev server 
 
 ```ts
 type DevServer = {
+  /** The hostname the server is running on. */
   hostname: string;
+  /** The actual port number the server is listening on. */
   port: number;
+  /** Whether the server is using HTTPS protocol. */
   https: boolean;
 };
 ```
@@ -130,7 +137,8 @@ async function main() {
   });
   await rsbuild.startDevServer();
 
-  console.log(rsbuild.context.devServer); // { hostname: 'localhost', port: 3000, https: false }
+  // { hostname: 'localhost', port: 3000, https: false }
+  console.log(rsbuild.context.devServer);
 }
 ```
 
@@ -146,7 +154,7 @@ type Action = 'dev' | 'build' | 'preview' | undefined;
 
 `context.action` is set when running CLI commands or calling Rsbuild instance methods:
 
-- `dev`: set when running [rsbuild dev](/guide/basic/cli#rsbuild-dev) or [rsbuild.startDevServer()](/api/javascript-api/instance#rsbuildstartdevserver)
+- `dev`: set when running [rsbuild dev](/guide/basic/cli#rsbuild) or [rsbuild.startDevServer()](/api/javascript-api/instance#rsbuildstartdevserver)
 - `build`: set when running [rsbuild build](/guide/basic/cli#rsbuild-build) or [rsbuild.build()](/api/javascript-api/instance#rsbuildbuild)
 - `preview`: set when running [rsbuild preview](/guide/basic/cli#rsbuild-preview) or [rsbuild.preview()](/api/javascript-api/instance#rsbuildpreview)
 
@@ -158,21 +166,23 @@ if (rsbuild.context.action === 'dev') {
 }
 ```
 
-### context.bundlerType
+## rsbuild.logger
 
-The bundler type of current build.
+`rsbuild.logger` is the logger associated with the current Rsbuild instance. See [Logging](/guide/advanced/logging) for more details.
 
-- **Type:**
+- **Type:** [Logger](/api/javascript-api/core#logger)
+
+- **Example:**
 
 ```ts
-type bundlerType = 'rspack' | 'webpack';
-```
+const rsbuild = await createRsbuild();
 
-> Rsbuild internally supports switching to webpack for comparative testing, so this field is provided for differentiation. Usually, you do not need to use this field.
+rsbuild.logger.info('build started');
+```
 
 ## rsbuild.build
 
-Performs a production mode build. This method generates optimized production bundles and emits them to the output directory.
+Runs a production build, generating optimized production bundles and writing them to the output directory.
 
 - **Type:**
 
@@ -183,10 +193,6 @@ type BuildOptions = {
    * @default false
    */
   watch?: boolean;
-  /**
-   * Using a custom Rspack Compiler object.
-   */
-  compiler?: Compiler | MultiCompiler;
 };
 
 function Build(options?: BuildOptions): Promise<{
@@ -255,7 +261,7 @@ const buildResult = await rsbuild.build({
 await buildResult.close();
 ```
 
-In non-watch mode, you should also call the `close()` method to end the build, which will trigger the [onCloseBuild](/plugins/dev/hooks#onclosebuild) hook to perform cleanup operations.
+In non-watch mode, also call the `close()` method to end the build, which triggers the [onCloseBuild](/plugins/dev/hooks#onclosebuild) hook for cleanup operations.
 
 ```ts
 const buildResult = await rsbuild.build();
@@ -264,9 +270,9 @@ await buildResult.close();
 
 ### Stats object
 
-In non-watch mode, the `rsbuild.build()` returns an Rspack [stats](https://rspack.rs/api/javascript-api/stats) object.
+In non-watch mode, `rsbuild.build()` returns an Rspack [stats](https://rspack.rs/api/javascript-api/stats) object.
 
-For example, use the `stats.toJson()` method to get all assets information:
+For example, use the `stats.toJson()` method to get asset information:
 
 ```ts
 const result = await rsbuild.build();
@@ -282,36 +288,17 @@ if (stats) {
 }
 ```
 
-### Custom compiler
-
-In some cases, you may want to use a custom compiler:
-
-```ts
-import { rspack } from '@rsbuild/core';
-
-const compiler = rspack({
-  // ...
-});
-await rsbuild.build({
-  compiler,
-});
-```
-
 ## rsbuild.startDevServer
 
 Starts the local dev server. This method will:
 
-1. Start a development server that serves your application.
-2. Watch for file changes and trigger recompilation.
+1. Start a development server to serve your application
+2. Watch for file changes and trigger recompilation
 
 - **Type:**
 
 ```ts
 type StartDevServerOptions = {
-  /**
-   * Using a custom Rspack Compiler object.
-   */
-  compiler?: Compiler | MultiCompiler;
   /**
    * Whether to get port silently and not print any logs.
    * @default false
@@ -319,7 +306,7 @@ type StartDevServerOptions = {
   getPortSilently?: boolean;
 };
 
-type StartServerResult = {
+type StartDevServerResult = {
   /**
    * The URLs that server is listening on.
    */
@@ -328,18 +315,12 @@ type StartServerResult = {
    * The actual port used by the server.
    */
   port: number;
-  server: {
-    /**
-     * Close the server.
-     * In development mode, this will call the `onCloseDevServer` hook.
-     */
-    close: () => Promise<void>;
-  };
+  server: RsbuildDevServer;
 };
 
 function StartDevServer(
   options?: StartDevServerOptions,
-): Promise<StartServerResult>;
+): Promise<StartDevServerResult>;
 ```
 
 - **Example:**
@@ -362,18 +343,18 @@ try {
 }
 ```
 
-After successfully starting dev server, you can see the following logs:
+Once the dev server starts successfully, these logs appear:
 
 ```
-  ➜ Local:    http://localhost:3000
-  ➜ Network:  http://192.168.0.1:3000
+  ➜  Local:    http://localhost:3000
+  ➜  Network:  use --host to expose
 ```
 
-`startDevServer` returns the following parameters:
+`startDevServer` returns these parameters:
 
 - `urls`: URLs to access dev server.
 - `port`: The actual listening port number.
-- `server`: Server instance object.
+- `server`: Server instance, see [Server API](/api/javascript-api/server-api) for more details.
 
 ```ts
 const { urls, port } = await rsbuild.startDevServer();
@@ -383,7 +364,7 @@ console.log(port); // 3000
 
 ### Close server
 
-Calling the `close()` method to close the dev server, trigger the [onCloseDevServer](/plugins/dev/hooks#onclosedevserver) hook and perform necessary cleanup operations.
+Call the `server.close()` method to close the dev server, trigger the [onCloseDevServer](/plugins/dev/hooks#onclosedevserver) hook, and perform cleanup operations.
 
 ```ts
 const { server } = await rsbuild.startDevServer();
@@ -392,7 +373,7 @@ await server.close();
 
 ### Get port silently
 
-In some cases, the default startup port number is already occupied. In this situation, Rsbuild will automatically increment the port number until it finds an available one. This process will output a prompt log. If you do not want this log, you can set `getPortSilently` to `true`.
+When the default startup port is occupied, Rsbuild automatically increments the port number until it finds an available one. This process outputs a prompt log. To suppress this log, set `getPortSilently` to `true`.
 
 ```ts
 await rsbuild.startDevServer({
@@ -400,26 +381,32 @@ await rsbuild.startDevServer({
 });
 ```
 
-### Custom compiler
+## rsbuild.createDevServer
 
-In some cases, you may want to use a custom compiler:
+- **Type:**
 
 ```ts
-import { rspack } from '@rsbuild/core';
+type CreateDevServerOptions = {
+  /**
+   * Whether to get port silently and not print any logs.
+   * @default false
+   */
+  getPortSilently?: boolean;
+  /**
+   * Whether to trigger Rsbuild compilation
+   * @default true
+   */
+  runCompile?: boolean;
+};
 
-const compiler = rspack({
-  // ...
-});
-await rsbuild.startDevServer({
-  compiler,
-});
+function createDevServer(
+  options?: CreateDevServerOptions,
+): Promise<RsbuildDevServer>;
 ```
-
-## rsbuild.createDevServer
 
 Rsbuild includes a built-in dev server designed to improve the development experience. When you run the `rsbuild dev` command, the server starts automatically and provides features such as page preview, routing, and hot module reloading.
 
-- To integrate the Rsbuild dev server into a custom server, you can use the `createDevServer` method to create a dev server instance. Please refer to [Dev server API](/api/javascript-api/dev-server-api) for all available APIs.
+- To integrate the Rsbuild dev server into a custom server, you can use the `createDevServer` method to create a dev server instance. Refer to [Server API](/api/javascript-api/server-api) for all available APIs.
 - To use Rsbuild dev server to start the project directly, you can use the [rsbuild.startDevServer](#rsbuildstartdevserver) method directly. `rsbuild.startDevServer` is actually syntactic sugar for the following code:
 
 ```ts
@@ -447,7 +434,7 @@ type PreviewOptions = {
   checkDistDir?: boolean;
 };
 
-type StartServerResult = {
+type StartPreviewServerResult = {
   /**
    * The URLs that server is listening on.
    */
@@ -456,15 +443,10 @@ type StartServerResult = {
    * The actual port used by the server.
    */
   port: number;
-  server: {
-    /**
-     * Close the server.
-     */
-    close: () => Promise<void>;
-  };
+  server: RsbuildPreviewServer;
 };
 
-function preview(options?: PreviewOptions): Promise<StartServerResult>;
+function preview(options?: PreviewOptions): Promise<StartPreviewServerResult>;
 ```
 
 - **Example:**
@@ -491,7 +473,7 @@ try {
 
 - `urls`: URLs to access server.
 - `port`: The actual listening port number.
-- `server`: Server instance object.
+- `server`: Server instance, see [Server API](/api/javascript-api/server-api) for more details.
 
 ```ts
 const { urls, port } = await rsbuild.preview();
@@ -590,18 +572,27 @@ This method needs to be called before compiling. If it is called after compiling
 - **Type:**
 
 ```ts
-function RemovePlugins(pluginNames: string[]): void;
+function RemovePlugins(
+  pluginNames: string[],
+  options?: {
+    /**
+     * Remove the plugin in the specified environment.
+     * If environment is not specified, remove it in all environments.
+     */
+    environment?: string;
+  },
+): void;
 ```
 
 - **Example:**
 
 ```ts
 // add plugin
-const pluginFoo = pluginFoo();
-rsbuild.addPlugins(pluginFoo);
+const foo = pluginFoo();
+rsbuild.addPlugins([foo]);
 
 // remove plugin
-rsbuild.removePlugins([pluginFoo.name]);
+rsbuild.removePlugins([foo.name]);
 ```
 
 ## rsbuild.isPluginExists
@@ -621,7 +612,7 @@ const pluginFoo = {
 };
 
 const rsbuild = createRsbuild({
-  rsbuildConfig: {
+  config: {
     plugins: [pluginFoo],
   },
 });
@@ -633,7 +624,7 @@ Or check if a plugin exists in a specified environment:
 
 ```ts
 const rsbuild = createRsbuild({
-  rsbuildConfig: {
+  config: {
     environments: {
       web: {
         plugins: [pluginFoo],
@@ -911,34 +902,36 @@ rsbuild.onCloseDevServer(async () => {
 });
 ```
 
-## rsbuild.onBeforeStartProdServer
+## rsbuild.onBeforeStartPreviewServer
 
-> Provides the same functionality as the [onBeforeStartProdServer](/plugins/dev/hooks#onbeforestartprodserver) plugin hook.
+> Provides the same functionality as the [onBeforeStartPreviewServer](/plugins/dev/hooks#onbeforestartpreviewserver) plugin hook.
 
-import OnBeforeStartProdServer from '@en/shared/onBeforeStartProdServer.mdx';
+import OnBeforeStartPreviewServer from '@en/shared/onBeforeStartPreviewServer.mdx';
 
-<OnBeforeStartProdServer />
+<OnBeforeStartPreviewServer />
 
 - **Example:**
 
 ```ts
-rsbuild.onBeforeStartProdServer(() => {
+rsbuild.onBeforeStartPreviewServer(({ server, environments }) => {
   console.log('before start!');
+  console.log('the server is ', server);
+  console.log('the environments contexts are: ', environments);
 });
 ```
 
-## rsbuild.onAfterStartProdServer
+## rsbuild.onAfterStartPreviewServer
 
-> Provides the same functionality as the [onAfterStartProdServer](/plugins/dev/hooks#onafterstartprodserver) plugin hook.
+> Provides the same functionality as the [onAfterStartPreviewServer](/plugins/dev/hooks#onafterstartpreviewserver) plugin hook.
 
-import OnAfterStartProdServer from '@en/shared/onAfterStartProdServer.mdx';
+import OnAfterStartPreviewServer from '@en/shared/onAfterStartPreviewServer.mdx';
 
-<OnAfterStartProdServer />
+<OnAfterStartPreviewServer />
 
 - **Example:**
 
 ```ts
-rsbuild.onAfterStartProdServer(({ port, routes }) => {
+rsbuild.onAfterStartPreviewServer(({ port, routes }) => {
   console.log('this port is: ', port);
   console.log('this routes is: ', routes);
 });

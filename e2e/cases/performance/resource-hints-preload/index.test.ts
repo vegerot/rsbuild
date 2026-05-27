@@ -1,15 +1,15 @@
 import { join } from 'node:path';
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, findFile, getFileContent, test } from '@e2e/helper';
 import { pluginReact } from '@rsbuild/plugin-react';
 
-const fixtures = __dirname;
+const fixtures = import.meta.dirname;
 
-test('should generate preload link when preload is defined', async () => {
+test('should generate preload link when preload is defined', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -21,15 +21,10 @@ test('should generate preload link when preload is defined', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find(
-    (file) =>
-      file.includes('/static/js/async/') && !file.endsWith('.LICENSE.txt'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, /\/static\/js\/async\/.+\.js$/);
+  const content = getFileContent(files, '.html');
 
   // test.js, test.css, image.png
   expect(content.match(/rel="preload"/g)?.length).toBe(3);
@@ -43,11 +38,10 @@ test('should generate preload link when preload is defined', async () => {
   ).toBeTruthy();
 });
 
-test('should generate preload link with duplicate', async () => {
+test('should generate preload link with duplicate', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -62,17 +56,13 @@ test('should generate preload link with duplicate', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const initialFileName = Object.keys(files).find(
-    (file) =>
-      file.includes('/static/js/') &&
-      !file.includes('/static/js/async/') &&
-      !file.endsWith('.LICENSE.txt'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const initialFileName = findFile(
+    files,
+    /\/static\/js\/(?!async\/)[^/]+\.js$/,
+  );
+  const content = getFileContent(files, '.html');
 
   expect(
     content.includes(
@@ -83,11 +73,10 @@ test('should generate preload link with duplicate', async () => {
   ).toBeTruthy();
 });
 
-test('should generate preload link with crossOrigin', async () => {
+test('should generate preload link with crossOrigin', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -105,15 +94,10 @@ test('should generate preload link with crossOrigin', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find(
-    (file) =>
-      file.includes('/static/js/async/') && !file.endsWith('.LICENSE.txt'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, /\/static\/js\/async\/.+\.js$/);
+  const content = getFileContent(files, '.html');
 
   // test.js, test.css, image.png
   expect(content.match(/rel="preload"/g)?.length).toBe(3);
@@ -127,11 +111,12 @@ test('should generate preload link with crossOrigin', async () => {
   ).toBeTruthy();
 });
 
-test('should generate preload link without crossOrigin when same origin', async () => {
+test('should generate preload link without crossOrigin when same origin', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -146,15 +131,10 @@ test('should generate preload link without crossOrigin when same origin', async 
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find(
-    (file) =>
-      file.includes('/static/js/async/') && !file.endsWith('.LICENSE.txt'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, /\/static\/js\/async\/.+\.js$/);
+  const content = getFileContent(files, '.html');
 
   // test.js, test.css, image.png
   expect(content.match(/rel="preload"/g)?.length).toBe(3);
@@ -168,11 +148,10 @@ test('should generate preload link without crossOrigin when same origin', async 
   ).toBeTruthy();
 });
 
-test('should generate preload link with include', async () => {
+test('should generate preload link with include', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -186,14 +165,10 @@ test('should generate preload link with include', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find((file) =>
-    file.includes('/static/image/image'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, 'image.png');
+  const content = getFileContent(files, '.html');
 
   // image.png
   expect(content.match(/rel="preload"/g)?.length).toBe(1);
@@ -207,11 +182,10 @@ test('should generate preload link with include', async () => {
   ).toBeTruthy();
 });
 
-test('should generate preload link with include array', async () => {
+test('should generate preload link with include array', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -225,14 +199,10 @@ test('should generate preload link with include array', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find((file) =>
-    file.includes('/static/image/image'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, 'image.png');
+  const content = getFileContent(files, '.html');
 
   // image.png, test.js
   expect(content.match(/rel="preload"/g)?.length).toBe(2);
@@ -246,72 +216,64 @@ test('should generate preload link with include array', async () => {
   ).toBeTruthy();
 });
 
-rspackOnlyTest(
-  'should not generate preload link for inlined assets',
-  async () => {
-    const rsbuild = await build({
-      cwd: fixtures,
+test('should not generate preload link for inlined assets', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
       plugins: [pluginReact()],
-      rsbuildConfig: {
-        source: {
-          entry: {
-            main: join(fixtures, 'src/page1/index.ts'),
-          },
-        },
-        output: {
-          inlineScripts: true,
-          inlineStyles: true,
-        },
-        performance: {
-          preload: true,
+      source: {
+        entry: {
+          main: join(fixtures, 'src/page1/index.ts'),
         },
       },
-    });
+      output: {
+        inlineScripts: true,
+        inlineStyles: true,
+      },
+      performance: {
+        preload: true,
+      },
+    },
+  });
 
-    const files = await rsbuild.getDistFiles();
-    const [, content] = Object.entries(files).find(([name]) =>
-      name.endsWith('.html'),
-    )!;
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, '.html');
 
-    // image.png
-    expect(content.match(/rel="preload" as="/g)?.length).toBe(1);
-  },
-);
+  // image.png
+  expect(content.match(/rel="preload" as="/g)?.length).toBe(1);
+});
 
-rspackOnlyTest(
-  'should not generate preload link for inlined assets with test option',
-  async () => {
-    const rsbuild = await build({
-      cwd: fixtures,
+test('should not generate preload link for inlined assets with test option', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
       plugins: [pluginReact()],
-      rsbuildConfig: {
-        source: {
-          entry: {
-            main: join(fixtures, 'src/page1/index.ts'),
-          },
-        },
-        output: {
-          inlineScripts: {
-            enable: 'auto',
-            test: /\.js$/,
-          },
-          inlineStyles: {
-            enable: 'auto',
-            test: /\.css$/,
-          },
-        },
-        performance: {
-          preload: true,
+      source: {
+        entry: {
+          main: join(fixtures, 'src/page1/index.ts'),
         },
       },
-    });
+      output: {
+        inlineScripts: {
+          enable: 'auto',
+          test: /\.js$/,
+        },
+        inlineStyles: {
+          enable: 'auto',
+          test: /\.css$/,
+        },
+      },
+      performance: {
+        preload: true,
+      },
+    },
+  });
 
-    const files = await rsbuild.getDistFiles();
-    const [, content] = Object.entries(files).find(([name]) =>
-      name.endsWith('.html'),
-    )!;
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, '.html');
 
-    // image.png
-    expect(content.match(/rel="preload" as="/g)?.length).toBe(1);
-  },
-);
+  // image.png
+  expect(content.match(/rel="preload" as="/g)?.length).toBe(1);
+});

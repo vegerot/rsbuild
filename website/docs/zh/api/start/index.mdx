@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild JavaScript API 总览，介绍核心方法、实例接口、环境接口和服务端 API。'
+---
+
 # JavaScript API
 
 Rsbuild 提供了一整套 JavaScript API，以便于开发者基于 Rsbuild 开发上层的工具或框架。
@@ -41,8 +45,8 @@ await rsbuild.startDevServer();
 成功启动 dev server 后，可以看到以下日志信息：
 
 ```
-  ➜ Local:    http://localhost:3000
-  ➜ Network:  http://192.168.0.1:3000
+  ➜  Local:    http://localhost:3000
+  ➜  Network:  use --host to expose
 ```
 
 在生产环境部署场景，建议使用 [rsbuild.build](/api/javascript-api/instance#rsbuildbuild) 方法，调用后会构建出生产模式产物。
@@ -54,17 +58,3 @@ await rsbuild.build();
 > 关于 Rsbuild 实例方法的更多介绍，请阅读 [Rsbuild Instance](/api/javascript-api/instance) 章节。
 
 通过以上三个步骤，你已经了解了 Rsbuild 基本的使用方法。接下来你可以通过 Rsbuild 插件和 Rsbuild 配置来对构建流程进行定制。
-
-## 导出格式
-
-Rsbuild 提供 ES modules 和 CommonJS 两种格式的导出：
-
-```js title="index.mjs"
-import { createRsbuild } from '@rsbuild/core';
-```
-
-```js title="index.cjs"
-const { createRsbuild } = require('@rsbuild/core');
-```
-
-> 推荐使用更符合社区规范的 ES modules 格式。

@@ -1,10 +1,14 @@
+---
+description: 'Use Less as the CSS preprocessor, implemented based on less-loader.'
+---
+
 # Less plugin
 
-import { SourceCode } from '@rspress/core/theme';
+import { SourceCode } from '@theme';
 
 <SourceCode href="https://github.com/web-infra-dev/rsbuild/tree/main/packages/plugin-less" />
 
-Use [Less](https://lesscss.org/) as the CSS preprocessor, implemented based on [less-loader](https://github.com/webpack-contrib/less-loader).
+Use [Less](https://lesscss.org/) as the CSS preprocessor, implemented based on [less-loader](https://github.com/webpack/less-loader).
 
 ## Quick start
 
@@ -43,7 +47,7 @@ To customize the compilation behavior of Less, use the following options.
 
 ### lessLoaderOptions
 
-You can modify the config of [less-loader](https://github.com/webpack-contrib/less-loader) via `lessLoaderOptions`.
+You can modify the config of [less-loader](https://github.com/webpack/less-loader) via `lessLoaderOptions`.
 
 - **Type:** `Object | Function`
 - **Default:**
@@ -54,7 +58,6 @@ const defaultOptions = {
     javascriptEnabled: true,
     paths: [path.join(rootPath, 'node_modules')],
   },
-  implementation: require.resolve('less'),
   sourceMap: rsbuildConfig.output.sourceMap.css,
 };
 ```
@@ -91,11 +94,11 @@ The `lessLoaderOptions.lessOptions` config is passed to Less. See the [Less docu
 
 ### include
 
-- **Type:** [RuleSetCondition](https://rspack.rs/config/module#condition)
+- **Type:** [Rspack.RuleSetCondition](https://rspack.rs/config/module-rules#condition)
 - **Default:** `/\.less$/`
 - **Version:** `>= 1.1.0`
 
-Include some `.less` files, they will be transformed by `less-loader`. The value is the same as the `rule.test` option in Rspack.
+Include some `.less` files, they will be transformed by `less-loader`. The value is the same as the [rules[].test](https://rspack.rs/config/module-rules#rulestest) option in Rspack.
 
 For example:
 
@@ -107,7 +110,7 @@ pluginLess({
 
 ### exclude
 
-- **Type:** [RuleSetCondition](https://rspack.rs/config/module#condition)
+- **Type:** [Rspack.RuleSetCondition](https://rspack.rs/config/module-rules#condition)
 - **Default:** `undefined`
 
 Exclude some `.less` files, they will not be transformed by `less-loader`.
@@ -136,7 +139,7 @@ pluginLess({
 });
 ```
 
-> See [Rspack - Rule.use.parallel](https://rspack.rs/config/module#ruleuseparallel) for more details.
+> See [Rspack - Rule.use.parallel](https://rspack.rs/config/module-rules#rulesuseparallel) for more details.
 
 ## Modifying Less version
 

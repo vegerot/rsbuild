@@ -1,13 +1,10 @@
 import path from 'node:path';
-import { readDirContents, rspackOnlyTest, runCliSync } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, readDirContents, test } from '@e2e/helper';
 
-rspackOnlyTest('should run allow to specify base path', async () => {
-  runCliSync('build --base /test', {
-    cwd: __dirname,
-  });
+test('should run allow to specify base path', async ({ execCliSync }) => {
+  execCliSync('build --base /test');
 
-  const outputs = await readDirContents(path.join(__dirname, 'dist'));
+  const outputs = await readDirContents(path.join(import.meta.dirname, 'dist'));
   const outputFiles = Object.keys(outputs);
 
   expect(

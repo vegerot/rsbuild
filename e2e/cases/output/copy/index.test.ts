@@ -1,57 +1,88 @@
 import fs from 'node:fs';
 import { join } from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+
+import { expect, test } from '@e2e/helper';
 import type { RsbuildPlugin } from '@rsbuild/core';
 
-test('should copy asset to dist folder correctly', async () => {
+test('should copy asset to dist folder correctly', async ({ build }) => {
   await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
-        distPath: {
-          root: 'dist-1',
-        },
+        distPath: 'dist-1',
         copy: [{ from: '../../../assets' }],
       },
     },
   });
 
-  expect(fs.existsSync(join(__dirname, 'dist-1/icon.png'))).toBeTruthy();
+  expect(
+    fs.existsSync(join(import.meta.dirname, 'dist-1/icon.png')),
+  ).toBeTruthy();
 });
 
-test('should copy asset from src to dist folder correctly', async () => {
+test('should copy asset from src to dist folder correctly', async ({
+  build,
+}) => {
   await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
         copy: [
-          { from: '**/*.txt', to: 'assets', context: join(__dirname, 'src') },
+          {
+            from: '**/*.txt',
+            to: 'assets',
+            context: join(import.meta.dirname, 'src'),
+          },
         ],
       },
     },
   });
 
-  expect(fs.existsSync(join(__dirname, 'dist/assets/foo.txt'))).toBeTruthy();
+  expect(
+    fs.existsSync(join(import.meta.dirname, 'dist/assets/foo.txt')),
+  ).toBeTruthy();
 });
 
-test('should copy asset to dist sub-folder correctly', async () => {
+test('should transform copied assets', async ({ build }) => {
   await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
-        distPath: {
-          root: 'dist-1',
-        },
+        copy: [
+          {
+            from: 'foo.txt',
+            to: 'transformed/foo.txt',
+            context: join(import.meta.dirname, 'src'),
+            transform(content) {
+              return content.toString().toUpperCase();
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  expect(
+    fs.readFileSync(
+      join(import.meta.dirname, 'dist/transformed/foo.txt'),
+      'utf-8',
+    ),
+  ).toBe('BAR');
+});
+
+test('should copy asset to dist sub-folder correctly', async ({ build }) => {
+  await build({
+    config: {
+      output: {
+        distPath: 'dist-1',
         copy: [{ from: '../../../assets', to: 'foo' }],
       },
     },
   });
 
-  expect(fs.existsSync(join(__dirname, 'dist-1/foo/icon.png'))).toBeTruthy();
+  expect(
+    fs.existsSync(join(import.meta.dirname, 'dist-1/foo/icon.png')),
+  ).toBeTruthy();
 });
 
-test('should merge copy config correctly', async () => {
+test('should merge copy config correctly', async ({ build }) => {
   const rsbuildPlugin = (): RsbuildPlugin => ({
     name: 'example',
     setup(api) {
@@ -89,17 +120,18 @@ test('should merge copy config correctly', async () => {
   });
 
   await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
-        distPath: {
-          root: 'dist-4',
-        },
+        distPath: 'dist-4',
       },
       plugins: [rsbuildPlugin(), rsbuildPlugin2()],
     },
   });
 
-  expect(fs.existsSync(join(__dirname, 'dist-4/icon.png'))).toBeTruthy();
-  expect(fs.existsSync(join(__dirname, 'dist-4/image.png'))).toBeTruthy();
+  expect(
+    fs.existsSync(join(import.meta.dirname, 'dist-4/icon.png')),
+  ).toBeTruthy();
+  expect(
+    fs.existsSync(join(import.meta.dirname, 'dist-4/image.png')),
+  ).toBeTruthy();
 });

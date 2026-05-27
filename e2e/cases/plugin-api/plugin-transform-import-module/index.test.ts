@@ -1,18 +1,11 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow plugin to transform code and call `importModule`',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-    });
+test('should allow plugin to transform code and call `importModule`', async ({
+  build,
+}) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
+  const indexCss = getFileContent(files, 'index.css');
 
-    const files = await rsbuild.getDistFiles();
-    const indexCss = Object.keys(files).find(
-      (file) => file.includes('index') && file.endsWith('.css'),
-    );
-
-    expect(files[indexCss!].includes('#00f')).toBeTruthy();
-  },
-);
+  expect(indexCss.includes('#00f')).toBeTruthy();
+});

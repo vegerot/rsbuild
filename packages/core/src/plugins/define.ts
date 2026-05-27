@@ -1,8 +1,10 @@
-import { color, getPublicPathFromChain } from '../helpers';
-import { logger } from '../logger';
-import type { Define, RsbuildPlugin } from '../types';
+import type { DefinePluginOptions } from '@rspack/core';
+import { color } from '../helpers';
+import { getPublicPathFromChain } from '../helpers/url';
+import type { Logger } from '../logger';
+import type { RsbuildPlugin } from '../types';
 
-function checkProcessEnvSecurity(define: Define) {
+function checkProcessEnvSecurity(define: DefinePluginOptions, logger: Logger) {
   const value = define['process.env'];
 
   if (!value) {
@@ -30,7 +32,7 @@ function checkProcessEnvSecurity(define: Define) {
 
   // Check `{ 'process.env': process.env }`
   if (typeof value === 'object') {
-    check(value);
+    check(value as Record<string, unknown>);
     return;
   }
 
@@ -38,7 +40,9 @@ function checkProcessEnvSecurity(define: Define) {
   if (typeof value === 'string') {
     try {
       check(JSON.parse(value));
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -46,13 +50,13 @@ export const pluginDefine = (): RsbuildPlugin => ({
   name: 'rsbuild:define',
 
   setup(api) {
-    api.modifyBundlerChain((chain, { CHAIN_ID, bundler, environment }) => {
+    api.modifyBundlerChain((chain, { CHAIN_ID, rspack, environment }) => {
       const { config } = environment;
 
       const baseUrl = JSON.stringify(config.server.base);
       const assetPrefix = JSON.stringify(getPublicPathFromChain(chain, false));
 
-      const builtinVars: Define = {
+      const builtinVars: DefinePluginOptions = {
         'import.meta.env': {
           MODE: JSON.stringify(config.mode),
           DEV: config.mode === 'development',
@@ -66,11 +70,11 @@ export const pluginDefine = (): RsbuildPlugin => ({
 
       const mergedDefine = { ...builtinVars, ...config.source.define };
 
-      checkProcessEnvSecurity(mergedDefine);
+      checkProcessEnvSecurity(mergedDefine, api.logger);
 
       chain
         .plugin(CHAIN_ID.PLUGIN.DEFINE)
-        .use(bundler.DefinePlugin, [mergedDefine]);
+        .use(rspack.DefinePlugin, [mergedDefine]);
     });
   },
 });

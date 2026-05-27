@@ -1,45 +1,46 @@
-import { Layout as BaseLayout } from '@rspress/core/theme';
+import {
+  Layout as BaseLayout,
+  DocLayout as BasicDocLayout,
+  Link,
+  type DocLayoutProps,
+} from '@rspress/core/theme-original';
 import { Announcement } from '@rstack-dev/doc-ui/announcement';
+import { BlogBackButton } from '@rstack-dev/doc-ui/blog-back-button';
 import { NavIcon } from '@rstack-dev/doc-ui/nav-icon';
 import { HomeLayout } from './pages';
 import './index.scss';
-import { NoSSR, useLang, usePageData } from '@rspress/core/runtime';
-import { getCustomMDXComponent as basicGetCustomMDXComponent } from '@rspress/core/theme';
+import { NoSSR, useLang, usePage } from '@rspress/core/runtime';
 import {
   Search as PluginAlgoliaSearch,
   ZH_LOCALES,
 } from '@rspress/plugin-algolia/runtime';
-import {
-  LlmsContainer,
-  LlmsCopyButton,
-  LlmsViewOptions,
-} from '@rspress/plugin-llms/runtime';
 
 // Enable announcement when we have something to announce
-const ANNOUNCEMENT_URL = '';
+const ANNOUNCEMENT_URL = '/blog/v2-0';
 
-export function getCustomMDXComponent() {
-  const { h1: H1, ...mdxComponents } = basicGetCustomMDXComponent();
+const DocLayout = (props: DocLayoutProps) => {
+  const { page } = usePage();
+  const lang = useLang();
 
-  const MyH1 = ({ ...props }) => {
-    return (
-      <>
-        <H1 {...props} />
-        <LlmsContainer>
-          <LlmsCopyButton />
-          <LlmsViewOptions />
-        </LlmsContainer>
-      </>
-    );
-  };
-  return {
-    ...mdxComponents,
-    h1: MyH1,
-  };
-}
+  return (
+    <BasicDocLayout
+      {...props}
+      beforeDocContent={
+        <>
+          <BlogBackButton
+            pathname={page.routePath}
+            lang={lang}
+            LinkComp={Link}
+          />
+          {props.beforeDocContent}
+        </>
+      }
+    />
+  );
+};
 
 const Layout = () => {
-  const { page } = usePageData();
+  const { page } = usePage();
   const lang = useLang();
 
   return (
@@ -54,10 +55,10 @@ const Layout = () => {
               }
               message={
                 lang === 'en'
-                  ? 'Rsbuild 1.0 has been released!'
-                  : 'Rsbuild 1.0 正式发布！'
+                  ? 'Rsbuild 2.0 has been released!'
+                  : 'Rsbuild 2.0 正式发布！'
               }
-              localStorageKey="rsbuild-announcement-closed"
+              localStorageKey="rsbuild-v2-announcement-closed"
               display={page.pageType === 'home'}
             />
           </NoSSR>
@@ -83,6 +84,6 @@ const Search = () => {
   );
 };
 
-export { Layout, HomeLayout, Search };
+export { DocLayout, Layout, HomeLayout, Search };
 
-export * from '@rspress/core/theme';
+export * from '@rspress/core/theme-original';

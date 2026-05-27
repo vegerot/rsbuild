@@ -160,7 +160,7 @@ describe('mergeRsbuildConfig', () => {
     });
   });
 
-  it('should not modify the original objects when the merged config modified', () => {
+  it('should not modify the original objects when the merged config is modified', () => {
     const obj: RsbuildConfig = {
       resolve: {
         alias: {},
@@ -192,6 +192,35 @@ describe('mergeRsbuildConfig', () => {
     expect(obj).toEqual({
       resolve: {
         alias: {},
+      },
+    });
+  });
+
+  it('should not modify the original object when a merged single config is modified', () => {
+    const obj: RsbuildConfig = {
+      source: {
+        entry: {
+          index: './src/index.ts',
+        },
+      },
+    };
+
+    const res = mergeRsbuildConfig(obj);
+
+    res.source!.entry!.index = './src/main.ts';
+
+    expect(res).toEqual({
+      source: {
+        entry: {
+          index: './src/main.ts',
+        },
+      },
+    });
+    expect(obj).toEqual({
+      source: {
+        entry: {
+          index: './src/index.ts',
+        },
       },
     });
   });
@@ -294,6 +323,82 @@ describe('mergeRsbuildConfig', () => {
               ],
             },
           },
+        },
+      },
+    });
+  });
+
+  it('should merge dev.writeToDisk correctly', () => {
+    const fn1 = () => false;
+    const fn2 = () => true;
+    expect(
+      mergeRsbuildConfig(
+        {
+          dev: {
+            writeToDisk: fn1,
+          },
+        },
+        {
+          dev: {
+            writeToDisk: fn2,
+          },
+        },
+      ),
+    ).toEqual({
+      dev: {
+        writeToDisk: fn2,
+      },
+    });
+  });
+
+  it('should merge dev.client.overlay.errors correctly', () => {
+    const fn1 = () => false;
+    const fn2 = () => true;
+    expect(
+      mergeRsbuildConfig(
+        {
+          dev: {
+            client: {
+              overlay: {
+                errors: fn1,
+              },
+            },
+          },
+        },
+        {
+          dev: {
+            client: {
+              overlay: {
+                errors: fn2,
+              },
+            },
+          },
+        },
+      ),
+    ).toEqual({
+      dev: {
+        client: {
+          overlay: {
+            errors: fn2,
+          },
+        },
+      },
+    });
+  });
+
+  it('should override single callback options correctly', () => {
+    const filter1 = () => false;
+    const filter2 = () => true;
+
+    expect(
+      mergeRsbuildConfig(
+        { server: { compress: { filter: filter1 } } },
+        { server: { compress: { filter: filter2 } } },
+      ),
+    ).toEqual({
+      server: {
+        compress: {
+          filter: filter2,
         },
       },
     });
@@ -417,5 +522,106 @@ describe('mergeRsbuildConfig', () => {
         },
       },
     });
+  });
+
+  test('should merge output.copy as expected', async () => {
+    expect(
+      mergeRsbuildConfig(
+        {
+          output: {
+            copy: [
+              {
+                from: 'src/static',
+                to: 'static',
+              },
+            ],
+          },
+        },
+        {
+          output: {
+            copy: {
+              patterns: [
+                {
+                  from: 'src/static2',
+                  to: 'static2',
+                },
+              ],
+            },
+          },
+        },
+      ),
+    ).toEqual({
+      output: {
+        copy: {
+          patterns: [
+            {
+              from: 'src/static',
+              to: 'static',
+            },
+            {
+              from: 'src/static2',
+              to: 'static2',
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  test('should merge output.distPath as expected', async () => {
+    expect(
+      mergeRsbuildConfig(
+        {
+          output: {
+            distPath: {
+              root: 'custom-dist1',
+              js: 'custom-js',
+            },
+          },
+        },
+        {
+          output: {
+            distPath: 'custom-dist2',
+          },
+        },
+      ),
+    ).toEqual({
+      output: {
+        distPath: {
+          root: 'custom-dist2',
+          js: 'custom-js',
+        },
+      },
+    });
+  });
+
+  it('should accept `undefined` value', () => {
+    const config: RsbuildConfig = {
+      source: {
+        entry: {
+          index: 'src/index.ts',
+        },
+      },
+    };
+
+    expect(mergeRsbuildConfig(config, undefined)).toEqual(config);
+    expect(mergeRsbuildConfig(undefined, config)).toEqual(config);
+    expect(
+      mergeRsbuildConfig(undefined, config, {
+        source: {
+          entry: {
+            index2: 'src/index2.ts',
+          },
+        },
+      }),
+    ).toEqual({
+      source: {
+        entry: {
+          index: 'src/index.ts',
+          index2: 'src/index2.ts',
+        },
+      },
+    });
+    expect(mergeRsbuildConfig(undefined, undefined, undefined)).toEqual({});
   });
 });

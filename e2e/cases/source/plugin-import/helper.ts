@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+
+import { expect, test } from '@e2e/helper';
 import type { RsbuildConfig, TransformImport } from '@rsbuild/core';
 import fse from 'fs-extra';
 
@@ -50,25 +50,23 @@ export function findEntry(
 }
 
 export function copyPkgToNodeModules() {
-  const nodeModules = path.resolve(__dirname, 'node_modules');
+  const nodeModules = path.resolve(import.meta.dirname, 'node_modules');
 
   fse.ensureDirSync(nodeModules);
-  fs.cpSync(path.resolve(__dirname, 'foo'), path.resolve(nodeModules, 'foo'), {
-    recursive: true,
-  });
+  fs.cpSync(
+    path.resolve(import.meta.dirname, 'foo'),
+    path.resolve(nodeModules, 'foo'),
+    {
+      recursive: true,
+    },
+  );
 }
 
 export function shareTest(
   msg: string,
   entry: string,
   transformImport: TransformImport,
-  otherConfigs: {
-    plugins?: any[];
-  } = {},
 ) {
-  const setupConfig = {
-    cwd: __dirname,
-  };
   const config: RsbuildConfig = {
     source: {
       entry: {
@@ -76,20 +74,14 @@ export function shareTest(
       },
       transformImport: [transformImport],
     },
-    performance: {
-      chunkSplit: {
-        strategy: 'all-in-one',
-      },
-    },
+    splitChunks: false,
   };
 
-  test(msg, async () => {
+  test(msg, async ({ build }) => {
     const rsbuild = await build({
-      ...setupConfig,
-      ...otherConfigs,
-      rsbuildConfig: { ...config },
+      config,
     });
-    const files = await rsbuild.getDistFiles({ sourceMaps: true });
+    const files = rsbuild.getDistFiles({ sourceMaps: true });
     expect(files[findEntry(files)]).toContain('transformImport test succeed');
   });
 }

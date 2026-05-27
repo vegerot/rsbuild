@@ -1,34 +1,23 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should apply plugin as expected when running dev server',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-    });
+test('should apply plugin as expected when running dev server', async ({
+  page,
+  dev,
+}) => {
+  await dev();
 
-    const body = page.locator('body');
-    await expect(body).toHaveText('serve-plugin');
-    await expect(body).not.toHaveText('build-plugin');
+  const body = page.locator('body');
+  await expect(body).toHaveText('serve-plugin');
+  await expect(body).not.toHaveText('build-plugin');
+});
 
-    await rsbuild.close();
-  },
-);
+test('should apply plugin as expected when running build', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview();
 
-rspackOnlyTest(
-  'should apply plugin as expected when running build',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-    });
-
-    const body = page.locator('body');
-    await expect(body).toHaveText('build-plugin');
-    await expect(body).not.toHaveText('serve-plugin');
-
-    await rsbuild.close();
-  },
-);
+  const body = page.locator('body');
+  await expect(body).toHaveText('build-plugin');
+  await expect(body).not.toHaveText('serve-plugin');
+});

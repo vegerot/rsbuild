@@ -1,0 +1,278 @@
+import { getPathnameFromUrl } from '../helpers/path';
+import { isVerbose } from '../logger';
+import type {
+  InternalContext,
+  NormalizedConfig,
+  PreviewOptions,
+} from '../types';
+import { isCliShortcutsEnabled, setupCliShortcuts } from './cliShortcuts';
+import {
+  registerCleanup,
+  removeCleanup,
+  setupGracefulShutdown,
+} from './gracefulShutdown';
+import { gzipMiddleware } from './gzipMiddleware';
+import {
+  getAddressUrls,
+  getRoutes,
+  getServerTerminator,
+  printServerURLs,
+  type RsbuildServerBase,
+  resolvePort,
+  type StartPreviewServerResult,
+} from './helper';
+import { historyApiFallbackMiddleware } from './historyApiFallback';
+import { createHttpServer } from './httpServer';
+import {
+  faviconFallbackMiddleware,
+  getBaseUrlMiddleware,
+  getRequestLoggerMiddleware,
+  notFoundMiddleware,
+  optionsFallbackMiddleware,
+} from './middlewares';
+import { open } from './open';
+import { createProxyMiddleware } from './proxy';
+import { applyServerSetup } from './serverSetup';
+
+export type RsbuildPreviewServer = RsbuildServerBase;
+
+export async function startPreviewServer(
+  context: InternalContext,
+  config: NormalizedConfig,
+  { getPortSilently }: PreviewOptions = {},
+): Promise<StartPreviewServerResult> {
+  const { logger } = context;
+  const { connect } = await import(
+    /* webpackChunkName: "connect-next" */ 'connect-next'
+  );
+  const middlewares = connect();
+
+  const { port, portTip } = await resolvePort(config);
+
+  const serverConfig = config.server;
+  const { host, headers, proxy, historyApiFallback, compress, base, cors } =
+    serverConfig;
+  const isHttps = Boolean(serverConfig.https);
+  const protocol = isHttps ? 'https' : 'http';
+  const routes = getRoutes(context);
+  const urls = await getAddressUrls({ protocol, port, host });
+  const cliShortcutsEnabled = isCliShortcutsEnabled(config);
+
+  const httpServer = await createHttpServer({
+    serverConfig,
+    middlewares,
+  });
+
+  const cleanupGracefulShutdown = setupGracefulShutdown();
+  const serverTerminator = getServerTerminator(httpServer);
+
+  let closingPromise: Promise<void> | null = null;
+
+  const closeServer = async () => {
+    if (!closingPromise) {
+      closingPromise = (async () => {
+        // ensure closeServer is only called once
+        removeCleanup(closeServer);
+        cleanupGracefulShutdown();
+        await serverTerminator();
+      })();
+    }
+    return closingPromise;
+  };
+
+  const printUrls = () =>
+    printServerURLs({
+      urls,
+      port,
+      routes,
+      protocol,
+      printUrls: serverConfig.printUrls,
+      trailingLineBreak: !cliShortcutsEnabled,
+      originalConfig: context.originalConfig,
+      logger,
+    });
+
+  const openPage = async () => {
+    return open({
+      port,
+      routes,
+      config,
+      protocol,
+      clearCache: true,
+      logger,
+    });
+  };
+
+  const previewServer: RsbuildPreviewServer = {
+    httpServer,
+    port,
+    middlewares,
+    close: closeServer,
+    printUrls,
+    open: openPage,
+  };
+
+  const postSetupCallbacks = await applyServerSetup(serverConfig.setup, {
+    action: 'preview',
+    server: previewServer,
+    environments: context.environments,
+  });
+
+  await context.hooks.onBeforeStartPreviewServer.callBatch({
+    server: previewServer,
+    environments: context.environments,
+  });
+
+  const applyStaticAssetMiddleware = async () => {
+    const { default: sirv } = await import(
+      /* webpackChunkName: "sirv" */ 'sirv'
+    );
+
+    const assetsMiddleware = sirv(context.distPath, {
+      etag: true,
+      dev: true,
+      ignores: ['favicon.ico'],
+      single: serverConfig.htmlFallback === 'index',
+    });
+
+    const assetPrefixes = context.environmentList.map((e) =>
+      getPathnameFromUrl(e.config.output.assetPrefix),
+    );
+
+    middlewares.use(function staticAssetMiddleware(req, res, next) {
+      const { url } = req;
+      const assetPrefix =
+        url && assetPrefixes.find((prefix) => url.startsWith(prefix));
+
+      // handling assetPrefix
+      if (assetPrefix && url?.startsWith(assetPrefix)) {
+        req.url = url.slice(assetPrefix.length);
+        assetsMiddleware(req, res, (...args: unknown[]) => {
+          req.url = url;
+          next(...args);
+        });
+      } else {
+        assetsMiddleware(req, res, next);
+      }
+    });
+  };
+
+  if (isVerbose(logger)) {
+    middlewares.use(getRequestLoggerMiddleware(logger));
+  }
+
+  if (cors) {
+    const { default: corsMiddleware } = await import(
+      /* webpackChunkName: "cors" */ 'cors'
+    );
+    middlewares.use(corsMiddleware(typeof cors === 'boolean' ? {} : cors));
+  }
+
+  // apply `server.headers` option
+  // `server.headers` can override `server.cors`
+  if (headers) {
+    middlewares.use((_req, res, next) => {
+      for (const [key, value] of Object.entries(headers)) {
+        res.setHeader(key, value);
+      }
+      next();
+    });
+  }
+
+  // Apply proxy middleware
+  // each proxy configuration creates its own middleware instance
+  if (proxy) {
+    const { middlewares: proxyMiddlewares, upgrade } =
+      await createProxyMiddleware(proxy, logger);
+
+    for (const middleware of proxyMiddlewares) {
+      middlewares.use(middleware);
+    }
+
+    httpServer.on('upgrade', upgrade);
+  }
+
+  // compression is placed after proxy middleware to avoid breaking SSE (Server-Sent Events),
+  // but before other middlewares to ensure responses are properly compressed
+  if (compress) {
+    const { constants } = await import('node:zlib');
+    middlewares.use(
+      gzipMiddleware({
+        // simulates the common gzip compression rates
+        level: constants.Z_DEFAULT_COMPRESSION,
+        ...(typeof compress === 'object' ? compress : undefined),
+      }),
+    );
+  }
+
+  if (base && base !== '/') {
+    middlewares.use(getBaseUrlMiddleware({ base }));
+  }
+
+  await applyStaticAssetMiddleware();
+
+  if (historyApiFallback) {
+    middlewares.use(
+      historyApiFallbackMiddleware(
+        logger,
+        historyApiFallback === true ? {} : historyApiFallback,
+      ),
+    );
+
+    // ensure fallback request can be handled by sirv
+    await applyStaticAssetMiddleware();
+  }
+
+  for (const callback of postSetupCallbacks) {
+    await callback();
+  }
+
+  middlewares.use(faviconFallbackMiddleware);
+  middlewares.use(optionsFallbackMiddleware);
+  middlewares.use(notFoundMiddleware);
+
+  return new Promise<StartPreviewServerResult>((resolve) => {
+    httpServer.listen(
+      {
+        host,
+        port,
+      },
+      async () => {
+        await context.hooks.onAfterStartPreviewServer.callBatch({
+          port,
+          routes,
+          environments: context.environments,
+        });
+
+        registerCleanup(closeServer);
+        printUrls();
+
+        if (cliShortcutsEnabled) {
+          const shortcutsOptions =
+            typeof config.dev.cliShortcuts === 'boolean'
+              ? {}
+              : config.dev.cliShortcuts;
+
+          await setupCliShortcuts({
+            openPage,
+            closeServer,
+            printUrls,
+            help: shortcutsOptions.help,
+            customShortcuts: shortcutsOptions.custom,
+            logger,
+          });
+        }
+
+        if (!getPortSilently && portTip) {
+          logger.info(portTip);
+        }
+
+        resolve({
+          port,
+          urls: urls.map((item) => item.url),
+          server: previewServer,
+        });
+      },
+    );
+  });
+}

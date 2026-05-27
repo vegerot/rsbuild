@@ -1,45 +1,36 @@
 import fs from 'node:fs';
 import { join } from 'node:path';
-import { dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import { removeSync } from 'fs-extra';
+import { expect, test } from '@e2e/helper';
+import fse from 'fs-extra';
 
-const cwd = __dirname;
+const cwd = import.meta.dirname;
 
 test.beforeEach(() => {
   const dirs = ['dist', 'dist-1', 'dist-2', 'dist-same', 'dist-same-1'];
   for (const dir of dirs) {
     const target = join(cwd, dir);
-    removeSync(target);
+    fse.removeSync(target);
   }
 });
 
 test('should handle writeToDisk correctly across multiple environments', async ({
   page,
+  dev,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    page,
-    rsbuildConfig: {
+  await dev({
+    config: {
       dev: {
         writeToDisk: true,
       },
       environments: {
         web: {
-          output: {
-            distPath: {
-              root: 'dist',
-            },
-          },
           dev: {
             writeToDisk: false,
           },
         },
         web1: {
           output: {
-            distPath: {
-              root: 'dist-1',
-            },
+            distPath: 'dist-1',
           },
           dev: {
             writeToDisk: true,
@@ -47,9 +38,7 @@ test('should handle writeToDisk correctly across multiple environments', async (
         },
         web2: {
           output: {
-            distPath: {
-              root: 'dist-2',
-            },
+            distPath: 'dist-2',
           },
         },
       },
@@ -62,26 +51,21 @@ test('should handle writeToDisk correctly across multiple environments', async (
   expect(fs.existsSync(join(cwd, 'dist/index.html'))).toBeFalsy();
   expect(fs.existsSync(join(cwd, 'dist-1/index.html'))).toBeTruthy();
   expect(fs.existsSync(join(cwd, 'dist-2/index.html'))).toBeTruthy();
-
-  await rsbuild.close();
 });
 
 test('should writeToDisk correctly when environment writeToDisk configuration same', async ({
   page,
+  dev,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    page,
-    rsbuildConfig: {
+  await dev({
+    config: {
       dev: {
         writeToDisk: false,
       },
       environments: {
         web: {
           output: {
-            distPath: {
-              root: 'dist-same',
-            },
+            distPath: 'dist-same',
           },
           dev: {
             writeToDisk: true,
@@ -89,9 +73,7 @@ test('should writeToDisk correctly when environment writeToDisk configuration sa
         },
         web1: {
           output: {
-            distPath: {
-              root: 'dist-same-1',
-            },
+            distPath: 'dist-same-1',
           },
           dev: {
             writeToDisk: true,
@@ -106,6 +88,4 @@ test('should writeToDisk correctly when environment writeToDisk configuration sa
 
   expect(fs.existsSync(join(cwd, 'dist-same/index.html'))).toBeTruthy();
   expect(fs.existsSync(join(cwd, 'dist-same-1/index.html'))).toBeTruthy();
-
-  await rsbuild.close();
 });

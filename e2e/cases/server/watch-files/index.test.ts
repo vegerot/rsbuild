@@ -1,13 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { dev, rspackOnlyTest } from '@e2e/helper';
+import { test } from '@e2e/helper';
 
-rspackOnlyTest('should work with string and path to file', async ({ page }) => {
-  const file = path.join(__dirname, '/assets/example.txt');
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should work with string and path to file', async ({ dev, page }) => {
+  const file = path.join(import.meta.dirname, '/assets/example.txt');
+  await dev({
+    config: {
       dev: {
         watchFiles: {
           paths: file,
@@ -24,49 +22,40 @@ rspackOnlyTest('should work with string and path to file', async ({ page }) => {
 
   // reset file
   fs.truncateSync(file);
-  await rsbuild.close();
 });
 
-rspackOnlyTest(
-  'should work with string and path to directory',
-  async ({ page }) => {
-    const file = path.join(__dirname, '/assets/example.txt');
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
-        dev: {
-          watchFiles: {
-            paths: path.join(__dirname, '/assets'),
-          },
+test('should work with string and path to directory', async ({ dev, page }) => {
+  const file = path.join(import.meta.dirname, '/assets/example.txt');
+  await dev({
+    config: {
+      dev: {
+        watchFiles: {
+          paths: path.join(import.meta.dirname, '/assets'),
         },
       },
-    });
+    },
+  });
 
-    await fs.promises.writeFile(file, 'test');
+  await fs.promises.writeFile(file, 'test');
 
-    await new Promise((resolve) => {
-      page.waitForURL(page.url()).then(resolve);
-    });
+  await new Promise((resolve) => {
+    page.waitForURL(page.url()).then(resolve);
+  });
 
-    // reset file
-    fs.truncateSync(file);
-    await rsbuild.close();
-  },
-);
+  // reset file
+  fs.truncateSync(file);
+});
 
-rspackOnlyTest('should work with string array directory', async ({ page }) => {
-  const file = path.join(__dirname, '/assets/example.txt');
-  const other = path.join(__dirname, '/other/other.txt');
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should work with string array directory', async ({ dev, page }) => {
+  const file = path.join(import.meta.dirname, '/assets/example.txt');
+  const other = path.join(import.meta.dirname, '/other/other.txt');
+  await dev({
+    config: {
       dev: {
         watchFiles: {
           paths: [
-            path.join(__dirname, '/assets'),
-            path.join(__dirname, '/other'),
+            path.join(import.meta.dirname, '/assets'),
+            path.join(import.meta.dirname, '/other'),
           ],
         },
       },
@@ -88,17 +77,13 @@ rspackOnlyTest('should work with string array directory', async ({ page }) => {
   });
   // reset file
   fs.truncateSync(other);
-
-  await rsbuild.close();
 });
 
-rspackOnlyTest('should work with string and glob', async ({ page }) => {
-  const file = path.join(__dirname, '/assets/example.txt');
-  const watchDir = path.join(__dirname, '/assets');
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should work with string and glob', async ({ dev, page }) => {
+  const file = path.join(import.meta.dirname, '/assets/example.txt');
+  const watchDir = path.join(import.meta.dirname, '/assets');
+  await dev({
+    config: {
       dev: {
         watchFiles: {
           paths: `${watchDir}/**/*`,
@@ -115,15 +100,12 @@ rspackOnlyTest('should work with string and glob', async ({ page }) => {
 
   // reset file
   fs.truncateSync(file);
-  await rsbuild.close();
 });
 
-rspackOnlyTest('should work with options', async ({ page }) => {
-  const file = path.join(__dirname, '/assets/example.txt');
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should work with options', async ({ dev, page }) => {
+  const file = path.join(import.meta.dirname, '/assets/example.txt');
+  await dev({
+    config: {
       dev: {
         watchFiles: {
           paths: file,
@@ -143,5 +125,4 @@ rspackOnlyTest('should work with options', async ({ page }) => {
 
   // reset file
   fs.truncateSync(file);
-  await rsbuild.close();
 });

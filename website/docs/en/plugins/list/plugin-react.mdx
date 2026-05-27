@@ -1,6 +1,10 @@
+---
+description: 'The React plugin provides support for React, integrating features such as JSX compilation and React Refresh.'
+---
+
 # React plugin
 
-import { SourceCode } from '@rspress/core/theme';
+import { SourceCode } from '@theme';
 
 <SourceCode href="https://github.com/web-infra-dev/rsbuild/tree/main/packages/plugin-react" />
 
@@ -10,7 +14,7 @@ The React plugin provides support for React, integrating features such as JSX co
 
 ### Install plugin
 
-You can install the plugin using the following command:
+Install the plugin using this command:
 
 import { PackageManagerTabs } from '@theme';
 
@@ -18,7 +22,7 @@ import { PackageManagerTabs } from '@theme';
 
 ### Register plugin
 
-You can register the plugin in the `rsbuild.config.ts` file:
+Register the plugin in your `rsbuild.config.ts` file:
 
 ```ts title="rsbuild.config.ts"
 import { pluginReact } from '@rsbuild/plugin-react';
@@ -28,7 +32,7 @@ export default {
 };
 ```
 
-After registering the plugin, you can directly develop React.
+After registering the plugin, you can develop React directly.
 
 ## Options
 
@@ -51,7 +55,7 @@ interface ReactConfig {
         refreshSig?: string;
         emitFullSignatures?: boolean;
       };
-  runtime?: 'automatic' | 'classic';
+  runtime?: 'automatic' | 'classic' | 'preserve';
   importSource?: string;
 }
 ```
@@ -69,12 +73,24 @@ const defaultOptions = {
 
 ### swcReactOptions.runtime
 
-- **Type:** `'automatic' | 'classic'`
+Decides which runtime to use when transforming JSX.
+
+- **Type:** `'automatic' | 'classic' | 'preserve'`
 - **Default:** `'automatic'`
 
-By default, Rsbuild uses the [new JSX runtime](https://legacy.reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html) introduced in React 17, which is `runtime: 'automatic'`.
+#### automatic
 
-If your current React version is lower than 16.14.0, you can set `runtime` to `'classic'`:
+By default, Rsbuild uses `runtime: 'automatic'` to leverage the [new JSX runtime](https://legacy.reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html) introduced in React 17.
+
+This approach eliminates the need to manually import React in every file that uses JSX.
+
+:::tip
+React 16.14.0 and later versions support the new JSX runtime.
+:::
+
+#### classic
+
+For React versions prior to 16.14.0, set `runtime` to `'classic'`:
 
 ```ts
 pluginReact({
@@ -84,11 +100,9 @@ pluginReact({
 });
 ```
 
-> React 16.14.0 can use the new JSX runtime.
+When using the classic JSX runtime, you must manually import React in your code:
 
-When using the classic JSX runtime, you need to manually import React in your code:
-
-```jsx
+```jsx title="App.jsx"
 import React from 'react';
 
 function App() {
@@ -96,12 +110,24 @@ function App() {
 }
 ```
 
+#### preserve
+
+Use `runtime: 'preserve'` to leave JSX syntax unchanged without transforming it, this is useful when you are building a library that expects JSX to be left as is.
+
+```ts
+pluginReact({
+  swcReactOptions: {
+    runtime: 'preserve',
+  },
+});
+```
+
 ### swcReactOptions.importSource
 
 - **Type:** `string`
 - **Default:** `'react'`
 
-When `runtime` is `'automatic'`, you can specify the import path of the JSX runtime through `importSource`.
+With `runtime` set to `'automatic'`, you can specify the JSX runtime import path through `importSource`.
 
 For example, when using [Emotion](https://emotion.sh/), you can set `importSource` to `'@emotion/react'`:
 
@@ -126,9 +152,9 @@ Most of the time, you should use the plugin's [fastRefresh](#fastrefresh) option
 
 ### splitChunks
 
-When [chunkSplit.strategy](/config/performance/chunk-split) set to `split-by-experience`, Rsbuild will automatically split `react` and `router` related packages into separate chunks by default:
+When using Rsbuild's [default split chunks preset](/config/split-chunks#default), this plugin splits `react` and `react-router` related packages into separate chunks:
 
-- `lib-react.js`: includes `react`, `react-dom`, and their sub-dependencies (`scheduler`).
+- `lib-react.js`: includes `react`, `react-dom`, and their sub-dependencies (`scheduler`). In development, it also includes React Fast Refresh runtime packages (`react-refresh`, `@rspack/plugin-react-refresh`).
 - `lib-router.js`: includes `react-router`, `react-router-dom`, and their sub-dependencies (`history`, `@remix-run/router`).
 
 This option is used to control this behavior and determine whether the `react` and `router` related packages need to be split into separate chunks.
@@ -136,27 +162,28 @@ This option is used to control this behavior and determine whether the `react` a
 - **Type:**
 
 ```ts
-type SplitReactChunkOptions = {
-  react?: boolean;
-  router?: boolean;
-};
+type SplitChunks =
+  | boolean
+  | {
+      react?: boolean;
+      router?: boolean;
+    };
 ```
 
-- **Default:**
+- **Default:** `true` (equivalent to `{ react: true, router: true }`)
+
+For example, to disable all chunk splitting:
 
 ```ts
-const defaultOptions = {
-  react: true,
-  router: true,
-};
+pluginReact({ splitChunks: false });
 ```
 
-- **Example:**
+Or to disable only the `router` chunk splitting:
 
 ```ts
 pluginReact({
   splitChunks: {
-    react: false,
+    react: true,
     router: false,
   },
 });
@@ -208,7 +235,7 @@ As Windows does not support the above usage, you can also use [cross-env](https:
 
 ```ts
 type ReactRefreshOptions = {
-  // @link https://rspack.rs/config/module#condition
+  // @link https://rspack.rs/config/module-rules#condition
   test?: Rspack.RuleSetCondition;
   include?: Rspack.RuleSetCondition;
   exclude?: Rspack.RuleSetCondition;
@@ -232,7 +259,7 @@ const defaultOptions = {
 };
 ```
 
-Set the options for [@rspack/plugin-react-refresh](https://github.com/rspack-contrib/rspack-plugin-react-refresh). The passed value will be shallowly merged with the default value.
+Set the options for [@rspack/plugin-react-refresh](https://github.com/rstackjs/rspack-plugin-react-refresh). The passed value will be shallowly merged with the default value.
 
 - **Example:**
 
@@ -251,7 +278,7 @@ pluginReact({
 
 Whether to enable [React Fast Refresh](https://npmjs.com/package/react-refresh) in development mode.
 
-If `fastRefresh` is set to `true`, `@rsbuild/plugin-react` will automatically register the [@rspack/plugin-react-refresh](https://github.com/rspack-contrib/rspack-plugin-react-refresh) plugin.
+If `fastRefresh` is set to `true`, `@rsbuild/plugin-react` will automatically register the [@rspack/plugin-react-refresh](https://github.com/rstackjs/rspack-plugin-react-refresh) plugin.
 
 To disable Fast Refresh, set it to `false`:
 

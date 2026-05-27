@@ -1,43 +1,18 @@
-import { build, dev, gotoPage } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-test('should allow to define global variables in development', async ({
+test('should allow to define global variables', async ({
   page,
+  runBothServe,
 }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
+  await runBothServe(async () => {
+    const testEl = page.locator('#test-el');
+    await expect(testEl).toHaveText('aaaaa');
   });
-
-  await gotoPage(page, rsbuild);
-
-  const testEl = page.locator('#test-el');
-  await expect(testEl).toHaveText('aaaaa');
-
-  await rsbuild.close();
 });
 
-test('should allow to define global variables in production build', async ({
-  page,
-}) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-  });
-
-  await gotoPage(page, rsbuild);
-
-  const testEl = page.locator('#test-el');
-  await expect(testEl).toHaveText('aaaaa');
-
-  await rsbuild.close();
-});
-
-test('should warn when define `process.env`', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should warn when define `process.env`', async ({ buildPreview }) => {
+  const rsbuild = await buildPreview({
+    config: {
       source: {
         define: {
           'process.env': process.env,
@@ -47,14 +22,13 @@ test('should warn when define `process.env`', async ({ page }) => {
   });
 
   await rsbuild.expectLog('The "source.define" option includes an object');
-  await rsbuild.close();
 });
 
-test('should warn when define stringified `process.env`', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+test('should warn when define stringified `process.env`', async ({
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview({
+    config: {
       source: {
         define: {
           'process.env': JSON.stringify(process.env),
@@ -64,5 +38,4 @@ test('should warn when define stringified `process.env`', async ({ page }) => {
   });
 
   await rsbuild.expectLog('The "source.define" option includes an object');
-  await rsbuild.close();
 });

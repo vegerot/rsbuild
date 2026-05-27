@@ -20,9 +20,9 @@
     "activeMatch": "/api/"
   },
   {
-    "text": "Community",
-    "link": "/community/",
-    "activeMatch": "/community/"
+    "text": "Blog",
+    "link": "/blog/",
+    "activeMatch": "/blog/"
   },
   {
     "text": "Version",
@@ -32,8 +32,12 @@
         "link": "https://github.com/web-infra-dev/rsbuild/releases"
       },
       {
-        "text": "Rsbuild 0.x Doc",
-        "link": "http://v0.rsbuild.rs/"
+        "text": "Rsbuild 1.x Docs",
+        "link": "https://v1.rsbuild.rs/"
+      },
+      {
+        "text": "Rsbuild 0.x Docs",
+        "link": "https://v0.rsbuild.rs/"
       }
     ]
   }

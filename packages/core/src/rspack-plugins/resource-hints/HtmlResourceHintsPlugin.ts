@@ -22,13 +22,8 @@ import type {
   Compiler,
   RspackPluginInstance,
 } from '@rspack/core';
-import {
-  castArray,
-  ensureAssetPrefix,
-  isFunction,
-  upperFirst,
-} from '../../helpers';
-import { getHTMLPlugin } from '../../pluginHelper';
+import { castArray, isFunction, upperFirst } from '../../helpers';
+import { ensureAssetPrefix } from '../../helpers/url';
 import type {
   HtmlRspackPlugin,
   ResourceHintsFilter,
@@ -139,6 +134,7 @@ function generateLinks(
   compilation: Compilation,
   data: HtmlRspackPlugin.BeforeAssetTagGenerationData,
   HTMLCount: number,
+  isDev: boolean,
 ): HtmlRspackPlugin.HtmlTagObject[] {
   // get all chunks
   const extractedChunks = extractChunks(compilation, options.type);
@@ -168,8 +164,13 @@ function generateLinks(
         ]),
       [],
     )
-    // source map files should always be excluded
-    .filter((file) => !file.endsWith('.map'));
+    // source map and hot-update files should always be excluded
+    .filter((file) => {
+      if (isDev && file.endsWith('.hot-update.js')) {
+        return false;
+      }
+      return !file.endsWith('.map');
+    });
 
   const uniqueFiles = new Set<string>(allFiles);
   const filteredFiles = applyFilter(
@@ -238,19 +239,27 @@ export class HtmlResourceHintsPlugin implements RspackPluginInstance {
 
   HTMLCount: number;
 
+  isDev: boolean;
+
+  getHTMLPlugin: () => typeof HtmlRspackPlugin;
+
   constructor(
     options: ResourceHintsOptions,
     type: LinkType,
     HTMLCount: number,
+    isDev: boolean,
+    getHTMLPlugin: () => typeof HtmlRspackPlugin,
   ) {
     this.options = { ...defaultOptions, ...options };
     this.type = type;
     this.HTMLCount = HTMLCount;
+    this.isDev = isDev;
+    this.getHTMLPlugin = getHTMLPlugin;
   }
 
   apply(compiler: Compiler): void {
     compiler.hooks.compilation.tap(this.name, (compilation) => {
-      const pluginHooks = getHTMLPlugin().getCompilationHooks(compilation);
+      const pluginHooks = this.getHTMLPlugin().getCompilationHooks(compilation);
       const pluginName = `HTML${upperFirst(this.type)}Plugin`;
 
       pluginHooks.beforeAssetTagGeneration.tap(pluginName, (data) => {
@@ -260,6 +269,7 @@ export class HtmlResourceHintsPlugin implements RspackPluginInstance {
           compilation,
           data,
           this.HTMLCount,
+          this.isDev,
         );
 
         return data;

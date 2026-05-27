@@ -1,58 +1,50 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 
-test('should run stage 3 decorators correctly', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
+test('should run stage 3 decorators correctly', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview();
+
+  expect(await page.evaluate('window.message')).toBe('hello');
+  expect(await page.evaluate('window.method')).toBe('targetMethod');
+  expect(await page.evaluate('window.field')).toBe('message');
+});
+
+test('should run stage 3 decorators correctly with babel-plugin', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview({
+    config: {
+      plugins: [pluginBabel()],
+    },
   });
 
   expect(await page.evaluate('window.message')).toBe('hello');
   expect(await page.evaluate('window.method')).toBe('targetMethod');
   expect(await page.evaluate('window.field')).toBe('message');
-
-  await rsbuild.close();
 });
-
-rspackOnlyTest(
-  'should run stage 3 decorators correctly with babel-plugin',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-      plugins: [pluginBabel()],
-    });
-
-    expect(await page.evaluate('window.message')).toBe('hello');
-    expect(await page.evaluate('window.method')).toBe('targetMethod');
-    expect(await page.evaluate('window.field')).toBe('message');
-
-    await rsbuild.close();
-  },
-);
 
 test.fail(
   'stage 3 decorators do not support decoratorBeforeExport',
-  async ({ page }) => {
+  async ({ page, buildPreview }) => {
     // SyntaxError: Decorators must be placed *after* the 'export' keyword
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
+    const rsbuild = await buildPreview({
+      config: {
         source: {
           entry: {
             index: './src/decoratorBeforeExport.js',
           },
         },
+        plugins: [pluginBabel()],
       },
-      plugins: [pluginBabel()],
     });
 
     expect(await page.evaluate('window.message')).toBe('hello');
     expect(await page.evaluate('window.method')).toBe('targetMethod');
     expect(await page.evaluate('window.field')).toBe('message');
-    await rsbuild.close();
 
     expect(
       rsbuild.logs.find((log) =>
@@ -61,7 +53,5 @@ test.fail(
         ),
       ),
     ).toBeTruthy();
-
-    await rsbuild.close();
   },
 );

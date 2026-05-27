@@ -1,5 +1,4 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import type { RsbuildPlugin } from '@rsbuild/core';
 
 const createPlugin = () => {
@@ -9,9 +8,6 @@ const createPlugin = () => {
     name: 'test-plugin',
     setup(api) {
       api.modifyRspackConfig((_config, { environment }) => {
-        names.push(`ModifyBundlerConfig ${environment.name}`);
-      });
-      api.modifyWebpackChain((_config, { environment }) => {
         names.push(`ModifyBundlerConfig ${environment.name}`);
       });
       api.modifyRsbuildConfig(() => {
@@ -52,18 +48,22 @@ const createPlugin = () => {
       api.onBeforeEnvironmentCompile(({ environment }) => {
         names.push(`BeforeEnvironmentCompile ${environment.name}`);
       });
-      api.onAfterEnvironmentCompile(({ stats, environment }) => {
+      api.onAfterEnvironmentCompile(({ stats, environment, time }) => {
         expect(stats?.compilation.name).toBe(environment.name);
+        expect(time).toBeGreaterThan(0);
         names.push(`AfterEnvironmentCompile ${environment.name}`);
       });
-      api.onBeforeStartProdServer(() => {
-        names.push('BeforeStartProdServer');
+      api.onBeforeStartPreviewServer(({ server, environments }) => {
+        expect(typeof server.middlewares.use).toBe('function');
+        names.push(
+          `BeforeStartPreviewServer ${Object.keys(environments).sort().join(',')}`,
+        );
       });
       api.onCloseDevServer(() => {
         names.push('CloseDevServer');
       });
-      api.onAfterStartProdServer(() => {
-        names.push('AfterStartProdServer');
+      api.onAfterStartPreviewServer(() => {
+        names.push('AfterStartPreviewServer');
       });
       api.onBeforeDevCompile(() => {
         names.push('BeforeDevCompile');
@@ -80,139 +80,145 @@ const createPlugin = () => {
   return { plugin, names };
 };
 
-rspackOnlyTest(
-  'should run plugin hooks correctly when running build with multiple environments',
-  async () => {
-    process.env.NODE_ENV = 'production';
-    const { plugin, names } = createPlugin();
-    const rsbuild = await build({
-      cwd: __dirname,
-      rsbuildConfig: {
-        plugins: [plugin],
-        environments: {
-          web: {},
-          node: {},
-        },
+test('should run plugin hooks correctly when running build with multiple environments', async ({
+  build,
+}) => {
+  const { plugin, names } = createPlugin();
+  await build({
+    config: {
+      plugins: [plugin],
+      environments: {
+        web: {},
+        node: {},
       },
-    });
+    },
+  });
 
-    // Test environment hook is always called twice
-    expect(names.filter((name) => name.includes(' web')).length).toBe(
-      names.filter((name) => name.includes(' node')).length,
-    );
+  // Test environment hook is always called twice
+  expect(names.filter((name) => name.includes(' web')).length).toBe(
+    names.filter((name) => name.includes(' node')).length,
+  );
 
-    // The execution order between different Environments of the same hook is not fixed
-    // Therefore, we only test the execution order of a single Environment
-    expect(names.filter((name) => !name.includes(' node'))).toEqual([
-      'ModifyRsbuildConfig',
-      'ModifyEnvironmentConfig web',
-      'ModifyBundlerChain web',
-      'ModifyBundlerConfig web',
-      'BeforeCreateCompiler',
-      'AfterCreateCompiler',
-      'BeforeBuild',
-      'BeforeEnvironmentCompile web',
-      'ModifyHTMLTags web',
-      'ModifyHTML web',
-      'AfterEnvironmentCompile web',
-      'AfterBuild',
-    ]);
+  // The execution order between different Environments of the same hook is not fixed
+  // Therefore, we only test the execution order of a single Environment
+  expect(names.filter((name) => !name.includes(' node'))).toEqual([
+    'ModifyRsbuildConfig',
+    'ModifyEnvironmentConfig web',
+    'ModifyBundlerChain web',
+    'ModifyBundlerConfig web',
+    'BeforeCreateCompiler',
+    'AfterCreateCompiler',
+    'BeforeBuild',
+    'BeforeEnvironmentCompile web',
+    'ModifyHTMLTags web',
+    'ModifyHTML web',
+    'AfterEnvironmentCompile web',
+    'AfterBuild',
+  ]);
 
-    expect(names.filter((name) => !name.includes(' web'))).toEqual([
-      'ModifyRsbuildConfig',
-      'ModifyEnvironmentConfig node',
-      'ModifyBundlerChain node',
-      'ModifyBundlerConfig node',
-      'BeforeCreateCompiler',
-      'AfterCreateCompiler',
-      'BeforeBuild',
-      'BeforeEnvironmentCompile node',
-      'ModifyHTMLTags node',
-      'ModifyHTML node',
-      'AfterEnvironmentCompile node',
-      'AfterBuild',
-    ]);
+  expect(names.filter((name) => !name.includes(' web'))).toEqual([
+    'ModifyRsbuildConfig',
+    'ModifyEnvironmentConfig node',
+    'ModifyBundlerChain node',
+    'ModifyBundlerConfig node',
+    'BeforeCreateCompiler',
+    'AfterCreateCompiler',
+    'BeforeBuild',
+    'BeforeEnvironmentCompile node',
+    'ModifyHTMLTags node',
+    'ModifyHTML node',
+    'AfterEnvironmentCompile node',
+    'AfterBuild',
+  ]);
+});
 
-    await rsbuild.close();
-    process.env.NODE_ENV = 'test';
-  },
-);
-
-rspackOnlyTest(
-  'should run plugin hooks correctly when running startDevServer with multiple environments',
-  async ({ page }) => {
-    process.env.NODE_ENV = 'development';
-
-    const { plugin, names } = createPlugin();
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
-        plugins: [plugin],
-        environments: {
-          web: {},
-          node: {},
-        },
+test('should expose server and environments in onBeforeStartPreviewServer', async ({
+  build,
+}) => {
+  const { plugin, names } = createPlugin();
+  const rsbuild = await build({
+    runServer: true,
+    config: {
+      plugins: [plugin],
+      environments: {
+        web: {},
+        node: {},
       },
-    });
+    },
+  });
 
-    await rsbuild.close();
+  await rsbuild.close();
+  expect(names).toContain('BeforeStartPreviewServer node,web');
+});
 
-    expect(names.filter((name) => name.includes(' web')).length).toBe(
-      names.filter((name) => name.includes(' node')).length,
-    );
+test('should run plugin hooks correctly when running startDevServer with multiple environments', async ({
+  dev,
+}) => {
+  const { plugin, names } = createPlugin();
+  const rsbuild = await dev({
+    config: {
+      plugins: [plugin],
+      environments: {
+        web: {},
+        node: {},
+      },
+    },
+  });
 
-    expect(names.filter((name) => name.includes('DevServer'))).toEqual([
-      'BeforeStartDevServer',
-      'AfterStartDevServer',
-      'CloseDevServer',
-    ]);
+  await rsbuild.close();
 
-    // compile is async, so the execution order of AfterStartDevServer and the compile hooks is uncertain
-    expect(
-      names.filter(
-        (name) => !name.includes(' node') && name !== 'AfterStartDevServer',
-      ),
-    ).toEqual([
-      'ModifyRsbuildConfig',
-      'ModifyEnvironmentConfig web',
-      'BeforeStartDevServer',
-      'ModifyBundlerChain web',
-      'ModifyBundlerConfig web',
-      'BeforeCreateCompiler',
-      'AfterCreateCompiler',
-      'BeforeDevCompile',
-      'BeforeEnvironmentCompile web',
-      'ModifyHTMLTags web',
-      'ModifyHTML web',
-      'AfterEnvironmentCompile web',
-      'AfterDevCompile',
-      'DevCompileDone',
-      'CloseDevServer',
-    ]);
+  expect(names.filter((name) => name.includes(' web')).length).toBe(
+    names.filter((name) => name.includes(' node')).length,
+  );
 
-    expect(
-      names.filter(
-        (name) => !name.includes(' web') && name !== 'AfterStartDevServer',
-      ),
-    ).toEqual([
-      'ModifyRsbuildConfig',
-      'ModifyEnvironmentConfig node',
-      'BeforeStartDevServer',
-      'ModifyBundlerChain node',
-      'ModifyBundlerConfig node',
-      'BeforeCreateCompiler',
-      'AfterCreateCompiler',
-      'BeforeDevCompile',
-      'BeforeEnvironmentCompile node',
-      'ModifyHTMLTags node',
-      'ModifyHTML node',
-      'AfterEnvironmentCompile node',
-      'AfterDevCompile',
-      'DevCompileDone',
-      'CloseDevServer',
-    ]);
+  expect(names.filter((name) => name.includes('DevServer'))).toEqual([
+    'BeforeStartDevServer',
+    'AfterStartDevServer',
+    'CloseDevServer',
+  ]);
 
-    process.env.NODE_ENV = 'test';
-  },
-);
+  // compile is async, so the execution order of AfterStartDevServer and the compile hooks is uncertain
+  expect(
+    names.filter(
+      (name) => !name.includes(' node') && name !== 'AfterStartDevServer',
+    ),
+  ).toEqual([
+    'ModifyRsbuildConfig',
+    'ModifyEnvironmentConfig web',
+    'BeforeStartDevServer',
+    'ModifyBundlerChain web',
+    'ModifyBundlerConfig web',
+    'BeforeCreateCompiler',
+    'AfterCreateCompiler',
+    'BeforeDevCompile',
+    'BeforeEnvironmentCompile web',
+    'ModifyHTMLTags web',
+    'ModifyHTML web',
+    'AfterEnvironmentCompile web',
+    'AfterDevCompile',
+    'DevCompileDone',
+    'CloseDevServer',
+  ]);
+
+  expect(
+    names.filter(
+      (name) => !name.includes(' web') && name !== 'AfterStartDevServer',
+    ),
+  ).toEqual([
+    'ModifyRsbuildConfig',
+    'ModifyEnvironmentConfig node',
+    'BeforeStartDevServer',
+    'ModifyBundlerChain node',
+    'ModifyBundlerConfig node',
+    'BeforeCreateCompiler',
+    'AfterCreateCompiler',
+    'BeforeDevCompile',
+    'BeforeEnvironmentCompile node',
+    'ModifyHTMLTags node',
+    'ModifyHTML node',
+    'AfterEnvironmentCompile node',
+    'AfterDevCompile',
+    'DevCompileDone',
+    'CloseDevServer',
+  ]);
+});

@@ -1,11 +1,10 @@
-import { join } from 'node:path';
-import { build, readDirContents } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, findFile, test } from '@e2e/helper';
 
-test('should allow to generate HTML with filename hash using filename.html', async () => {
-  await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+test('should allow to generate HTML with filename hash using filename.html', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
       output: {
         filename: {
           html: '[name].[contenthash:8].html',
@@ -14,18 +13,17 @@ test('should allow to generate HTML with filename hash using filename.html', asy
     },
   });
 
-  const outputs = await readDirContents(join(__dirname, 'dist'));
-  const htmlFilename = Object.keys(outputs).find((item) =>
-    item.endsWith('.html'),
-  );
+  const files = rsbuild.getDistFiles();
+  const htmlFilename = findFile(files, '.html');
 
-  expect(/index.\w+.html/.test(htmlFilename!)).toBeTruthy();
+  expect(/index.\w+.html/.test(htmlFilename)).toBeTruthy();
 });
 
-test('should allow to generate HTML with filename hash using tools.htmlPlugin', async () => {
-  await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+test('should allow to generate HTML with filename hash using tools.htmlPlugin', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
       tools: {
         htmlPlugin(config, { entryName }) {
           config.filename = `${entryName}.[contenthash:8].html`;
@@ -35,10 +33,8 @@ test('should allow to generate HTML with filename hash using tools.htmlPlugin', 
     },
   });
 
-  const outputs = await readDirContents(join(__dirname, 'dist'));
-  const htmlFilename = Object.keys(outputs).find((item) =>
-    item.endsWith('.html'),
-  );
+  const files = rsbuild.getDistFiles();
+  const htmlFilename = findFile(files, '.html');
 
-  expect(/index.\w+.html/.test(htmlFilename!)).toBeTruthy();
+  expect(/index.\w+.html/.test(htmlFilename)).toBeTruthy();
 });

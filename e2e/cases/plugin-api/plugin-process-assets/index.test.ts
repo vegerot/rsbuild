@@ -1,19 +1,11 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, findFile, test } from '@e2e/helper';
 
-rspackOnlyTest('should allow plugin to process assets', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+test('should allow plugin to process assets', async ({ build }) => {
+  const rsbuild = await build();
 
-  const files = await rsbuild.getDistFiles();
-  const indexJs = Object.keys(files).find(
-    (file) => file.includes('index') && file.endsWith('.js'),
-  );
-  const indexCss = Object.keys(files).find(
-    (file) => file.includes('index') && file.endsWith('.css'),
-  );
+  const files = rsbuild.getDistFiles();
+  const indexJs = findFile(files, 'index.js');
 
   expect(indexJs).toBeTruthy();
-  expect(indexCss).toBeFalsy();
+  expect(() => findFile(files, 'index.css')).toThrow();
 });

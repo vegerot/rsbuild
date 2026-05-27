@@ -1,19 +1,15 @@
 {
-  "extends": "@rsbuild/config/tsconfig",
+  "extends": "@scripts/config/tsconfig",
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "outDir": "./dist",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": [
-    "src",
     "helper",
-    "cases",
     "playwright.config.ts",
     "cases/**/*.test.ts",
-    "cache/cache-basic"
+    "cases/**/*.config.ts",
+    "cases/javascript-api/server-custom-message/src/**/*.ts"
   ],
   "references": [
     {

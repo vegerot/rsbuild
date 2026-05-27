@@ -1,16 +1,12 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-test('should generate dnsPrefetch link when dnsPrefetch is defined', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+test('should generate dnsPrefetch link when dnsPrefetch is defined', async ({
+  build,
+}) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
 
-  const files = await rsbuild.getDistFiles();
-
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const content = getFileContent(files, '.html');
 
   expect(
     content.includes('<link rel="dns-prefetch" href="http://aaaa.com">'),

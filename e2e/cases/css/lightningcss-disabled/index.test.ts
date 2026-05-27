@@ -1,26 +1,13 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow to disable the built-in lightningcss loader',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      rsbuildConfig: {
-        tools: {
-          lightningcssLoader: false,
-        },
-        output: {
-          minify: false,
-        },
-      },
-    });
-    const files = await rsbuild.getDistFiles();
+test('should allow to disable the built-in lightningcss loader', async ({
+  build,
+}) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
 
-    const content =
-      files[Object.keys(files).find((file) => file.endsWith('.css'))!];
+  const content = getFileContent(files, '.css');
 
-    expect(content).not.toContain('-webkit-');
-    expect(content).not.toContain('-ms-');
-  },
-);
+  expect(content).not.toContain('-webkit-');
+  expect(content).not.toContain('-ms-');
+});

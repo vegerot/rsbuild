@@ -1,10 +1,8 @@
-import { gotoPage, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
-import { startDevServerPure } from './scripts/pureServer.mjs';
-import { startDevServer } from './scripts/server.mjs';
+import { expect, gotoPage, test } from '@e2e/helper';
 
-rspackOnlyTest('should support a custom dev server', async ({ page }) => {
-  const { config, close } = await startDevServer(__dirname);
+test('should support a custom dev server', async ({ page }) => {
+  const { startDevServer } = await import('./scripts/server.js' as string);
+  const { config, close } = await startDevServer(import.meta.dirname);
 
   await gotoPage(page, config);
 
@@ -13,33 +11,33 @@ rspackOnlyTest('should support a custom dev server', async ({ page }) => {
 
   const url1 = new URL(`http://localhost:${config.port}/bbb`);
 
-  const res = await page.goto(url1.href);
-
-  expect(await res?.text()).toBe('Hello polka!');
+  await page.goto(url1.href);
+  await expect(page.locator('body')).toContainText('Hello hono!');
 
   await close();
 });
 
-rspackOnlyTest(
-  'should support a custom dev server without compilation',
-  async ({ page }) => {
-    const { config, close } = await startDevServerPure(__dirname);
-    const indexRes = await gotoPage(page, config);
+test('should support a custom dev server without compilation', async ({
+  page,
+}) => {
+  const { startDevServerPure } = await import(
+    './scripts/pureServer.js' as string
+  );
+  const { config, close } = await startDevServerPure(import.meta.dirname);
+  const indexRes = await gotoPage(page, config);
 
-    expect(indexRes?.status()).toBe(404);
+  expect(indexRes?.status()).toBe(404);
 
-    const url1 = new URL(`http://localhost:${config.port}/bbb`);
+  const url1 = new URL(`http://localhost:${config.port}/bbb`);
 
-    const res = await page.goto(url1.href);
+  await page.goto(url1.href);
+  await expect(page.locator('body')).toContainText('Hello hono!');
 
-    expect(await res?.text()).toBe('Hello polka!');
+  const url2 = new URL(`http://localhost:${config.port}/test`);
 
-    const url2 = new URL(`http://localhost:${config.port}/test`);
+  const res2 = await page.goto(url2.href);
 
-    const res2 = await page.goto(url2.href);
+  expect(await res2?.text()).toBe('Hello hono!');
 
-    expect(await res2?.text()).toBe('Hello polka!');
-
-    await close();
-  },
-);
+  await close();
+});

@@ -1,7 +1,7 @@
-import { apps, default as baseOpen } from 'open';
+import { URL } from 'node:url';
 import { STATIC_PATH } from '../constants';
-import { canParse, castArray, color } from '../helpers';
-import { logger } from '../logger';
+import { castArray, color } from '../helpers';
+import type { Logger } from '../logger';
 import type { NormalizedConfig, Routes } from '../types';
 import { getHostInUrl } from './helper';
 
@@ -55,7 +55,7 @@ const shouldTryAppleScript = (browser?: string, browserArgs?: string) => {
  * Copyright (c) 2015-present, Facebook, Inc.
  * https://github.com/facebook/create-react-app/blob/master/LICENSE
  */
-async function openBrowser(url: string): Promise<boolean> {
+async function openBrowser(url: string, logger: Logger): Promise<boolean> {
   const browser = process.env.BROWSER;
   const browserArgs = process.env.BROWSER_ARGS;
 
@@ -98,6 +98,11 @@ async function openBrowser(url: string): Promise<boolean> {
     }
   }
 
+  const { apps, default: baseOpen } = await import(
+    /* webpackChunkName: "open" */
+    'open'
+  );
+
   // Fallback to open
   // It will always open new tab
   try {
@@ -133,7 +138,7 @@ export const replacePortPlaceholder = (url: string, port: number): string =>
   url.replace(/<port>/g, String(port));
 
 export function resolveUrl(str: string, base: string): string {
-  if (canParse(str)) {
+  if (URL.canParse(str)) {
     return str;
   }
 
@@ -171,17 +176,19 @@ const normalizeOpenConfig = (
 };
 
 export async function open({
-  https,
   port,
   routes,
   config,
+  protocol,
   clearCache,
+  logger,
 }: {
-  https?: boolean;
   port: number;
   routes: Routes;
   config: NormalizedConfig;
+  protocol: string;
   clearCache?: boolean;
+  logger: Logger;
 }): Promise<void> {
   // Skip auto-opening browser in CodeSandbox since it's already
   // a web-based environment.
@@ -197,7 +204,6 @@ export async function open({
   }
 
   const urls: string[] = [];
-  const protocol = https ? 'https' : 'http';
   const host = await getHostInUrl(config.server.host);
   const baseUrl = `${protocol}://${host}:${port}`;
 
@@ -205,6 +211,8 @@ export async function open({
     if (routes.length) {
       // auto open the first one
       urls.push(`${baseUrl}${routes[0].pathname}`);
+    } else {
+      urls.push(baseUrl);
     }
   } else {
     urls.push(
@@ -224,7 +232,7 @@ export async function open({
      * It can prevent opening the same URL multiple times.
      */
     if (!openedURLs.includes(url)) {
-      openBrowser(url);
+      openBrowser(url, logger);
       openedURLs.push(url);
     }
   }

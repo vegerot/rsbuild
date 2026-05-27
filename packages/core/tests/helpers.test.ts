@@ -1,17 +1,46 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import {
-  ensureAssetPrefix,
-  isPlainObject,
-  isWebTarget,
-  pick,
-  prettyTime,
-} from '../src/helpers';
+import { isPlainObject, isWebTarget, pick, prettyTime } from '../src/helpers';
 import { dedupeNestedPaths, getCommonParentPath } from '../src/helpers/path';
+import { readPackageJson } from '../src/helpers/packageJson';
+import { ensureAssetPrefix } from '../src/helpers/url';
 import { getRoutes, normalizeUrl } from '../src/server/helper';
-import type { InternalContext } from '../src/types';
+import type { InternalContext, RsbuildTarget } from '../src/types';
 
-test('should getRoutes correctly', () => {
-  const cwd = __dirname;
+describe('readPackageJson', () => {
+  it('should read package.json from root path', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'rsbuild-package-json-'));
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({
+        name: 'test-package',
+        dependencies: {
+          foo: '1.0.0',
+        },
+      }),
+    );
+
+    await expect(readPackageJson(root)).resolves.toEqual({
+      name: 'test-package',
+      dependencies: {
+        foo: '1.0.0',
+      },
+    });
+  });
+
+  it('should return undefined when package.json does not exist or is invalid', async () => {
+    const missingRoot = mkdtempSync(join(tmpdir(), 'rsbuild-package-json-'));
+    await expect(readPackageJson(missingRoot)).resolves.toBeUndefined();
+
+    const invalidRoot = mkdtempSync(join(tmpdir(), 'rsbuild-package-json-'));
+    writeFileSync(join(invalidRoot, 'package.json'), '{ invalid json');
+    await expect(readPackageJson(invalidRoot)).resolves.toBeUndefined();
+  });
+});
+
+test('should get routes correctly', () => {
+  const cwd = import.meta.dirname;
   expect(
     getRoutes({
       distPath: join(cwd, 'dist'),
@@ -20,8 +49,8 @@ test('should getRoutes correctly', () => {
           base: '/',
         },
       },
-      environments: {
-        web: {
+      environmentList: [
+        {
           distPath: join(cwd, 'dist'),
           htmlPaths: {
             index: 'index.html',
@@ -37,7 +66,7 @@ test('should getRoutes correctly', () => {
             },
           },
         },
-        web1: {
+        {
           distPath: join(cwd, 'dist/web1'),
           htmlPaths: {
             index: 'index.html',
@@ -53,7 +82,7 @@ test('should getRoutes correctly', () => {
             },
           },
         },
-        web2: {
+        {
           distPath: join(cwd, 'dist/web2'),
           htmlPaths: {
             index: 'index.html',
@@ -70,7 +99,7 @@ test('should getRoutes correctly', () => {
             },
           },
         },
-      },
+      ],
     } as unknown as InternalContext),
   ).toEqual([
     {
@@ -92,7 +121,7 @@ test('should getRoutes correctly', () => {
   ]);
 });
 
-test('should pretty time correctly', () => {
+test('should format time correctly', () => {
   expect(prettyTime(0.0012)).toEqual('0.001 s');
   expect(prettyTime(0.0123)).toEqual('0.01 s');
   expect(prettyTime(0.1234)).toEqual('0.12 s');
@@ -145,7 +174,7 @@ describe('pick', () => {
   });
 });
 
-it('normalizeUrl', () => {
+it('should normalize URLs correctly', () => {
   expect(normalizeUrl('https://www.example.com/static//a')).toBe(
     'https://www.example.com/static/a',
   );
@@ -163,7 +192,7 @@ describe('ensureAssetPrefix', () => {
   const ASSET_PREFIX = 'https://www.example.com/static/';
   const CAPITAL_ASSET_PREFIX = 'https://www.{{CDN}}.com/{{CDN_PATH}}/';
 
-  it('should handle relative url', () => {
+  it('should handle relative URLs', () => {
     expect(ensureAssetPrefix('foo/bar.js', ASSET_PREFIX)).toBe(
       'https://www.example.com/static/foo/bar.js',
     );
@@ -175,14 +204,14 @@ describe('ensureAssetPrefix', () => {
     expect(ensureAssetPrefix('/foo/bar.js', '/')).toBe('/foo/bar.js');
   });
 
-  it('should handle absolute url', () => {
+  it('should handle absolute URLs', () => {
     expect(ensureAssetPrefix('/foo/bar.js', ASSET_PREFIX)).toBe(
       'https://www.example.com/static/foo/bar.js',
     );
     expect(ensureAssetPrefix('/foo/bar.js', '/')).toBe('/foo/bar.js');
   });
 
-  it('should handle absolute url with hostname & protocol', () => {
+  it('should handle absolute URLs with hostname and protocol', () => {
     expect(ensureAssetPrefix('http://foo.com/bar.js', ASSET_PREFIX)).toBe(
       'http://foo.com/bar.js',
     );
@@ -191,7 +220,7 @@ describe('ensureAssetPrefix', () => {
     );
   });
 
-  it('should handle absolute url with double slash', () => {
+  it('should handle absolute URLs with double slash', () => {
     expect(ensureAssetPrefix('//foo.com/bar.js', ASSET_PREFIX)).toBe(
       '//foo.com/bar.js',
     );
@@ -276,7 +305,7 @@ test('should dedupeNestedPaths correctly', async () => {
   ]);
 });
 
-test('should isWebTarget work correctly', () => {
+test('should detect web targets correctly', () => {
   // Test with single targets
   expect(isWebTarget('web')).toBe(true);
   expect(isWebTarget('node')).toBe(false);
@@ -291,11 +320,8 @@ test('should isWebTarget work correctly', () => {
   expect(isWebTarget('web-worker')).toBe(true);
   expect(isWebTarget(['web-worker'])).toBe(true);
   expect(isWebTarget(['web-worker', 'node'])).toBe(true);
-
-  // @ts-expect-error
-  expect(isWebTarget('web-worker-special')).toBe(false);
-  // @ts-expect-error
-  expect(isWebTarget('something-web-worker-else')).toBe(false);
+  expect(isWebTarget('web-worker-special' as RsbuildTarget)).toBe(false);
+  expect(isWebTarget('something-web-worker-else' as RsbuildTarget)).toBe(false);
 });
 
 describe('isPlainObject', () => {

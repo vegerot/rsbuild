@@ -1,43 +1,29 @@
-import { createRequire } from 'node:module';
 import { dirname, sep } from 'node:path';
 import { reduceConfigs } from 'reduce-configs';
-import { castArray, color } from '../helpers';
+import { castArray, color, require } from '../helpers';
 import { ensureAbsolutePath } from '../helpers/path';
-import { logger } from '../logger';
+import type { Logger } from '../logger';
 import type {
   NormalizedEnvironmentConfig,
   RsbuildPlugin,
   RspackChain,
 } from '../types';
 
-const require = createRequire(import.meta.url);
-
 function applyAlias({
   chain,
   config,
   rootPath,
+  logger,
 }: {
   chain: RspackChain;
   config: NormalizedEnvironmentConfig;
   rootPath: string;
+  logger: Logger;
 }) {
-  let mergedAlias = reduceConfigs({
+  const mergedAlias = reduceConfigs({
     initial: {},
     config: config.resolve.alias,
   });
-
-  // TODO: remove `source.alias` in the next major version
-  if (config.source.alias) {
-    logger.warn(
-      `${color.dim('[rsbuild:config]')} The ${color.yellow(
-        '"source.alias"',
-      )} config is deprecated, use ${color.yellow('"resolve.alias"')} instead.`,
-    );
-    mergedAlias = reduceConfigs({
-      initial: mergedAlias,
-      config: config.source.alias,
-    });
-  }
 
   if (config.resolve.dedupe) {
     for (const pkgName of config.resolve.dedupe) {
@@ -59,7 +45,9 @@ function applyAlias({
             paths: [rootPath],
           }),
         );
-      } catch {}
+      } catch {
+        // ignore
+      }
 
       // some package does not export `package.json`,
       // so we try to resolve the package by its name
@@ -124,8 +112,16 @@ export const pluginResolve = (): RsbuildPlugin => ({
       order: 'pre',
       handler: (chain, { environment, CHAIN_ID }) => {
         const { config, tsconfigPath } = environment;
+        const { extensions, conditionNames, mainFields } = config.resolve;
 
-        chain.resolve.extensions.merge([...config.resolve.extensions]);
+        chain.resolve.extensions.merge([...extensions]);
+
+        if (conditionNames?.length) {
+          chain.resolve.conditionNames.merge([...conditionNames]);
+        }
+        if (mainFields?.length) {
+          chain.resolve.mainFields.merge([...mainFields]);
+        }
 
         const isTsProject =
           tsconfigPath && !tsconfigPath.endsWith('jsconfig.json');
@@ -141,6 +137,7 @@ export const pluginResolve = (): RsbuildPlugin => ({
           chain,
           config,
           rootPath: api.context.rootPath,
+          logger: api.logger,
         });
 
         // compatible with legacy packages with type="module"
@@ -151,23 +148,9 @@ export const pluginResolve = (): RsbuildPlugin => ({
           .test(/\.m?js/)
           .resolve.set('fullySpecified', false);
 
-        if (config.source.aliasStrategy) {
-          logger.warn(
-            `${color.dim('[rsbuild:config]')} The ${color.yellow(
-              '"source.aliasStrategy"',
-            )} config is deprecated, use ${color.yellow('"resolve.aliasStrategy"')} instead.`,
-          );
-        }
+        const { aliasStrategy } = config.resolve;
 
-        const aliasStrategy =
-          config.source.aliasStrategy ?? config.resolve.aliasStrategy;
-
-        if (
-          tsconfigPath &&
-          // Only Rspack has the tsConfig option
-          api.context.bundlerType === 'rspack' &&
-          aliasStrategy === 'prefer-tsconfig'
-        ) {
+        if (tsconfigPath && aliasStrategy === 'prefer-tsconfig') {
           chain.resolve.tsConfig({
             configFile: tsconfigPath,
             // read `paths` in referenced tsconfig files

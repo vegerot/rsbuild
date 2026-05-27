@@ -1,17 +1,23 @@
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
-import type Ws from '../../compiled/ws/index.js';
-import {
-  getAllStatsErrors,
-  getAllStatsWarnings,
-  getStatsOptions,
-} from '../helpers';
-import { formatStatsMessages } from '../helpers/format';
-import { logger } from '../logger';
-import type { DevConfig, EnvironmentContext, Rspack } from '../types';
-import { genOverlayHTML } from './overlay';
+import { parse as parseStack } from 'stacktrace-parser';
+import type { WebSocket, WebSocketServer } from 'ws';
+import { BROWSER_LOG_PREFIX, DEFAULT_STACK_TRACE } from '../constants.js';
+import { color, isObject } from '../helpers';
+import { formatStatsError } from '../helpers/format';
+import { isRuntimeOverlayEnabled } from '../helpers/overlayConfig';
+import { getStatsErrors, getStatsWarnings } from '../helpers/stats';
+import type {
+  ClientConfig,
+  DevConfig,
+  InternalContext,
+  RsbuildStatsItem,
+  Rspack,
+} from '../types';
+import { type CachedTraceMap, formatBrowserErrorLog } from './browserLogs';
+import { renderErrorToHtml } from './overlay';
 
-interface ExtWebSocket extends Ws {
+interface ExtWebSocket extends WebSocket {
   isAlive: boolean;
 }
 
@@ -21,64 +27,143 @@ function isEqualSet(a: Set<string>, b: Set<string>): boolean {
 
 const CHECK_SOCKETS_INTERVAL = 30000;
 
-export type SocketMessageStaticChanged = {
-  type: 'static-changed' | 'content-changed';
+export type ServerMessageFullReload = {
+  type: 'full-reload';
+  data?: {
+    /**
+     * If `path` ends with `.html`, only the matching page will reload.
+     * The HTML path should be relative to the dev server root and should not
+     * include `server.base`. Use `'*'` to reload all pages.
+     * @example `/foo.html`
+     */
+    path?: string;
+  };
 };
 
-export type SocketMessageHash = {
+export type ServerMessageStaticChanged = {
+  type: 'static-changed';
+};
+
+export type ServerMessageHash = {
   type: 'hash';
   data: string;
 };
 
-export type SocketMessageOk = {
+export type ServerMessageOk = {
   type: 'ok';
 };
 
-export type SocketMessageWarnings = {
+export type ServerMessageWarnings = {
   type: 'warnings';
   data: { text: string[] };
 };
 
-export type SocketMessageErrors = {
+export type ServerMessageErrors = {
   type: 'errors';
-  data: { text: string[]; html: string };
+  data: {
+    text: string[];
+    html: string;
+  };
 };
 
-export type SocketMessage =
-  | SocketMessageOk
-  | SocketMessageStaticChanged
-  | SocketMessageHash
-  | SocketMessageWarnings
-  | SocketMessageErrors;
+export type ServerMessageResolvedClientError = {
+  type: 'resolved-client-error';
+  data: {
+    id: string;
+    message: string;
+  };
+};
+
+export type ServerCustomMessage = {
+  type: 'custom';
+  data: {
+    event: string;
+    data?: any;
+  };
+};
+
+export type ServerMessage =
+  | ServerMessageOk
+  | ServerMessageFullReload
+  | ServerMessageStaticChanged
+  | ServerMessageHash
+  | ServerMessageWarnings
+  | ServerMessageErrors
+  | ServerMessageResolvedClientError
+  | ServerCustomMessage;
+
+export type ClientMessageError = {
+  type: 'client-error';
+  id: string;
+  message: string;
+  name?: string;
+  stack?: string;
+};
+
+export type ClientMessagePing = {
+  type: 'ping';
+};
+
+export type ClientMessage = ClientMessagePing | ClientMessageError;
 
 const parseQueryString = (req: IncomingMessage) => {
   const queryStr = req.url ? req.url.split('?')[1] : '';
   return queryStr ? Object.fromEntries(new URLSearchParams(queryStr)) : {};
 };
 
-export class SocketServer {
-  private wsServer!: Ws.Server;
+const createRuntimeError = (payload: ClientMessageError): Error => {
+  const error = new Error(payload.message);
+  if (payload.name) {
+    error.name = payload.name;
+  }
+  if (payload.stack) {
+    error.stack = payload.stack;
+  }
+  return error;
+};
 
-  private readonly socketsMap: Map<string, Set<Ws>> = new Map();
+const shouldShowRuntimeErrorOverlay = (
+  overlay: ClientConfig['overlay'],
+  payload: ClientMessageError,
+): boolean => {
+  if (!isRuntimeOverlayEnabled(overlay)) {
+    return false;
+  }
+
+  if (typeof overlay === 'object' && typeof overlay.runtime === 'function') {
+    return overlay.runtime(createRuntimeError(payload));
+  }
+
+  return true;
+};
+
+export class SocketServer {
+  private wsServer!: WebSocketServer;
+
+  private readonly socketsMap = new Map<string, Set<WebSocket>>();
 
   private readonly options: DevConfig;
 
-  private stats: Record<string, Rspack.Stats>;
+  private readonly context: InternalContext;
 
-  private initialChunks: Record<string, Set<string>>;
+  private initialChunksMap = new Map<string, Set<string>>();
 
   private heartbeatTimer: NodeJS.Timeout | null = null;
 
-  private environments: Record<string, EnvironmentContext>;
+  private getOutputFileSystem: () => Rspack.OutputFileSystem;
+
+  private reportedBrowserLogs = new Set<string>();
+
+  private currentHash = new Map<string, string>();
 
   constructor(
+    context: InternalContext,
     options: DevConfig,
-    environments: Record<string, EnvironmentContext>,
+    getOutputFileSystem: () => Rspack.OutputFileSystem,
   ) {
+    this.context = context;
     this.options = options;
-    this.stats = {};
-    this.initialChunks = {};
-    this.environments = environments;
+    this.getOutputFileSystem = getOutputFileSystem;
   }
 
   // subscribe upgrade event to handle socket
@@ -92,8 +177,8 @@ export class SocketServer {
     }
 
     const query = parseQueryString(req);
-    const tokens = Object.values(this.environments).map(
-      (env) => env.webSocketToken,
+    const tokens = this.context.environmentList.map(
+      ({ webSocketToken }) => webSocketToken,
     );
 
     // If the request does not contain a valid token, reject the request.
@@ -142,16 +227,15 @@ export class SocketServer {
   public async prepare(): Promise<void> {
     this.clearHeartbeatTimer();
 
-    const { default: ws } = await import('../../compiled/ws/index.js');
+    const { WebSocketServer } = await import(/* webpackChunkName: "ws" */ 'ws');
 
-    this.wsServer = new ws.Server({
+    this.wsServer = new WebSocketServer({
       noServer: true,
       path: this.options.client?.path,
     });
 
     this.wsServer.on('error', (err: Error) => {
-      // only dev server, use default logger
-      logger.error(err);
+      this.context.logger.error(err);
     });
 
     this.heartbeatTimer = setTimeout(
@@ -167,30 +251,93 @@ export class SocketServer {
     });
   }
 
-  public updateStats(stats: Rspack.Stats, token: string): void {
-    this.stats[token] = stats;
+  public onBuildDone(): void {
+    this.reportedBrowserLogs.clear();
+    this.ensureInitialChunks();
 
     if (!this.socketsMap.size) {
       return;
     }
 
-    this.sendStats({
-      token,
-    });
+    for (const token of this.socketsMap.keys()) {
+      this.sendStats({ token });
+    }
   }
 
   /**
-   * Write message to each socket
+   * Send error messages to the client.
+   */
+  public sendError(errors: Rspack.StatsError[], token: string): void {
+    const { rootPath } = this.context;
+    const formattedErrors = errors.map((item) =>
+      formatStatsError(item, rootPath, 'error', this.context.logger),
+    );
+
+    const environment = this.getEnvironmentByToken(token);
+    const overlay = environment?.config.dev.client.overlay;
+    let overlayErrors = formattedErrors;
+
+    if (
+      overlay &&
+      typeof overlay === 'object' &&
+      typeof overlay.errors === 'function'
+    ) {
+      const { errors: filter } = overlay;
+      overlayErrors = formattedErrors.filter((error) =>
+        filter(new Error(error)),
+      );
+    }
+
+    const html = overlayErrors
+      .map((error) => renderErrorToHtml(error, rootPath))
+      .join('\n\n')
+      .trim();
+
+    this.sendMessage(
+      {
+        type: 'errors',
+        data: {
+          text: formattedErrors,
+          html,
+        },
+      },
+      token,
+    );
+  }
+
+  /**
+   * Send warning messages to the client
+   */
+  public sendWarning(warnings: Rspack.StatsError[], token: string): void {
+    const formattedWarnings = warnings.map((item) =>
+      formatStatsError(
+        item,
+        this.context.rootPath,
+        'warning',
+        this.context.logger,
+      ),
+    );
+    this.sendMessage(
+      {
+        type: 'warnings',
+        data: { text: formattedWarnings },
+      },
+      token,
+    );
+  }
+
+  /**
+   * Send a server message to matching client sockets.
    * @param message - The message to send
    * @param token - The token of the socket to send the message to,
    * if not provided, the message will be sent to all sockets
    */
-  public sockWrite(message: SocketMessage, token?: string): void {
+  public sendMessage(message: ServerMessage, token?: string): void {
     const messageStr = JSON.stringify(message);
 
-    const sendToSockets = (sockets: Set<Ws>) => {
+    const sendToSockets = (sockets: Set<WebSocket>) => {
       for (const socket of sockets) {
-        this.send(socket, messageStr);
+        this.sendRawMessage(socket, messageStr);
       }
     };
 
@@ -224,9 +371,9 @@ export class SocketServer {
     }
 
     // Reset all properties
-    this.stats = {};
-    this.initialChunks = {};
     this.socketsMap.clear();
+    this.initialChunksMap.clear();
+    this.reportedBrowserLogs.clear();
 
     return new Promise<void>((resolve, reject) => {
       this.wsServer.close((err) => {
@@ -245,6 +392,88 @@ export class SocketServer {
     // heartbeat
     socket.on('pong', () => {
       socket.isAlive = true;
+    });
+
+    socket.on('message', async (data) => {
+      try {
+        const payload: ClientMessage = JSON.parse(
+          // rslint-disable-next-line @typescript-eslint/no-base-to-string
+          typeof data === 'string' ? data : data.toString(),
+        );
+
+        const { context } = this;
+        const config = context.normalizedConfig;
+        if (!config) {
+          return;
+        }
+
+        const environment = this.getEnvironmentByToken(token);
+        if (!environment) {
+          return;
+        }
+
+        const { browserLogs, client } = environment.config.dev;
+        if (
+          payload.type === 'client-error' &&
+          // Do not report browser error when build failed
+          !context.buildState.hasErrors &&
+          browserLogs
+        ) {
+          const stackTrace =
+            (isObject(browserLogs) && browserLogs.stackTrace) ||
+            DEFAULT_STACK_TRACE;
+          const outputFs = this.getOutputFileSystem();
+
+          const stackFrames = payload.stack ? parseStack(payload.stack) : null;
+          const cachedTraceMap: CachedTraceMap = new Map();
+
+          const log = await formatBrowserErrorLog(
+            payload.message,
+            context,
+            outputFs,
+            stackTrace,
+            stackFrames,
+            cachedTraceMap,
+          );
+
+          if (!this.reportedBrowserLogs.has(log)) {
+            this.reportedBrowserLogs.add(log);
+            this.context.logger.error(
+              `${color.cyan(BROWSER_LOG_PREFIX)} ${log}`,
+            );
+          }
+
+          // Render runtime errors in overlay
+          if (shouldShowRuntimeErrorOverlay(client.overlay, payload)) {
+            // Always display full stack trace for runtime errors
+            const resolvedLog =
+              // Reuse the formatted full log to avoid parsing the stack again.
+              stackTrace === 'full'
+                ? log
+                : await formatBrowserErrorLog(
+                    payload.message,
+                    context,
+                    outputFs,
+                    'full',
+                    stackFrames,
+                    cachedTraceMap,
+                  );
+
+            this.sendMessage(
+              {
+                type: 'resolved-client-error',
+                data: {
+                  id: payload.id,
+                  message: renderErrorToHtml(resolvedLog),
+                },
+              },
+              token,
+            );
+          }
+        }
+      } catch {
+        // ignore
+      }
     });
 
     let sockets = this.socketsMap.get(token);
@@ -267,47 +496,82 @@ export class SocketServer {
     });
 
     // send first stats to active client sock if stats exist
-    if (this.stats) {
-      this.sendStats({
-        force: true,
-        token,
-      });
+    this.sendStats({
+      force: true,
+      token,
+    });
+  }
+
+  private getEnvironmentByToken(token: string) {
+    return this.context.environmentList.find(
+      ({ webSocketToken }) => webSocketToken === token,
+    );
+  }
+
+  private getInitialChunks(stats: RsbuildStatsItem) {
+    const initialChunks = new Set<string>();
+
+    if (!stats.entrypoints) {
+      return initialChunks;
+    }
+
+    for (const entrypoint of Object.values(stats.entrypoints)) {
+      const { chunks } = entrypoint;
+      if (Array.isArray(chunks)) {
+        for (const chunkName of chunks) {
+          if (chunkName) {
+            initialChunks.add(String(chunkName));
+          }
+        }
+      }
+    }
+
+    return initialChunks;
+  }
+
+  // Cache initial chunks for environments that have no baseline yet.
+  // This keeps comparison stable even when no client socket is connected
+  // during the first completed build.
+  private ensureInitialChunks() {
+    for (const { webSocketToken } of this.context.environmentList) {
+      if (this.initialChunksMap.has(webSocketToken)) {
+        continue;
+      }
+
+      const result = this.getStats(webSocketToken);
+      if (result) {
+        this.initialChunksMap.set(
+          webSocketToken,
+          this.getInitialChunks(result.stats),
+        );
+      }
     }
   }
 
-  // get standard stats
-  private getStats(name: string) {
-    const curStats = this.stats[name];
+  // Only use stats when environment is matched
+  private getStats(token: string) {
+    const { stats } = this.context.buildState;
+    const environment = this.getEnvironmentByToken(token);
 
-    if (!curStats) {
-      return null;
+    if (!stats || !environment) {
+      return;
     }
 
-    const defaultStats: Record<string, boolean> = {
-      all: false,
-      hash: true,
-      assets: true,
-      warnings: true,
-      warningsCount: true,
-      errors: true,
-      errorsCount: true,
-      errorDetails: false,
-      entrypoints: true,
-      children: true,
-      moduleTrace: true,
-    };
+    let currentStats: RsbuildStatsItem = stats;
 
-    const statsOptions = getStatsOptions(curStats.compilation.compiler);
-    const statsJson = curStats.toJson({ ...defaultStats, ...statsOptions });
-
-    // statsJson is null when the previous compilation is removed on the Rust side
-    if (!statsJson) {
-      return null;
+    if (stats.children) {
+      const childStats = stats.children[environment.index];
+      if (childStats) {
+        currentStats = childStats;
+      }
     }
 
+    // Collect errors and warnings from all stats
+    // while using the matched stats for other data
     return {
-      statsJson,
-      root: curStats.compilation.compiler.options.context,
+      stats: currentStats,
+      errors: getStatsErrors(stats),
+      warnings: getStatsWarnings(stats),
     };
   }
 
@@ -320,114 +584,70 @@ export class SocketServer {
     force?: boolean;
   }) {
     const result = this.getStats(token);
-
-    // this should never happened
     if (!result) {
       return null;
     }
 
-    const { statsJson, root } = result;
+    const { stats, errors, warnings } = result;
 
     // web-infra-dev/rspack#6633
     // when initial-chunks change, reload the page
     // e.g: ['index.js'] -> ['index.js', 'lib-polyfill.js']
-    const newInitialChunks: Set<string> = new Set();
-    if (statsJson.entrypoints) {
-      for (const entrypoint of Object.values(statsJson.entrypoints)) {
-        const chunks = entrypoint.chunks;
+    const newInitialChunks = this.getInitialChunks(stats);
 
-        if (!Array.isArray(chunks)) {
-          continue;
-        }
-
-        for (const chunkName of chunks) {
-          if (!chunkName) {
-            continue;
-          }
-          newInitialChunks.add(String(chunkName));
-        }
-      }
-    }
-
-    const initialChunks = this.initialChunks[token];
+    const initialChunks = this.initialChunksMap.get(token);
     const shouldReload =
-      Boolean(statsJson.entrypoints) &&
-      Boolean(initialChunks) &&
+      stats.entrypoints &&
+      initialChunks &&
       !isEqualSet(initialChunks, newInitialChunks);
 
-    this.initialChunks[token] = newInitialChunks;
+    this.initialChunksMap.set(token, newInitialChunks);
 
     if (shouldReload) {
-      this.sockWrite({ type: 'static-changed' }, token);
+      this.sendMessage({ type: 'full-reload' }, token);
       return;
     }
 
-    const shouldEmit =
-      !force &&
-      statsJson &&
-      !statsJson.errorsCount &&
-      statsJson.assets &&
-      statsJson.assets.every((asset: any) => !asset.emitted);
+    if (stats.hash) {
+      const prevHash = this.currentHash.get(token);
+      this.currentHash.set(token, stats.hash);
 
-    if (shouldEmit) {
-      this.sockWrite({ type: 'ok' }, token);
-      return;
-    }
+      // If build hash is not changed and there is no error or warning,
+      // skip the other messages
+      if (
+        !force &&
+        errors.length === 0 &&
+        warnings.length === 0 &&
+        prevHash === stats.hash
+      ) {
+        this.sendMessage({ type: 'ok' }, token);
+        return;
+      }
 
-    if (statsJson.hash) {
-      this.sockWrite(
+      this.sendMessage(
         {
           type: 'hash',
-          data: statsJson.hash,
+          data: stats.hash,
         },
         token,
       );
     }
 
-    if (statsJson.errorsCount) {
-      const errors = getAllStatsErrors(statsJson);
-      const { errors: formattedErrors } = formatStatsMessages({
-        errors,
-        warnings: [],
-      });
-
-      this.sockWrite(
-        {
-          type: 'errors',
-          data: {
-            text: formattedErrors,
-            html: genOverlayHTML(formattedErrors, root),
-          },
-        },
-        token,
-      );
+    if (errors.length > 0) {
+      this.sendError(errors, token);
       return;
     }
 
-    if (statsJson.warningsCount) {
-      const warnings = getAllStatsWarnings(statsJson);
-      const { warnings: formattedWarnings } = formatStatsMessages({
-        warnings,
-        errors: [],
-      });
-      this.sockWrite(
-        {
-          type: 'warnings',
-          data: {
-            text: formattedWarnings,
-          },
-        },
-        token,
-      );
+    if (warnings.length > 0) {
+      this.sendWarning(warnings, token);
       return;
     }
 
-    this.sockWrite({ type: 'ok' }, token);
-    return;
+    this.sendMessage({ type: 'ok' }, token);
   }
 
-  // send message to connecting socket
-  private send(socket: Ws, message: string) {
+  // send a serialized message to a specific socket
+  private sendRawMessage(socket: WebSocket, message: string) {
     if (socket.readyState !== socket.OPEN) {
       return;
     }

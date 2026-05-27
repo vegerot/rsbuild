@@ -1,11 +1,7 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest('should support import attributes syntax', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
-
+test('should support import attributes syntax', async ({ build }) => {
+  const rsbuild = await build();
   const indexJs = await rsbuild.getIndexBundle();
   expect(indexJs).toContain('with import attributes');
 });

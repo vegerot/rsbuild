@@ -1,7 +1,10 @@
-import { isSatisfyRspackVersion, rspackMinVersion } from '../src/helpers';
+import {
+  isSatisfyRspackVersion,
+  rspackMinVersion,
+} from '../src/helpers/version';
 
 describe('rspack version', () => {
-  it('isSatisfyRspackVersion', () => {
+  it('should validate Rspack version compatibility', () => {
     expect(isSatisfyRspackVersion('0.1.0')).toBeFalsy();
 
     expect(isSatisfyRspackVersion(rspackMinVersion)).toBeTruthy();

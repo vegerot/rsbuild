@@ -1,21 +1,96 @@
-import { createStubRsbuild } from '@scripts/test-helper';
+import { matchPlugin } from '@scripts/test-helper';
 import { createRsbuild } from '../src';
-import { pluginOutput } from '../src/plugins/output';
 
 describe('plugin-output', () => {
-  it('should set output correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-    });
-
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+  afterEach(() => {
+    rs.unstubAllEnvs();
   });
 
-  it('should allow to custom server directory with distPath.root', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should set output correctly', async () => {
+    const rsbuild = await createRsbuild();
+
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(rspackConfigs[0].output).toMatchSnapshot();
+  });
+
+  it('should allow enabling filename hash in development mode', async () => {
+    rs.stubEnv('NODE_ENV', 'development');
+
+    const rsbuild = await createRsbuild({
+      config: {
+        output: {
+          filenameHash: {
+            enable: 'always',
+          },
+        },
+      },
+    });
+
+    const rspackConfigs = await rsbuild.initConfigs();
+    const [config] = rspackConfigs;
+
+    expect(config.output).toMatchSnapshot();
+    expect(matchPlugin(config, 'CssExtractRspackPlugin')).toMatchObject({
+      options: {
+        filename: 'static/css/[name].[contenthash:10].css',
+        chunkFilename: 'static/css/async/[name].[contenthash:10].css',
+      },
+    });
+  });
+
+  it('should allow customizing filename hash format with object config', async () => {
+    rs.stubEnv('NODE_ENV', 'production');
+
+    const rsbuild = await createRsbuild({
+      config: {
+        output: {
+          filenameHash: {
+            format: 'contenthash:16',
+          },
+        },
+      },
+    });
+
+    const rspackConfigs = await rsbuild.initConfigs();
+    const [config] = rspackConfigs;
+
+    expect(config.output).toMatchSnapshot();
+    expect(matchPlugin(config, 'CssExtractRspackPlugin')).toMatchObject({
+      options: {
+        filename: 'static/css/[name].[contenthash:16].css',
+        chunkFilename: 'static/css/async/[name].[contenthash:16].css',
+      },
+    });
+  });
+
+  it('should allow disabling filename hash with object config', async () => {
+    rs.stubEnv('NODE_ENV', 'production');
+
+    const rsbuild = await createRsbuild({
+      config: {
+        output: {
+          filenameHash: {
+            enable: false,
+          },
+        },
+      },
+    });
+
+    const rspackConfigs = await rsbuild.initConfigs();
+    const [config] = rspackConfigs;
+
+    expect(config.output).toMatchSnapshot();
+    expect(matchPlugin(config, 'CssExtractRspackPlugin')).toMatchObject({
+      options: {
+        filename: 'static/css/[name].css',
+        chunkFilename: 'static/css/async/[name].css',
+      },
+    });
+  });
+
+  it('should allow customizing server directory with distPath.root', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           target: 'node',
           distPath: {
@@ -25,14 +100,13 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(rspackConfigs[0].output).toMatchSnapshot();
   });
 
-  it('should allow to set distPath.js and distPath.css to empty string', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should allow setting distPath.js and distPath.css to empty string', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           distPath: {
             js: '',
@@ -42,14 +116,13 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(rspackConfigs[0].output).toMatchSnapshot();
   });
 
-  it('should allow to custom async js path via distPath.jsAsync', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should allow customizing async js path via distPath.jsAsync', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           distPath: {
             jsAsync: 'custom/js',
@@ -58,16 +131,15 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0].output?.chunkFilename).toEqual(
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(rspackConfigs[0].output?.chunkFilename).toEqual(
       'custom/js/[name].js',
     );
   });
 
-  it('should allow to use filename.js to modify filename', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should allow using filename.js to modify filename', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           filename: {
             js: 'foo.js',
@@ -77,14 +149,13 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(rspackConfigs[0].output).toMatchSnapshot();
   });
 
-  it('output config should works when target is node', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should apply output config when target is node', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           target: 'node',
           distPath: {
@@ -98,14 +169,13 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(rspackConfigs[0].output).toMatchSnapshot();
   });
 
-  it('should allow to use copy plugin', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should allow using copy plugin', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           copy: {
             patterns: [
@@ -118,14 +188,13 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchPlugin(rspackConfigs[0], 'CopyRspackPlugin')).toMatchSnapshot();
   });
 
-  it('should allow to use copy plugin with multiple config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+  it('should allow using copy plugin with multiple configurations', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           copy: [
             {
@@ -146,15 +215,14 @@ describe('plugin-output', () => {
       },
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-    expect(bundlerConfigs[0]).toMatchSnapshot();
+    const rspackConfigs = await rsbuild.initConfigs();
+    expect(matchPlugin(rspackConfigs[0], 'CopyRspackPlugin')).toMatchSnapshot();
   });
 
   it('should replace `<port>` placeholder with default port', async () => {
-    rstest.stubEnv('NODE_ENV', 'development');
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginOutput()],
-      rsbuildConfig: {
+    rs.stubEnv('NODE_ENV', 'development');
+    const rsbuild = await createRsbuild({
+      config: {
         dev: {
           assetPrefix: 'http://example-<port>.com:<port>/',
         },
@@ -166,9 +234,9 @@ describe('plugin-output', () => {
   });
 
   it('should replace `<port>` placeholder with server.port', async () => {
-    rstest.stubEnv('NODE_ENV', 'development');
+    rs.stubEnv('NODE_ENV', 'development');
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         server: { port: 4000 },
         dev: {
           assetPrefix: 'http://example-<port>.com:<port>/',
@@ -177,13 +245,12 @@ describe('plugin-output', () => {
     });
     const [config] = await rsbuild.initConfigs();
     expect(config?.output?.publicPath).toEqual('http://example-4000.com:4000/');
-    rstest.unstubAllEnvs();
   });
 
   it('should replace `<port>` placeholder of `output.assetPrefix` with default port', async () => {
-    rstest.stubEnv('NODE_ENV', 'production');
+    rs.stubEnv('NODE_ENV', 'production');
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         output: {
           assetPrefix: 'http://example.com:<port>/',
         },
@@ -192,6 +259,5 @@ describe('plugin-output', () => {
 
     const [config] = await rsbuild.initConfigs();
     expect(config?.output?.publicPath).toEqual('http://example.com:3000/');
-    rstest.unstubAllEnvs();
   });
 });

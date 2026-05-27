@@ -1,13 +1,11 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 test('should respect tsconfig paths and override resolve.alias', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await buildPreview({
+    config: {
       resolve: {
         alias: {
           '@common': './src/common2',
@@ -18,17 +16,14 @@ test('should respect tsconfig paths and override resolve.alias', async ({
 
   const foo = page.locator('#foo');
   await expect(foo).toHaveText('tsconfig paths worked');
-
-  await rsbuild.close();
 });
 
 test('should ignore tsconfig paths when aliasStrategy is "prefer-alias"', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await buildPreview({
+    config: {
       resolve: {
         alias: {
           '@/common': './src/common2',
@@ -40,6 +35,4 @@ test('should ignore tsconfig paths when aliasStrategy is "prefer-alias"', async 
 
   const foo = page.locator('#foo');
   await expect(foo).toHaveText('resolve.alias worked');
-
-  await rsbuild.close();
 });

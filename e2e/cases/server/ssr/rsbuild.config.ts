@@ -1,13 +1,14 @@
+import inspector from 'node:inspector';
 import {
   defineConfig,
   logger,
   type RequestHandler,
-  type SetupMiddlewaresContext,
+  type RsbuildDevServer,
 } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 
 export const serverRender =
-  ({ environments }: SetupMiddlewaresContext): RequestHandler =>
+  ({ environments }: RsbuildDevServer): RequestHandler =>
   async (_req, res, _next) => {
     const bundle = await environments.node.loadBundle<{
       render: () => string;
@@ -25,10 +26,18 @@ export const serverRender =
 export default defineConfig({
   plugins: [pluginReact()],
   dev: {
-    setupMiddlewares: ({ unshift }, context) => {
-      const serverRenderMiddleware = serverRender(context);
+    // enable writeToDisk to make sure the sourcemap files are generated on disk for debugging
+    writeToDisk: inspector.url() !== undefined,
+  },
+  server: {
+    setup: ({ action, server }) => {
+      if (action !== 'dev') {
+        return;
+      }
 
-      unshift(async (req, res, next) => {
+      const serverRenderMiddleware = serverRender(server);
+
+      const middleware: RequestHandler = async (req, res, next) => {
         if (req.method === 'GET' && req.url === '/') {
           try {
             await serverRenderMiddleware(req, res, next);
@@ -40,14 +49,13 @@ export default defineConfig({
         } else {
           next();
         }
-      });
+      };
+
+      server.middlewares.use(middleware);
     },
   },
   environments: {
     web: {
-      output: {
-        target: 'web',
-      },
       source: {
         entry: {
           index: './src/index',
@@ -56,7 +64,7 @@ export default defineConfig({
     },
     node: {
       output: {
-        module: true,
+        module: process.env.TEST_ESM_LIBRARY === 'true',
         target: 'node',
       },
       source: {

@@ -1,6 +1,11 @@
-import type { FileDescriptor } from '../../compiled/rspack-manifest-plugin';
+import type {
+  FileDescriptor,
+  InternalOptions,
+  ManifestPluginOptions,
+} from 'rspack-manifest-plugin';
 import { color, isObject } from '../helpers';
-import { logger } from '../logger';
+import { getPublicPathFromCompiler } from '../helpers/compiler';
+import { ensureAssetPrefix } from '../helpers/url';
 import { recursiveChunkEntryNames } from '../rspack-plugins/resource-hints/doesChunkBelongToHtml';
 import type {
   EnvironmentContext,
@@ -11,23 +16,38 @@ import type {
   RsbuildPlugin,
 } from '../types';
 
+const isCSSPath = (filePath: string) => filePath.endsWith('.css');
+
 const generateManifest =
   (
     htmlPaths: Record<string, string>,
-    manifestOptions: ManifestObjectConfig,
+    manifestOptions: NormalizedManifestConfig,
     environment: EnvironmentContext,
-  ) =>
-  (_seed: Record<string, any>, files: FileDescriptor[]) => {
+  ): InternalOptions['generate'] =>
+  (
+    _seed: Record<string, any>,
+    files: FileDescriptor[],
+    entries: Record<string, string[]>,
+    { compilation },
+  ) => {
     const chunkEntries = new Map<string, FileDescriptor[]>();
-
     const licenseMap = new Map<string, string>();
+    const publicPath = getPublicPathFromCompiler(compilation);
+    const integrity: Record<string, string> = {};
 
     const allFiles = files.map((file) => {
-      if (file.chunk) {
-        const names = recursiveChunkEntryNames(file.chunk);
+      if (file.integrity) {
+        integrity[file.path] = file.integrity;
+      }
 
-        for (const name of names) {
-          chunkEntries.set(name, [file, ...(chunkEntries.get(name) || [])]);
+      if (file.chunk) {
+        const entryNames = recursiveChunkEntryNames(file.chunk);
+
+        for (const entryName of entryNames) {
+          chunkEntries.set(entryName, [
+            file,
+            ...(chunkEntries.get(entryName) || []),
+          ]);
         }
       }
 
@@ -38,24 +58,35 @@ const generateManifest =
       return file.path;
     });
 
-    const entries: ManifestData['entries'] = {};
+    const manifestEntries: ManifestData['entries'] = {};
 
-    for (const [name, chunkFiles] of chunkEntries) {
+    for (const [entryName, chunkFiles] of chunkEntries) {
       const assets = new Set<string>();
       const initialJS: string[] = [];
-      const asyncJS: string[] = [];
       const initialCSS: string[] = [];
+      const asyncJS: string[] = [];
       const asyncCSS: string[] = [];
 
-      for (const file of chunkFiles) {
-        if (file.isInitial) {
-          if (file.path.endsWith('.css')) {
-            initialCSS.push(file.path);
+      // Get the initial chunks from `entries`, since they come from
+      // `compilation.entrypoints.get(entryName).getFiles()`, which ensures
+      // the correct chunk order (especially important for CSS chunks where
+      // order must be preserved).
+      if (entries[entryName]) {
+        for (const filePath of entries[entryName]) {
+          const fileURL = manifestOptions.prefix
+            ? ensureAssetPrefix(filePath, publicPath)
+            : filePath;
+          if (isCSSPath(filePath)) {
+            initialCSS.push(fileURL);
           } else {
-            initialJS.push(file.path);
+            initialJS.push(fileURL);
           }
-        } else {
-          if (file.path.endsWith('.css')) {
+        }
+      }
+
+      for (const file of chunkFiles) {
+        if (!file.isInitial) {
+          if (isCSSPath(file.path)) {
             asyncCSS.push(file.path);
           } else {
             asyncJS.push(file.path);
@@ -81,7 +112,7 @@ const generateManifest =
         entryManifest.assets = Array.from(assets);
       }
 
-      const htmlPath = files.find((f) => f.name === htmlPaths[name])?.path;
+      const htmlPath = files.find((f) => f.name === htmlPaths[entryName])?.path;
 
       if (htmlPath) {
         entryManifest.html = [htmlPath];
@@ -113,12 +144,13 @@ const generateManifest =
         };
       }
 
-      entries[name] = entryManifest;
+      manifestEntries[entryName] = entryManifest;
     }
 
     const manifestData: ManifestData = {
       allFiles,
-      entries,
+      entries: manifestEntries,
+      integrity,
     };
 
     if (manifestOptions.generate) {
@@ -141,18 +173,23 @@ const generateManifest =
     return manifestData;
   };
 
+type NormalizedManifestConfig = ManifestObjectConfig &
+  Required<Pick<ManifestObjectConfig, 'prefix' | 'filename'>>;
+
 function normalizeManifestObjectConfig(
   manifest?: ManifestConfig,
-): ManifestObjectConfig & { filename: string } {
+): NormalizedManifestConfig {
+  const defaultOptions: NormalizedManifestConfig = {
+    prefix: true,
+    filename: 'manifest.json',
+  };
+
   if (typeof manifest === 'string') {
     return {
+      ...defaultOptions,
       filename: manifest,
     };
   }
-
-  const defaultOptions = {
-    filename: 'manifest.json',
-  } satisfies ManifestObjectConfig;
 
   if (typeof manifest === 'boolean') {
     return defaultOptions;
@@ -183,7 +220,7 @@ export const pluginManifest = (): RsbuildPlugin => ({
       const manifestOptions = normalizeManifestObjectConfig(manifest);
 
       const { RspackManifestPlugin } = await import(
-        '../../compiled/rspack-manifest-plugin/index.js'
+        /* webpackChunkName: "manifest-plugin" */ 'rspack-manifest-plugin'
       );
       const { htmlPaths } = environment;
 
@@ -194,14 +231,20 @@ export const pluginManifest = (): RsbuildPlugin => ({
 
       manifestFilenames.set(environment.name, manifestOptions.filename);
 
-      chain.plugin(CHAIN_ID.PLUGIN.MANIFEST).use(RspackManifestPlugin, [
-        {
-          fileName: manifestOptions.filename,
-          filter,
-          writeToFileEmit: isDev && writeToDisk !== true,
-          generate: generateManifest(htmlPaths, manifestOptions, environment),
-        },
-      ]);
+      const pluginOptions: ManifestPluginOptions = {
+        fileName: manifestOptions.filename,
+        filter,
+        writeToFileEmit: isDev && writeToDisk !== true,
+        generate: generateManifest(htmlPaths, manifestOptions, environment),
+      };
+
+      if (!manifestOptions.prefix) {
+        pluginOptions.publicPath = '';
+      }
+
+      chain
+        .plugin(CHAIN_ID.PLUGIN.MANIFEST)
+        .use(RspackManifestPlugin, [pluginOptions]);
     });
 
     // validate duplicated manifest filenames and throw a warning
@@ -216,7 +259,7 @@ export const pluginManifest = (): RsbuildPlugin => ({
       const uniqueFilenames = new Set(filenames);
 
       if (uniqueFilenames.size !== filenames.length) {
-        logger.warn(
+        api.logger.warn(
           `${color.dim('[rsbuild:manifest]')} The ${color.yellow(
             '"manifest.filename"',
           )} option must be unique when there are multiple environments (${environmentNames.join(

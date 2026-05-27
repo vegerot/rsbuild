@@ -1,14 +1,10 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-test('should render loop statements correctly', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
-  const files = await rsbuild.getDistFiles();
+test('should render loop statements correctly', async ({ build }) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
 
-  const indexHtml =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const indexHtml = getFileContent(files, 'index.html');
 
   // Basic for loop
   expect(indexHtml).toContain('<div id="for">');

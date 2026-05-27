@@ -1,19 +1,17 @@
-import path from 'node:path';
-import { build, readDirContents } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-test('should support configuring an entry description object', async () => {
-  await build({
-    cwd: __dirname,
-  });
+test('should support configuring an entry description object', async ({
+  build,
+}) => {
+  const rsbuild = await build();
 
-  const outputs = await readDirContents(path.join(__dirname, 'dist'));
-  const outputFiles = Object.keys(outputs);
+  const files = rsbuild.getDistFiles();
+  const filenames = Object.keys(files);
 
   expect(
-    outputFiles.find((item) => item.includes('static/js/foo.')),
+    filenames.find((item) => item.includes('static/js/foo.')),
   ).toBeTruthy();
   expect(
-    outputFiles.find((item) => item.includes('static/js/bar.')),
+    filenames.find((item) => item.includes('static/js/bar.')),
   ).toBeTruthy();
 });

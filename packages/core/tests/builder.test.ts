@@ -1,11 +1,14 @@
 import { createRsbuild } from '../src';
 
-describe('should use Rspack as the default bundler', () => {
-  it('apply Rspack correctly', async () => {
-    const { NODE_ENV } = process.env;
-    process.env.NODE_ENV = 'development';
+describe('default bundler', () => {
+  afterEach(() => {
+    rs.unstubAllEnvs();
+  });
+
+  it('should use Rspack by default', async () => {
+    rs.stubEnv('NODE_ENV', 'development');
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         source: {
           entry: {
             index: './src/index.js',
@@ -14,13 +17,9 @@ describe('should use Rspack as the default bundler', () => {
       },
     });
 
-    expect(rsbuild.context.bundlerType).toBe('rspack');
+    const rspackConfigs = await rsbuild.initConfigs();
 
-    const bundlerConfigs = await rsbuild.initConfigs();
-
-    expect(bundlerConfigs[0]).toMatchSnapshot();
-
-    process.env.NODE_ENV = NODE_ENV;
+    expect(rspackConfigs[0]).toMatchSnapshot();
   });
 });
 
@@ -40,7 +39,7 @@ describe('plugins', () => {
     }
 
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         source: {
           entry: {
             index: './src/index.js',

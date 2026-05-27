@@ -1,3 +1,7 @@
+---
+description: 'Reference for the Rsbuild performance.dns-prefetch option, including behavior, defaults, configuration details, and usage examples.'
+---
+
 # performance.dnsPrefetch
 
 - **Type:** `string[] | undefined`
@@ -15,7 +19,7 @@ For more information, see [Using dns-prefetch](https://developer.mozilla.org/en-
 
 ## Example
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   performance: {
     dnsPrefetch: ['https://example.com'],

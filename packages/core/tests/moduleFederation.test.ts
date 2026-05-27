@@ -1,12 +1,10 @@
-import { createStubRsbuild } from '@scripts/test-helper';
-import { pluginModuleFederation } from '../src/plugins/moduleFederation';
-import { pluginSplitChunks } from '../src/plugins/splitChunks';
+import { matchPlugin } from '@scripts/test-helper';
+import { createRsbuild } from '../src';
 
 describe('plugin-module-federation', () => {
   it('should set module federation config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks(), pluginModuleFederation()],
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         performance: {
           chunkSplit: {
             strategy: 'split-by-experience',
@@ -34,14 +32,13 @@ describe('plugin-module-federation', () => {
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = (await rsbuild.initConfigs())[0];
+    expect(matchPlugin(config, 'ModuleFederationPlugin')).toMatchSnapshot();
   });
 
   it('should set environment module federation config correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks(), pluginModuleFederation()],
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         performance: {
           chunkSplit: {
             strategy: 'split-by-experience',
@@ -75,13 +72,14 @@ describe('plugin-module-federation', () => {
     });
 
     const configs = await rsbuild.initConfigs();
-    expect(configs).toMatchSnapshot();
+    expect(
+      configs.map((config) => matchPlugin(config, 'ModuleFederationPlugin')),
+    ).toMatchSnapshot();
   });
 
   it('should set module federation and environment chunkSplit config correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks(), pluginModuleFederation()],
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         moduleFederation: {
           options: {
             name: 'remote',
@@ -121,6 +119,8 @@ describe('plugin-module-federation', () => {
     });
 
     const configs = await rsbuild.initConfigs();
-    expect(configs).toMatchSnapshot();
+    expect(
+      configs.map((config) => matchPlugin(config, 'ModuleFederationPlugin')),
+    ).toMatchSnapshot();
   });
 });

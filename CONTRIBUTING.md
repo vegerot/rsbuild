@@ -6,72 +6,37 @@ Thank you for your interest in contributing to Rsbuild! Before you start your co
 
 ## Setup the environment
 
-### Fork the repo
-
-[Fork](https://help.github.com/articles/fork-a-repo/) this repository to your
-own GitHub account and then [clone](https://help.github.com/articles/cloning-a-repository/) it to your local.
+Fork this repository to your own GitHub account and then clone it locally.
 
 ## Branches
 
-- `main` -> Rsbuild v1.x
-- `v0.x` -> Rsbuild v0.x
+- [main](https://github.com/web-infra-dev/rsbuild/tree/main) -> Rsbuild v2.x
+- [v1.x](https://github.com/web-infra-dev/rsbuild/tree/v1.x) -> Rsbuild v1.x
+- [v0.x](https://github.com/web-infra-dev/rsbuild/tree/v0.x) -> Rsbuild v0.x
 
 ### Install Node.js
 
-Use the latest Node.js LTS version. For installation instructions, see [Install Node.js](https://nodejs.org/en/download).
+Use Node.js LTS or newer. For installation instructions, see [Install Node.js](https://nodejs.org/en/download).
 
 ### Install dependencies
 
-Enable [pnpm](https://pnpm.io/) with corepack:
+Enable [pnpm](https://pnpm.io/) with Corepack and install dependencies:
 
 ```sh
 npm i corepack@latest -g
 corepack enable
-```
-
-Install dependencies:
-
-```sh
 pnpm install
 ```
 
-What this will do:
-
-- Install all dependencies
-- Create symlinks between packages in the monorepo
-- Run the `prepare` script to build all packages, powered by [nx](https://nx.dev/).
-
-### Set git email
-
-Please make sure you have your email set up in `<https://github.com/settings/emails>`. This will be needed later when you want to submit a pull request.
-
-Check that your git client is already configured the email:
-
-```sh
-git config --list | grep email
-```
-
-Set the email to global config:
-
-```sh
-git config --global user.email "SOME_EMAIL@example.com"
-```
-
-Set the email for local repo:
-
-```sh
-git config user.email "SOME_EMAIL@example.com"
-```
+This installs dependencies, links packages inside the monorepo, and runs the Nx-powered `prepare` script.
 
 ---
 
 ## Making changes and building
 
-Once you have set up the local development environment in your forked repo, we can start development.
-
 ### Checkout a new branch
 
-It is recommended to develop on a new branch, as it will make things easier later when you submit a pull request:
+Create a dedicated branch for your changes:
 
 ```sh
 git checkout -b MY_BRANCH_NAME
@@ -79,13 +44,13 @@ git checkout -b MY_BRANCH_NAME
 
 ### Build the package
 
-Use [nx build](https://nx.dev/nx-api/nx/documents/run) to build the package you want to change:
+Build the package you want to change:
 
 ```sh
-npx nx build @rsbuild/core
+pnpm --filter core run build
 ```
 
-Build all packages:
+Build everything:
 
 ```sh
 pnpm run build
@@ -97,19 +62,17 @@ pnpm run build
 
 ### Add new tests
 
-If you've fixed a bug or added code that should be tested, then add some tests.
-
-You can add unit test cases in the `<PACKAGE_DIR>/tests` folder. The test runner is based on [Rstest](https://rstest.rs/).
+Add tests for every bug fix or feature. Unit tests live in `<PACKAGE_DIR>/tests` and use [Rstest](https://rstest.rs/).
 
 ### Run unit tests
 
-Before submitting a pull request, it's important to make sure that the changes haven't introduced any regressions or bugs. You can run the unit tests for the project by executing the following command:
+Run all unit tests:
 
 ```sh
 pnpm test
 ```
 
-You can also run the unit tests of single package:
+Run a single package:
 
 ```sh
 pnpm test core
@@ -117,9 +80,7 @@ pnpm test core
 
 ### Run E2E tests
 
-Rsbuild uses [playwright](https://github.com/microsoft/playwright) to run end-to-end tests.
-
-You can run the `e2e` command to run E2E tests:
+Run end-to-end tests powered by [Playwright](https://github.com/microsoft/playwright):
 
 ```sh
 pnpm run e2e
@@ -128,25 +89,21 @@ pnpm run e2e
 If you need to run a specified test, you can add keywords to filter:
 
 ```sh
-# Only run test cases which contains `vue` keyword in file path with Rspack
-pnpm e2e:rspack vue
-# Only run test cases which contains `vue` keyword in test name with Rspack
-pnpm e2e:rspack -g vue
+# Only run test cases which contains `css` keyword in file path
+pnpm e2e css
 ```
 
 ---
 
 ## Linting
 
-To help maintain consistency and readability of the codebase, we use [Biome](https://github.com/biomejs/biome) to lint the codes.
-
-You can run the linters by executing the following command:
+Run [Rslint](https://github.com/web-infra-dev/rslint) to keep code style consistent:
 
 ```sh
 pnpm run lint
 ```
 
-For VS Code users, you can install the [Biome VS Code extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) to see lints while typing.
+Install the [Rslint VS Code extension](https://marketplace.visualstudio.com/items?itemName=rstack.rslint) to see lints while typing.
 
 ---
 
@@ -184,9 +141,7 @@ feat(core): Add `myOption` config
 
 Repository maintainers can publish a new version of changed packages to npm.
 
-1. Checkout a new release branch, for example `release_v1.2.0`
-2. Run `pnpm bump` in the package directory to update the version of each package.
-3. Create a pull request, the title should be `release: v1.2.0`.
-4. Run the [release action](https://github.com/web-infra-dev/rsbuild/actions/workflows/release.yml) to publish packages to npm.
-5. Merge the release pull request to `main`.
-6. Generate the [release notes](https://github.com/web-infra-dev/rsbuild/releases) via GitHub, see [Automatically generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes)
+1. Use `release-core` skill to update the version.
+2. Run the [release action](https://github.com/web-infra-dev/rsbuild/actions/workflows/release.yml) to publish packages to npm.
+3. Merge the release pull request to `main`.
+4. Generate the [release notes](https://github.com/web-infra-dev/rsbuild/releases) via `create-draft-release-notes` skill.

@@ -1,10 +1,11 @@
-import { createStubRsbuild } from '@scripts/test-helper';
-import type { RsbuildConfig } from '../src';
-import { pluginEntry } from '../src/plugins/entry';
-import { pluginSwc } from '../src/plugins/swc';
+import path from 'node:path';
+import { matchRules } from '@scripts/test-helper';
+import { createRsbuild, type RsbuildConfig } from '../src';
+
+const defaultCwd = path.join(import.meta.dirname, '..');
 
 describe('plugin-swc', () => {
-  it('should disable preset_env in target other than web', async () => {
+  it('should disable preset-env for non-web targets', async () => {
     await matchConfigSnapshot({
       output: {
         polyfill: 'entry',
@@ -13,7 +14,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should disable preset_env mode', async () => {
+  it('should disable preset-env mode', async () => {
     await matchConfigSnapshot({
       output: {
         polyfill: 'off',
@@ -21,7 +22,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should enable usage mode preset_env', async () => {
+  it('should enable preset-env in usage mode', async () => {
     await matchConfigSnapshot({
       output: {
         polyfill: 'usage',
@@ -29,7 +30,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should enable entry mode preset_env', async () => {
+  it('should enable preset-env in entry mode', async () => {
     await matchConfigSnapshot({
       output: {
         polyfill: 'entry',
@@ -37,7 +38,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should add browserslist', async () => {
+  it('should apply overrideBrowserslist', async () => {
     await matchConfigSnapshot({
       output: {
         overrideBrowserslist: ['chrome 98'],
@@ -45,7 +46,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should has correct core-js', async () => {
+  it('should use the correct core-js version', async () => {
     await matchConfigSnapshot({
       output: {
         polyfill: 'entry',
@@ -60,7 +61,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should add pluginImport', async () => {
+  it('should apply pluginImport', async () => {
     await matchConfigSnapshot({
       source: {
         transformImport: [
@@ -72,7 +73,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should disable pluginImport when return undefined', async () => {
+  it('should disable pluginImport when it returns undefined', async () => {
     await matchConfigSnapshot({
       source: {
         transformImport: () => {},
@@ -80,7 +81,7 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should apply pluginImport correctly when ConfigChain', async () => {
+  it('should apply pluginImport correctly with ConfigChain', async () => {
     await matchConfigSnapshot({
       source: {
         transformImport: [
@@ -105,9 +106,20 @@ describe('plugin-swc', () => {
     });
   });
 
-  it('should allow to use `tools.swc` to configure swc-loader options', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+  it('should apply decorators version 2023-11', async () => {
+    await matchConfigSnapshot({
+      source: {
+        decorators: {
+          version: '2023-11',
+        },
+      },
+    });
+  });
+
+  it('should allow using `tools.swc` to configure swc-loader options', async () => {
+    const rsbuild = await createRsbuild({
+      cwd: defaultCwd,
+      config: {
         tools: {
           swc: {
             jsc: {
@@ -116,19 +128,19 @@ describe('plugin-swc', () => {
           },
         },
       },
-      plugins: [pluginSwc()],
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
+    const rspackConfigs = await rsbuild.initConfigs();
 
-    for (const bundlerConfig of bundlerConfigs) {
-      expect(bundlerConfig.module?.rules).toMatchSnapshot();
+    for (const rspackConfig of rspackConfigs) {
+      expect(matchRules(rspackConfig, 'a.js')).toMatchSnapshot();
     }
   });
 
-  it('should allow to use `tools.swc` to be function type', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+  it('should allow `tools.swc` to be a function', async () => {
+    const rsbuild = await createRsbuild({
+      cwd: defaultCwd,
+      config: {
         tools: {
           swc() {
             return {
@@ -139,19 +151,19 @@ describe('plugin-swc', () => {
           },
         },
       },
-      plugins: [pluginSwc()],
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
+    const rspackConfigs = await rsbuild.initConfigs();
 
-    for (const bundlerConfig of bundlerConfigs) {
-      expect(bundlerConfig.module?.rules).toMatchSnapshot();
+    for (const rspackConfig of rspackConfigs) {
+      expect(matchRules(rspackConfig, 'a.js')).toMatchSnapshot();
     }
   });
 
   it('should apply environment config correctly', async () => {
-    const rsbuild = await createStubRsbuild({
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      cwd: defaultCwd,
+      config: {
         environments: {
           web: {
             source: {
@@ -183,31 +195,28 @@ describe('plugin-swc', () => {
           },
         },
       },
-      plugins: [pluginSwc()],
     });
 
-    const bundlerConfigs = await rsbuild.initConfigs();
+    const rspackConfigs = await rsbuild.initConfigs();
 
-    for (const bundlerConfig of bundlerConfigs) {
-      expect(bundlerConfig.module?.rules).toMatchSnapshot();
+    for (const rspackConfig of rspackConfigs) {
+      expect(matchRules(rspackConfig, 'a.js')).toMatchSnapshot();
     }
   });
 });
 
-async function matchConfigSnapshot(rsbuildConfig: RsbuildConfig) {
-  rsbuildConfig.source ||= {};
-  rsbuildConfig.source.entry = {
+async function matchConfigSnapshot(config: RsbuildConfig) {
+  config.source ||= {};
+  config.source.entry = {
     main: './src/index.js',
   };
 
-  const rsbuild = await createStubRsbuild({
-    plugins: [pluginSwc(), pluginEntry()],
-    rsbuildConfig,
+  const rsbuild = await createRsbuild({
+    config,
+    cwd: defaultCwd,
   });
-
-  const {
-    origin: { bundlerConfigs },
-  } = await rsbuild.inspectConfig();
-
-  expect(bundlerConfigs).toMatchSnapshot();
+  const rspackConfigs = await rsbuild.initConfigs();
+  expect(
+    rspackConfigs.map((rspackConfig) => matchRules(rspackConfig, 'a.js')),
+  ).toMatchSnapshot();
 }

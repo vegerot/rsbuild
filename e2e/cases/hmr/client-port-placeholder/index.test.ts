@@ -1,45 +1,35 @@
-import fs from 'node:fs';
 import { join } from 'node:path';
-import { dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-const cwd = __dirname;
+test('HMR should work when dev.client.port is `<port>`', async ({
+  page,
+  dev,
+  editFile,
+  copySrcDir,
+}) => {
+  const tempSrc = await copySrcDir();
 
-rspackOnlyTest(
-  'HMR should work when dev.client.port is `<port>`',
-  async ({ page }) => {
-    await fs.promises.cp(join(cwd, 'src'), join(cwd, 'test-temp-src'), {
-      recursive: true,
-    });
-
-    const rsbuild = await dev({
-      cwd,
-      page,
-      rsbuildConfig: {
-        source: {
-          entry: {
-            index: join(cwd, 'test-temp-src/index.ts'),
-          },
-        },
-        dev: {
-          client: {
-            port: '<port>',
-          },
+  await dev({
+    config: {
+      source: {
+        entry: {
+          index: join(tempSrc, 'index.ts'),
         },
       },
-    });
+      dev: {
+        client: {
+          port: '<port>',
+        },
+      },
+    },
+  });
 
-    const appPath = join(cwd, 'test-temp-src/App.tsx');
+  const locator = page.locator('#test');
+  await expect(locator).toHaveText('Hello Rsbuild!');
 
-    const locator = page.locator('#test');
-    await expect(locator).toHaveText('Hello Rsbuild!');
+  await editFile(join(tempSrc, 'App.tsx'), (code) =>
+    code.replace('Hello Rsbuild', 'Hello Test'),
+  );
 
-    await fs.promises.writeFile(
-      appPath,
-      fs.readFileSync(appPath, 'utf-8').replace('Hello Rsbuild', 'Hello Test'),
-    );
-
-    await expect(locator).toHaveText('Hello Test!');
-    await rsbuild.close();
-  },
-);
+  await expect(locator).toHaveText('Hello Test!');
+});

@@ -1,11 +1,12 @@
 import { createRsbuild } from '@rsbuild/core';
+import { createRsbuild as createRsbuildV1 } from '@rsbuild/core-v1';
 import { matchPlugin, matchRules } from '@scripts/test-helper';
 import { pluginVue } from '../src';
 
 describe('plugin-vue', () => {
   it('should add vue-loader and VueLoaderPlugin correctly', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [pluginVue()],
       },
     });
@@ -18,7 +19,7 @@ describe('plugin-vue', () => {
 
   it('should allow to configure vueLoader options', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [
           pluginVue({
             vueLoaderOptions: {
@@ -34,11 +35,36 @@ describe('plugin-vue', () => {
 
   it('should define feature flags correctly', async () => {
     const rsbuild = await createRsbuild({
-      rsbuildConfig: {
+      config: {
         plugins: [pluginVue()],
       },
     });
     const config = await rsbuild.initConfigs();
     expect(matchPlugin(config[0], 'DefinePlugin')).toMatchSnapshot();
+  });
+
+  it('should allow to custom test condition', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
+        plugins: [
+          pluginVue({
+            test: /\.(vue|md)$/,
+          }),
+        ],
+      },
+    });
+    const config = await rsbuild.initConfigs();
+    expect(matchRules(config[0], 'a.md')[0]).toMatchSnapshot();
+  });
+
+  it('should apply splitChunks with Rsbuild v1', async () => {
+    const rsbuild = await createRsbuildV1({
+      config: {
+        plugins: [pluginVue()],
+      },
+    });
+
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toMatchSnapshot();
   });
 });

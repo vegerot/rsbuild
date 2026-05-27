@@ -1,3 +1,7 @@
+---
+description: 'Configure the client code injected by Rsbuild during the development process. This can be used to set the WebSocket URL for HMR.'
+---
+
 # dev.client
 
 Configure the client code injected by Rsbuild during the development process. This can be used to set the WebSocket URL for HMR.
@@ -16,8 +20,10 @@ type Client = {
   host?: string;
   // The maximum number of reconnection attempts after a WebSocket request is disconnected.
   reconnect?: number;
-  // Whether to display an error overlay in the browser when a compilation error occurs
-  overlay?: boolean;
+  // Whether to display an error overlay in the browser
+  overlay?: boolean | OverlayOptions;
+  // Controls the log level for client-side logging in the browser console
+  logLevel?: 'info' | 'warn' | 'error' | 'silent';
 };
 ```
 
@@ -34,6 +40,8 @@ const defaultConfig = {
   protocol: undefined,
   reconnect: 100,
   overlay: true,
+  // Inherits from root logLevel, defaults to 'info'
+  logLevel: 'info',
 };
 ```
 
@@ -83,7 +91,22 @@ During the HMR process, the page will make GET requests to get hot-update files,
 
 Hot-update files are considered to be static assets. If you need to configure the URL for hot-update files, please use the [dev.assetPrefix](/config/dev/asset-prefix) option.
 
-## Error overlay
+## Options
+
+### overlay
+
+- **Type:**
+
+```ts
+type Overlay =
+  | boolean
+  | {
+      errors?: boolean | ((error: Error) => boolean);
+      runtime?: boolean | ((error: Error) => boolean);
+    };
+```
+
+- **Default:** `true`
 
 The `dev.client.overlay` option allows you to choose whether or not to enable the error overlay feature.
 
@@ -103,6 +126,134 @@ export default {
 };
 ```
 
+When `overlay` is configured as an object, it allows more fine-grained control over errors from different sources.
+
+#### overlay.errors
+
+- **Type:** `boolean | ((error: Error) => boolean)`
+- **Default:** `true`
+
+`overlay.errors` controls whether build errors are rendered in the overlay.
+
+When this option is disabled, build errors will still be printed in the browser console, but the error overlay will not be displayed.
+
+```ts title="rsbuild.config.ts"
+export default {
+  dev: {
+    client: {
+      overlay: {
+        errors: false,
+      },
+    },
+  },
+};
+```
+
+You can also pass a filter function to control which formatted build errors are rendered. When a build error is filtered out, it will still be printed in the browser console, but will not be displayed in the error overlay.
+
+```ts title="rsbuild.config.ts"
+export default {
+  dev: {
+    client: {
+      overlay: {
+        errors: (error) => !error.message.includes('Ignore this error'),
+      },
+    },
+  },
+};
+```
+
+#### overlay.runtime
+
+- **Type:** `boolean | ((error: Error) => boolean)`
+- **Default:** `false`
+
+`overlay.runtime` controls whether runtime errors that occur in the browser are rendered in the overlay.
+
+When this option is enabled, Rsbuild captures runtime errors during development, such as JavaScript execution errors and unhandled Promise rejections, and displays them in the error overlay.
+
+```ts title="rsbuild.config.ts"
+export default {
+  dev: {
+    client: {
+      overlay: {
+        runtime: true,
+      },
+    },
+  },
+};
+```
+
+You can also pass a filter function to control which runtime errors are rendered. The filter function runs in Node.js, and `error.name` is set to the original error name from the browser.
+
+```ts title="rsbuild.config.ts"
+export default {
+  dev: {
+    client: {
+      overlay: {
+        runtime: (error) =>
+          error.name !== 'AbortError' && error.message.includes('Foo'),
+      },
+    },
+  },
+};
+```
+
 :::tip
 The error overlay feature requires the current browser to support [Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components). If the browser does not support it, the overlay will not be displayed.
 :::
+
+### logLevel
+
+- **Type:** `'info' | 'warn' | 'error' | 'silent'`
+- **Default:** Inherits from root [logLevel](/config/log-level), defaults to `info`
+
+The `dev.client.logLevel` option controls the log level for Rsbuild's client-side messages in the browser console.
+
+```ts title="rsbuild.config.ts"
+export default {
+  dev: {
+    client: {
+      logLevel: 'warn',
+    },
+  },
+};
+```
+
+Optional values:
+
+- `'info'` - Shows all messages (default).
+- `'warn'` - Shows warnings and errors only.
+- `'error'` - Shows only errors.
+- `'silent'` - Suppresses all Rsbuild client logs.
+
+### reconnect
+
+- **Type:** `number`
+- **Default:** `100`
+
+Controls the maximum number of automatic reconnection attempts after the WebSocket connection is disconnected.
+
+When the connection is lost, Rsbuild will retry the connection at increasing time intervals. Once the maximum number of attempts is reached, it will stop reconnecting. After a successful reconnection, HMR and related features will be restored automatically.
+
+```ts title="rsbuild.config.ts"
+export default {
+  dev: {
+    client: {
+      // Retry up to 3 times
+      reconnect: 3,
+    },
+  },
+};
+```
+
+Setting this value to `0` disables automatic reconnection. In this case, the connection can only be restored by manually refreshing the page.
+
+## Version history
+
+| Version | Changes                                                 |
+| ------- | ------------------------------------------------------- |
+| v1.6.13 | Added `logLevel` option                                 |
+| v1.7.0  | Added `overlay.runtime` option                          |
+| v2.0.3  | Added `overlay.errors` option                           |
+| v2.0.4  | Added support for filter functions in `overlay.runtime` |

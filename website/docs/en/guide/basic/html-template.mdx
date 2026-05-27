@@ -1,8 +1,12 @@
+---
+description: 'During the build process, Rsbuild compiles HTML templates and template parameters to generate HTML files.'
+---
+
 # HTML
 
 During the build process, Rsbuild compiles HTML templates and template parameters to generate HTML files.
 
-Rsbuild provides several configuration options to set HTML templates. This section explains the basic usage of these options.
+Rsbuild provides several configuration options for HTML templates. This section explains the basic usage of these options.
 
 ## HTML generation
 
@@ -23,9 +27,9 @@ See [source.entry - HTML generation](/config/source/entry#html-generation) for m
 
 ## Set template
 
-Use the [html.template](/config/html/template) config to define the path to a custom HTML template.
+Use [html.template](/config/html/template) to define the path to a custom HTML template.
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     template: './static/index.html',
@@ -33,10 +37,10 @@ export default {
 };
 ```
 
-When `html.template` is not set, Rsbuild uses the built-in HTML template:
+When `html.template` is not set, Rsbuild uses this built-in HTML template:
 
 ```html title="defaultTemplate.html"
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head></head>
   <body>
@@ -49,11 +53,11 @@ In the default template, `id="<%= mountId %>"` is replaced with `id="root"`. Mod
 
 ## Set page title
 
-You can set the HTML `<title>` tag through the [html.title](/config/html/title) config.
+You can set the HTML `<title>` tag using the [html.title](/config/html/title) config.
 
-When there is only one page in your project, just use the `html.title` setting directly:
+When your project has only one page, set `html.title` directly:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     title: 'example',
@@ -61,9 +65,9 @@ export default {
 };
 ```
 
-When your project has multiple pages, you can set corresponding titles for different pages based on the entry name.
+When your project has multiple pages, you can set different titles for each page based on the entry name.
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     title({ entryName }) {
@@ -78,16 +82,16 @@ export default {
 ```
 
 :::tip
-For single-page applications (SPA), Rsbuild will include an initial title in the HTML page, but you usually need to dynamically update the page title on route switching, for example using some routing libraries or libraries like [React Helmet](https://github.com/nfl/react-helmet).
+For single-page applications (SPA), Rsbuild includes an initial title in the HTML page, but you typically need to dynamically update the page title when routes change, for example using routing libraries or libraries like [React Helmet](https://github.com/nfl/react-helmet).
 :::
 
 ## Set page icon
 
-Rsbuild supports setting [favicon](https://developer.mozilla.org/en-US/docs/Glossary/Favicon) icon and [apple-touch-icon](https://webhint.io/docs/user-guide/hints/hint-apple-touch-icons/) icon.
+Rsbuild supports setting both the [favicon](https://developer.mozilla.org/en-US/docs/Glossary/Favicon) and the web application icon.
 
-You can set the favicon using the [html.favicon](/config/html/favicon) config.
+By default, Rsbuild automatically looks for favicon files in the [public directory](/config/server/public-dir). If you want to customize the favicon, use the [html.favicon](/config/html/favicon) option:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     favicon: './src/assets/icon.png',
@@ -95,9 +99,9 @@ export default {
 };
 ```
 
-You can also set web application icons to display when added to the home screen of a mobile device using the [html.appIcon](/config/html/app-icon) config.
+You can also use the [html.appIcon](/config/html/app-icon) option to define web application icons, which are displayed when users add your site to their mobile device's home screen:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {
@@ -118,13 +122,13 @@ You can set meta tags using the [html.meta](/config/html/meta) config.
 Rsbuild defaults to setting the charset and viewport meta tags:
 
 ```html
-<meta charset="UTF-8" />
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ```
 
 You can also add custom meta tags, like a description:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     meta: {
@@ -142,9 +146,9 @@ The generated meta tag in HTML is:
 
 ## Default template engine
 
-Rsbuild comes with a built-in default template engine to handle HTML template files, and its syntax is similar to a subset of EJS, but it has some differences. When the suffix of an HTML template file is `.html`, Rsbuild will use the built-in template engine to parse the HTML template.
+Rsbuild has a built-in default template engine for processing HTML template files. Its syntax resembles a subset of EJS, with some differences. When an HTML template file has a `.html` extension, Rsbuild uses the built-in template engine to parse it.
 
-For example, if a `text` param is defined in the template with the value `'world'`, Rsbuild will automatically replace `<%= text %>` with the specified value during the build process.
+For example, if a `text` parameter is defined in the template with the value `'world'`, Rsbuild automatically replaces `<%= text %>` with the specified value during the build.
 
 ```html
 <!-- Input  -->
@@ -156,7 +160,7 @@ For example, if a `text` param is defined in the template with the value `'world
 
 ### Template parameters
 
-In HTML templates, you can use a variety of template parameters. The template parameters injected by Rsbuild by default include:
+In HTML templates, you can use a variety of template parameters. Rsbuild injects the following default template parameters:
 
 ```ts
 type DefaultParameters = {
@@ -173,15 +177,15 @@ type DefaultParameters = {
     };
     files: {
       publicPath: string;
-      js: Array<string>;
-      css: Array<string>;
+      js: string[];
+      css: string[];
       favicon?: string;
     };
   };
 };
 ```
 
-You can use the [html.templateParameters](/config/html/template-parameters) config to pass in custom template parameters. For example:
+You can use the [html.templateParameters](/config/html/template-parameters) config to pass custom template parameters. For example:
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -362,17 +366,17 @@ Rsbuild also supports using other template engines via plugins, such as [EJS](ht
 
 ### EJS
 
-Rsbuild's built-in template syntax has some differences from [EJS](https://ejs.co/). To use the full EJS syntax, you can support it through a plugin. See [rsbuild-plugin-ejs](https://github.com/rspack-contrib/rsbuild-plugin-ejs) for more details.
+Rsbuild's built-in template syntax has some differences from [EJS](https://ejs.co/). To use the full EJS syntax, you can use a plugin. See [rsbuild-plugin-ejs](https://github.com/rstackjs/rsbuild-plugin-ejs) for more details.
 
 ### Pug
 
-Rsbuild supports the [Pug](https://pugjs.org/) template engine via a plugin. See [@rsbuild/plugin-pug](https://github.com/rspack-contrib/rsbuild-plugin-pug) for more details.
+Rsbuild supports the [Pug](https://pugjs.org/) template engine via a plugin. See [@rsbuild/plugin-pug](https://github.com/rstackjs/rsbuild-plugin-pug) for more details.
 
 ## Injecting tags
 
 You can insert any tags into the HTML files generated by Rsbuild by configuring [html.tags](/config/html/tags).
 
-In the HTML template, the `htmlPlugin.tags` variable gives you access to all the tags inserted into the HTML:
+In the HTML template, the `htmlPlugin.tags` variable provides access to all tags inserted into the HTML:
 
 ```html title="index.html"
 <html>
@@ -386,9 +390,9 @@ In the HTML template, the `htmlPlugin.tags` variable gives you access to all the
 </html>
 ```
 
-The purpose of the `html.tags` is to update these tag variables to modify the tags in the HTML. Here is a basic example:
+The `html.tags` config allows you to modify HTML tags by updating these tag variables. Here is a basic example:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     tags: [
@@ -415,12 +419,12 @@ export default {
 > For more usage, please refer to: [html.tags](/config/html/tags).
 
 :::tip
-Typically, you do not need to manually use the `htmlPlugin.tags.headTags` and `htmlPlugin.tags.bodyTags` template parameters, because Rsbuild will automatically inject these tags. See [html.inject](/config/html/inject) for more details on adjusting the injection location.
+Typically, you do not need to manually use the `htmlPlugin.tags.headTags` and `htmlPlugin.tags.bodyTags` template parameters because Rsbuild automatically injects these tags. See [html.inject](/config/html/inject) for more details on adjusting the injection location.
 :::
 
 ## HTML plugin
 
-Rsbuild internally implements HTML-related features based on [html-rspack-plugin](https://github.com/rspack-contrib/html-rspack-plugin). It is a fork of [html-webpack-plugin](https://github.com/jantimon/html-webpack-plugin), with the same features and options.
+Rsbuild internally implements HTML-related features based on [html-rspack-plugin](https://github.com/rstackjs/html-rspack-plugin). It is a fork of [html-webpack-plugin](https://github.com/jantimon/html-webpack-plugin), with the same features and options.
 
 You can modify the html-rspack-plugin options via [tools.htmlPlugin](/config/tools/html-plugin), or disable the default html-rspack-plugin.
 
@@ -431,7 +435,7 @@ export default {
   tools: {
     htmlPlugin(config, { entryName }) {
       if (process.env.NODE_ENV === 'production') {
-        config.filename = `${entryName}.[contenthash:8].html`;
+        config.filename = `${entryName}.[contenthash:10].html`;
       }
     },
   },
@@ -440,4 +444,4 @@ export default {
 
 ## HTML minification
 
-Rsbuild currently does not minify HTML files. If you need to minify HTML files, you can use the [rsbuild-plugin-html-minifier-terser plugin](https://github.com/rspack-contrib/rsbuild-plugin-html-minifier-terser).
+Rsbuild currently does not minify HTML files. If you need to minify HTML files, you can use the [rsbuild-plugin-html-minifier-terser plugin](https://github.com/rstackjs/rsbuild-plugin-html-minifier-terser).

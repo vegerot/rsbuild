@@ -1,19 +1,13 @@
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 test('should build successfully with multiple environments', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await buildPreview({
+    config: {
       environments: {
-        web: {
-          output: {
-            target: 'web',
-          },
-        },
+        web: {},
         node: {
           output: {
             target: 'node',
@@ -25,23 +19,16 @@ test('should build successfully with multiple environments', async ({
 
   const test = page.locator('#test');
   await expect(test).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });
 
 test('should serve successfully in dev with multiple environments', async ({
   page,
+  dev,
 }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await dev({
+    config: {
       environments: {
-        web: {
-          output: {
-            target: 'web',
-          },
-        },
+        web: {},
         node: {
           output: {
             target: 'node',
@@ -53,6 +40,4 @@ test('should serve successfully in dev with multiple environments', async ({
 
   const test = page.locator('#test');
   await expect(test).toHaveText('Hello Rsbuild!');
-
-  await rsbuild.close();
 });

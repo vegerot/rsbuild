@@ -1,5 +1,4 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
 const utf8Str = `你好 world! I'm 🦀`;
 const asciiStr = `\\u{4F60}\\u{597D} world! I'm \\u{1F980}`;
@@ -14,91 +13,51 @@ const expectedObject = {
   '𝒩': 'a',
 };
 
-rspackOnlyTest(
-  'should set output.charset to ascii in dev',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
-        dev: {
-          writeToDisk: true,
-        },
+test('should set output.charset to ascii', async ({ page, runBothServe }) => {
+  await runBothServe(
+    async ({ mode, result }) => {
+      expect(await page.evaluate('window.testA')).toBe(utf8Str);
+      expect(await page.evaluate('window.testB')).toStrictEqual(expectedObject);
+
+      if (mode === 'dev') {
+        const files = result.getDistFiles();
+        const content = getFileContent(
+          files,
+          (name) => name.endsWith('.js') && name.includes('static/js/index'),
+        );
+        expect(content.includes(asciiStr)).toBeTruthy();
+      } else {
+        const content = await result.getIndexBundle();
+        expect(
+          content.includes(`\\u4F60\\u597D world! I'm \\u{1F980}`),
+        ).toBeTruthy();
+      }
+    },
+    {
+      config: {
         output: {
           charset: 'ascii',
         },
       },
-    });
+    },
+  );
+});
 
+test('should use utf8 charset by default', async ({ page, runBothServe }) => {
+  await runBothServe(async ({ mode, result }) => {
     expect(await page.evaluate('window.testA')).toBe(utf8Str);
     expect(await page.evaluate('window.testB')).toStrictEqual(expectedObject);
 
-    const files = await rsbuild.getDistFiles();
-    const [, content] = Object.entries(files).find(
-      ([name]) => name.endsWith('.js') && name.includes('static/js/index'),
-    )!;
-
-    expect(content.includes(asciiStr)).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
-
-test('should set output.charset to ascii in build', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
-      output: {
-        charset: 'ascii',
-      },
-    },
+    if (mode === 'dev') {
+      const files = result.getDistFiles();
+      const content = getFileContent(
+        files,
+        (name) => name.endsWith('.js') && name.includes('static/js/index'),
+      );
+      expect(content.includes(utf8Str)).toBeTruthy();
+    } else {
+      const content = await result.getIndexBundle();
+      expect(content.includes(utf8Str)).toBeTruthy();
+    }
   });
-
-  expect(await page.evaluate('window.testA')).toBe(utf8Str);
-  expect(await page.evaluate('window.testB')).toStrictEqual(expectedObject);
-
-  const content = await rsbuild.getIndexBundle();
-  expect(content.includes(asciiStr)).toBeTruthy();
-
-  await rsbuild.close();
-});
-
-test('should use utf8 charset in dev by default', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    rsbuildConfig: {
-      dev: {
-        writeToDisk: true,
-      },
-    },
-    page,
-  });
-
-  expect(await page.evaluate('window.testA')).toBe(utf8Str);
-  expect(await page.evaluate('window.testB')).toStrictEqual(expectedObject);
-
-  const files = await rsbuild.getDistFiles();
-  const [, content] = Object.entries(files).find(
-    ([name]) => name.endsWith('.js') && name.includes('static/js/index'),
-  )!;
-
-  expect(content.includes(utf8Str)).toBeTruthy();
-
-  await rsbuild.close();
-});
-
-test('should use utf8 charset in build by default', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-  });
-
-  expect(await page.evaluate('window.testA')).toBe(utf8Str);
-  expect(await page.evaluate('window.testB')).toStrictEqual(expectedObject);
-
-  const content = await rsbuild.getIndexBundle();
-  expect(content.includes(utf8Str)).toBeTruthy();
-
-  await rsbuild.close();
 });

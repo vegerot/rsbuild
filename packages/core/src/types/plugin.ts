@@ -1,10 +1,3 @@
-/** @ts-ignore `webpack` type only exists when `@rsbuild/webpack` is installed */
-import type {
-  RuleSetRule,
-  Configuration as WebpackConfig,
-  WebpackPluginInstance,
-} from 'webpack';
-import type { ChainIdentifier } from '../configChain';
 import type { Logger } from '../logger';
 import type {
   ModifyRspackConfigUtils,
@@ -12,13 +5,11 @@ import type {
   NormalizedConfig,
   NormalizedEnvironmentConfig,
   RsbuildConfig,
-  RspackMerge,
 } from './config';
 import type { RsbuildContext } from './context';
 import type {
   EnvironmentContext,
   ModifyBundlerChainFn,
-  ModifyChainUtils,
   ModifyEnvironmentConfigFn,
   ModifyHTMLFn,
   ModifyHTMLTagsFn,
@@ -28,13 +19,13 @@ import type {
   OnAfterDevCompileFn,
   OnAfterEnvironmentCompileFn,
   OnAfterStartDevServerFn,
-  OnAfterStartProdServerFn,
+  OnAfterStartPreviewServerFn,
   OnBeforeBuildFn,
   OnBeforeCreateCompilerFn,
   OnBeforeDevCompileFn,
   OnBeforeEnvironmentCompileFn,
   OnBeforeStartDevServerFn,
-  OnBeforeStartProdServerFn,
+  OnBeforeStartPreviewServerFn,
   OnCloseBuildFn,
   OnCloseDevServerFn,
   OnExitFn,
@@ -44,8 +35,7 @@ import type {
   RsbuildInstance,
   RsbuildTarget,
 } from './rsbuild';
-import type { Rspack, RspackChain } from './rspack';
-import type { HtmlRspackPlugin } from './thirdParty';
+import type { Rspack } from './rspack';
 import type { Falsy, MaybePromise } from './utils';
 
 type HookOrder = 'pre' | 'post' | 'default';
@@ -148,43 +138,6 @@ export type ModifyRspackConfigFn = (
   utils: ModifyRspackConfigUtils,
 ) => MaybePromise<Rspack.Configuration | void>;
 
-export type ModifyWebpackChainUtils = ModifyChainUtils & {
-  /** @ts-ignore `webpack` type only exists when `@rsbuild/webpack` is installed */
-  webpack: typeof import('webpack');
-  CHAIN_ID: ChainIdentifier;
-  /**
-   * @deprecated Use target instead.
-   * */
-  name: string;
-  /**
-   * @deprecated Use HtmlPlugin instead.
-   */
-  HtmlWebpackPlugin: typeof HtmlRspackPlugin;
-};
-
-export type ModifyWebpackConfigUtils = ModifyWebpackChainUtils & {
-  addRules: (rules: RuleSetRule | RuleSetRule[]) => void;
-  appendRules: (rules: RuleSetRule | RuleSetRule[]) => void;
-  prependPlugins: (
-    plugins: WebpackPluginInstance | WebpackPluginInstance[],
-  ) => void;
-  appendPlugins: (
-    plugins: WebpackPluginInstance | WebpackPluginInstance[],
-  ) => void;
-  removePlugin: (pluginName: string) => void;
-  mergeConfig: RspackMerge;
-};
-
-export type ModifyWebpackChainFn = (
-  chain: RspackChain,
-  utils: ModifyWebpackChainUtils,
-) => Promise<void> | void;
-
-export type ModifyWebpackConfigFn = (
-  config: WebpackConfig,
-  utils: ModifyWebpackConfigUtils,
-) => Promise<WebpackConfig | void> | WebpackConfig | void;
-
 export type PluginMeta = {
   environment?: AddPluginsOptions['environment'];
   instance: RsbuildPlugin;
@@ -199,6 +152,7 @@ export type PluginManager = Pick<
 };
 
 export type RsbuildPluginApplyFn = (
+  // rslint-disable-next-line @typescript-eslint/no-invalid-void-type
   this: void,
   /**
    * The original Rsbuild configuration object (before plugin processing)
@@ -299,16 +253,18 @@ type PluginHook<T extends (...args: any[]) => any> = (
 
 type TransformResult =
   | string
+  | Buffer
   | {
-      code: string;
+      code: string | Buffer;
       map?: string | Rspack.RawSourceMap | null;
     };
 
-export type TransformContext = {
+export type TransformContext<Raw extends boolean = false> = {
   /**
    * The code of the module.
+   * When `raw` is true, this will be a Buffer instead of a string.
    */
-  code: string;
+  code: Raw extends true ? Buffer : string;
   /**
    * The directory path of the currently processed module,
    * which changes with the location of each processed module.
@@ -370,19 +326,19 @@ export type TransformContext = {
   resolve: Rspack.LoaderContext['resolve'];
 };
 
-export type TransformHandler = (
-  context: TransformContext,
+export type TransformHandler<Raw extends boolean = false> = (
+  context: TransformContext<Raw>,
 ) => MaybePromise<TransformResult>;
 
 export type TransformDescriptor = {
   /**
-   * Include modules that match the test assertion, the same as `rule.test`
-   * @see https://rspack.rs/config/module#ruletest
+   * Include modules that match the test assertion, the same as `rules[].test`
+   * @see https://rspack.rs/config/module-rules#rulestest
    */
   test?: Rspack.RuleSetCondition;
   /**
    * A condition that matches the resource query.
-   * @see https://rspack.rs/config/module#ruleresourcequery
+   * @see https://rspack.rs/config/module-rules#rulesresourcequery
    */
   resourceQuery?: Rspack.RuleSetCondition;
   /**
@@ -406,31 +362,31 @@ export type TransformDescriptor = {
   /**
    * Marks the layer of the matching module, can be used to group a group of
    * modules into one layer
-   * @see https://rspack.rs/config/module#rulelayer
+   * @see https://rspack.rs/config/module-rules#ruleslayer
    */
   layer?: string;
   /**
    * Matches all modules that match this resource, and will match against layer of
    * the module that issued the current module.
-   * @see https://rspack.rs/config/module#ruleissuerlayer
+   * @see https://rspack.rs/config/module-rules#rulesissuerlayer
    */
   issuerLayer?: string;
   /**
    * Matches all modules that match this resource, and will match against Resource
    * (the absolute path without query and fragment) of the module that issued the
    * current module.
-   * @see https://rspack.rs/config/module#ruleissuer
+   * @see https://rspack.rs/config/module-rules#rulesissuer
    */
   issuer?: Rspack.RuleSetCondition;
   /**
    * Matches [import attributes](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import/with)
-   * @see https://rspack.rs/config/module#rulewith
+   * @see https://rspack.rs/config/module-rules#ruleswith
    */
   with?: Record<string, Rspack.RuleSetCondition>;
   /**
    * Matches modules based on MIME type instead of file extension. It's primarily
    * useful for data URI module (like `data:text/javascript,...`).
-   * @see https://rspack.rs/config/module#rulemimetype
+   * @see https://rspack.rs/config/module-rules#rulesmimetype
    */
   mimetype?: Rspack.RuleSetCondition;
   /**
@@ -444,14 +400,14 @@ export type TransformDescriptor = {
    * transform functions (or Rspack loaders).
    * - When specified as 'post', the transform function will execute after other
    * transform functions (or Rspack loaders).
-   * @see https://rspack.rs/config/module#ruleenforce
+   * @see https://rspack.rs/config/module-rules#rulesenforce
    */
   order?: HookOrder;
 };
 
-export type TransformHook = (
-  descriptor: TransformDescriptor,
-  handler: TransformHandler,
+export type TransformHook = <T extends TransformDescriptor>(
+  descriptor: T,
+  handler: TransformHandler<T['raw'] extends true ? true : false>,
 ) => void;
 
 export type ProcessAssetsStage =
@@ -533,10 +489,10 @@ export type ProcessAssetsHook = (
   handler: ProcessAssetsHandler,
 ) => void;
 
-declare function getNormalizedConfig(): NormalizedConfig;
-declare function getNormalizedConfig(options: {
-  environment: string;
-}): NormalizedEnvironmentConfig;
+export type GetNormalizedConfig = {
+  (): NormalizedConfig;
+  (options: { environment: string }): NormalizedEnvironmentConfig;
+};
 
 /**
  * The API interface provided to Rsbuild plugins through the `setup` function.
@@ -563,11 +519,12 @@ export type RsbuildPluginAPI = Readonly<{
    * environment, this method must be called after the
    * `modifyRsbuildConfig` hook is executed.
    */
-  getNormalizedConfig: typeof getNormalizedConfig;
+  getNormalizedConfig: GetNormalizedConfig;
   /**
    * A logger instance used to output log information in a unified format.
    * Use this instead of `console.log` to maintain consistent logging with Rsbuild.
-   * Equivalent to `import { logger } from '@rsbuild/core'`.
+   * It is associated with the current Rsbuild instance and reflects
+   * `config.customLogger` when provided.
    */
   logger: Logger;
   /**
@@ -615,23 +572,13 @@ export type RsbuildPluginAPI = Readonly<{
    */
   modifyRsbuildConfig: PluginHook<ModifyRsbuildConfigFn>;
   /**
-   * Allows you to modify the webpack configuration using the `rspack-chain` API,
-   * providing the same functionality as `tools.bundlerChain`.
-   */
-  modifyWebpackChain: PluginHook<ModifyWebpackChainFn>;
-  /**
-   * To modify the webpack config, you can directly modify the config object,
-   * or return a new object to replace the previous object.
-   */
-  modifyWebpackConfig: PluginHook<ModifyWebpackConfigFn>;
-  /**
    * A callback function that is triggered after running the production build.
    * You can access the build result information via the
    * [stats](https://rspack.rs/api/javascript-api/stats) parameter.
    */
   onAfterBuild: PluginHook<OnAfterBuildFn>;
   /**
-   * A callback function that is triggered after the compiler instance has been
+   * A callback function that is triggered after the Rspack Compiler instance has been
    * created, but before the build process. This hook is called when you run
    * `rsbuild.startDevServer`, `rsbuild.build`, or `rsbuild.createCompiler`.
    */
@@ -653,11 +600,11 @@ export type RsbuildPluginAPI = Readonly<{
    */
   onAfterStartDevServer: PluginHook<OnAfterStartDevServerFn>;
   /**
-   * Called after starting the production preview server, you can get the port
+   * Called after starting the preview server, you can get the port
    * number with the `port` parameter, and the page routes info with the
    * `routes` parameter.
    */
-  onAfterStartProdServer: PluginHook<OnAfterStartProdServerFn>;
+  onAfterStartPreviewServer: PluginHook<OnAfterStartPreviewServerFn>;
   /**
    * A callback function that is triggered before the production build is executed.
    */
@@ -667,8 +614,8 @@ export type RsbuildPluginAPI = Readonly<{
    */
   onBeforeDevCompile: PluginHook<OnBeforeDevCompileFn>;
   /**
-   * A callback function that is triggered after the Compiler instance has been
-   * created, but before the build process begins. This hook is called when you
+   * A callback function that is triggered before the Rspack Compiler instance is
+   * created. This hook is called when you
    * run `rsbuild.startDevServer`, `rsbuild.build`, or `rsbuild.createCompiler`.
    */
   onBeforeCreateCompiler: PluginHook<OnBeforeCreateCompilerFn>;
@@ -681,9 +628,9 @@ export type RsbuildPluginAPI = Readonly<{
    */
   onBeforeStartDevServer: PluginHook<OnBeforeStartDevServerFn>;
   /**
-   * Called before starting the production preview server.
+   * Called before starting the preview server.
    */
-  onBeforeStartProdServer: PluginHook<OnBeforeStartProdServerFn>;
+  onBeforeStartPreviewServer: PluginHook<OnBeforeStartPreviewServerFn>;
   /**
    * Called when closing the build instance. Can be used to perform cleanup
    * operations when the building is closed.

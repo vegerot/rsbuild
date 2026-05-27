@@ -1,16 +1,12 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-rspackOnlyTest('should compile CSS with alias correctly', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
-  const files = await rsbuild.getDistFiles();
+test('should compile CSS with alias correctly', async ({ build }) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles();
 
-  const content =
-    files[Object.keys(files).find((file) => file.endsWith('.css'))!];
+  const content = getFileContent(files, '.css');
 
   expect(content).toMatch(
-    /\.the-a-class{color:red;background-image:url\(\/static\/image\/icon\.\w{8}\.png\)}\.the-b-class{color:#00f;background-image:url\(\/static\/image\/icon\.\w{8}\.png\)}\.the-c-class{color:#ff0;background-image:url\(\/static\/image\/icon\.\w{8}\.png\)}/,
+    /\.the-a-class{color:red;background-image:url\(\/static\/image\/icon\.\w{10}\.png\)}\.the-b-class{color:#00f;background-image:url\(\/static\/image\/icon\.\w{10}\.png\)}\.the-c-class{color:#ff0;background-image:url\(\/static\/image\/icon\.\w{10}\.png\)}/,
   );
 });

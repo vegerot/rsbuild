@@ -1,25 +1,27 @@
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import {
+  ALL_INTERFACES_IPV4,
   ASSETS_DIST_DIR,
   CSS_DIST_DIR,
   DEFAULT_ASSET_PREFIX,
   DEFAULT_DATA_URL_SIZE,
-  DEFAULT_DEV_HOST,
   DEFAULT_MOUNT_ID,
   DEFAULT_PORT,
+  DEFAULT_STACK_TRACE,
   FAVICON_DIST_DIR,
   FONT_DIST_DIR,
   HMR_SOCKET_PATH,
   HTML_DIST_DIR,
   IMAGE_DIST_DIR,
+  LOCALHOST,
   MEDIA_DIST_DIR,
   ROOT_DIST_DIR,
   SVG_DIST_DIR,
   TS_CONFIG_FILE,
   WASM_DIST_DIR,
 } from './constants';
-import { findExists, getNodeEnv, isFileExists } from './helpers';
+import { getNodeEnv, require } from './helpers';
+import { findExists, isFileExists } from './helpers/fs';
 import { mergeRsbuildConfig } from './mergeConfig';
 import type {
   NormalizedConfig,
@@ -39,11 +41,12 @@ import type {
   RsbuildMode,
 } from './types';
 
-const require = createRequire(import.meta.url);
-
 const getDefaultDevConfig = (): NormalizedDevConfig => ({
   hmr: true,
   liveReload: true,
+  browserLogs: {
+    stackTrace: DEFAULT_STACK_TRACE,
+  },
   watchFiles: [],
   // Temporary placeholder, default: `${server.base}`
   assetPrefix: DEFAULT_ASSET_PREFIX,
@@ -55,6 +58,7 @@ const getDefaultDevConfig = (): NormalizedDevConfig => ({
     host: '',
     overlay: true,
     reconnect: 100,
+    logLevel: 'info',
   },
 });
 
@@ -77,9 +81,12 @@ const getDefaultDevConfig = (): NormalizedDevConfig => ({
 export const defaultAllowedOrigins: RegExp =
   /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
 
-const getDefaultServerConfig = (): NormalizedServerConfig => ({
+const getDefaultServerConfig = (): Omit<
+  NormalizedServerConfig,
+  'publicDir'
+> => ({
   port: DEFAULT_PORT,
-  host: DEFAULT_DEV_HOST,
+  host: LOCALHOST,
   open: false,
   base: '/',
   htmlFallback: 'index',
@@ -99,14 +106,14 @@ const getDefaultSourceConfig = (): NormalizedSourceConfig => {
     define: {},
     preEntry: [],
     decorators: {
-      version: '2022-03',
+      version: '2023-11',
     },
   };
 };
 
 const getDefaultHtmlConfig = (): NormalizedHtmlConfig => ({
   meta: {
-    charset: { charset: 'UTF-8' },
+    charset: { charset: 'utf-8' },
     viewport: 'width=device-width, initial-scale=1.0',
   },
   title: 'Rsbuild App',
@@ -115,6 +122,7 @@ const getDefaultHtmlConfig = (): NormalizedHtmlConfig => ({
   crossorigin: false,
   outputStructure: 'flat',
   scriptLoading: 'defer',
+  implementation: 'js',
 });
 
 const getDefaultSecurityConfig = (): NormalizedSecurityConfig => ({
@@ -134,13 +142,8 @@ const getDefaultToolsConfig = (): NormalizedToolsConfig => ({
 });
 
 const getDefaultPerformanceConfig = (): NormalizedPerformanceConfig => ({
-  profile: false,
   printFileSize: true,
   removeConsole: false,
-  removeMomentLocale: false,
-  chunkSplit: {
-    strategy: 'split-by-experience',
-  },
 });
 
 const getDefaultOutputConfig = (): NormalizedOutputConfig => ({
@@ -172,12 +175,11 @@ const getDefaultOutputConfig = (): NormalizedOutputConfig => ({
   },
   legalComments: 'linked',
   injectStyles: false,
-  minify: true,
-  module: false,
   manifest: false,
   sourceMap: {
     js: undefined,
     css: false,
+    extract: false,
   },
   filenameHash: true,
   inlineScripts: false,
@@ -222,8 +224,10 @@ const createDefaultConfig = (): RsbuildConfig => ({
   output: getDefaultOutputConfig(),
   tools: getDefaultToolsConfig(),
   security: getDefaultSecurityConfig(),
+  splitChunks: {},
   performance: getDefaultPerformanceConfig(),
   environments: {},
+  logLevel: 'info',
 });
 
 export function getDefaultEntry(root: string): RsbuildEntry {
@@ -253,49 +257,62 @@ export function getDefaultEntry(root: string): RsbuildEntry {
 
 export const withDefaultConfig = async (
   rootPath: string,
-  config: RsbuildConfig,
+  userConfig: RsbuildConfig,
 ): Promise<RsbuildConfig> => {
-  const merged = mergeRsbuildConfig(createDefaultConfig(), config);
+  const config = mergeRsbuildConfig(createDefaultConfig(), userConfig);
 
-  merged.root ||= rootPath;
-  merged.source ||= {};
+  config.root ||= rootPath;
+  config.source ||= {};
 
-  if (merged.server?.base) {
-    if (config.dev?.assetPrefix === undefined) {
-      merged.dev ||= {};
-      merged.dev.assetPrefix = merged.server.base;
+  // Inherit server.base to output.assetPrefix and dev.assetPrefix if not specified
+  if (config.server?.base) {
+    if (userConfig.dev?.assetPrefix === undefined) {
+      config.dev ||= {};
+      config.dev.assetPrefix = config.server.base;
     }
 
-    if (config.output?.assetPrefix === undefined) {
-      merged.output ||= {};
-      merged.output.assetPrefix = merged.server.base;
+    if (userConfig.output?.assetPrefix === undefined) {
+      config.output ||= {};
+      config.output.assetPrefix = config.server.base;
     }
   }
 
-  if (merged.dev?.lazyCompilation === undefined) {
-    merged.dev ||= {};
-    merged.dev.lazyCompilation = {
+  // Inherit logLevel to dev.client.logLevel if not specified
+  if (userConfig.dev?.client?.logLevel === undefined) {
+    config.dev ||= {};
+    config.dev.client ||= {};
+    config.dev.client.logLevel = config.logLevel;
+  }
+
+  // Enable lazyCompilation imports by default
+  if (config.dev?.lazyCompilation === undefined) {
+    config.dev ||= {};
+    config.dev.lazyCompilation = {
       imports: true,
       entries: false,
     };
   }
 
-  if (!merged.source.tsconfigPath) {
+  // Auto detect tsconfigPath
+  if (!config.source.tsconfigPath) {
     const tsconfigPath = join(rootPath, TS_CONFIG_FILE);
 
     if (await isFileExists(tsconfigPath)) {
-      merged.source.tsconfigPath = tsconfigPath;
+      config.source.tsconfigPath = tsconfigPath;
     }
   }
 
-  return merged;
+  return config;
 };
 
 /**
- * Merges user config with default values to ensure required properties
- * are initialized.
+ * Normalizes the user configuration by merging it with defaults and ensuring
+ * consistent structure.
  */
-export const normalizeConfig = (config: RsbuildConfig): NormalizedConfig => {
+export const normalizeConfig = (
+  config: RsbuildConfig,
+  rootPath: string,
+): NormalizedConfig => {
   const getMode = (): RsbuildMode => {
     if (config.mode) {
       return config.mode;
@@ -306,23 +323,33 @@ export const normalizeConfig = (config: RsbuildConfig): NormalizedConfig => {
       : 'none';
   };
 
+  config.server ||= {};
+  config.server.host = normalizeHost(config.server.host);
+  config.server.publicDir = normalizePublicDirs(
+    rootPath,
+    config.server.publicDir,
+  );
+
+  const defaultConfig = createDefaultConfig();
+  defaultConfig.mode = getMode();
+
   const mergedConfig = mergeRsbuildConfig(
-    {
-      ...createDefaultConfig(),
-      mode: getMode(),
-    },
+    defaultConfig,
     config,
-  ) as Required<RsbuildConfig>;
+  ) as NormalizedConfig;
 
-  const { watchFiles } = mergedConfig.dev as NormalizedDevConfig;
-  if (!Array.isArray(watchFiles)) {
-    mergedConfig.dev.watchFiles = [watchFiles];
-  }
-
-  return mergedConfig as unknown as NormalizedConfig;
+  return mergedConfig;
 };
 
-export const normalizePublicDirs = (
+const normalizeHost = (host?: string | boolean): string => {
+  if (typeof host === 'string') {
+    return host;
+  }
+  return host === true ? ALL_INTERFACES_IPV4 : LOCALHOST;
+};
+
+const normalizePublicDirs = (
+  rootPath: string,
   publicDir?: PublicDir,
 ): Required<PublicDirOptions>[] => {
   if (publicDir === false) {
@@ -330,9 +357,10 @@ export const normalizePublicDirs = (
   }
 
   const defaultConfig: Required<PublicDirOptions> = {
-    name: 'public',
+    name: join(rootPath, 'public'),
     copyOnBuild: 'auto',
     watch: false,
+    ignore: [],
   };
 
   // enable public dir by default
@@ -340,17 +368,26 @@ export const normalizePublicDirs = (
     return [defaultConfig];
   }
 
-  if (Array.isArray(publicDir)) {
-    return publicDir.map((options) => ({
+  const mergeWithDefault = (options: PublicDirOptions) => {
+    if (options.name === '') {
+      throw new Error(
+        '[rsbuild:config] `publicDir.name` cannot be empty string.',
+      );
+    }
+
+    const merged = {
       ...defaultConfig,
       ...options,
-    }));
+    };
+    if (!isAbsolute(merged.name)) {
+      merged.name = join(rootPath, merged.name);
+    }
+    return merged;
+  };
+
+  if (Array.isArray(publicDir)) {
+    return publicDir.map((options) => mergeWithDefault(options));
   }
 
-  return [
-    {
-      ...defaultConfig,
-      ...publicDir,
-    },
-  ];
+  return [mergeWithDefault(publicDir)];
 };

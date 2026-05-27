@@ -1,14 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { rspack } from '@rspack/core';
 import { color } from '../helpers';
-import { logger } from '../logger';
-import { rspack } from '../rspack';
 import type { RsbuildPlugin } from '../types';
 
 enum TracePreset {
   OVERVIEW = 'OVERVIEW', // contains overview trace events
   ALL = 'ALL', // contains all trace events
 }
+
+type TraceLayer = 'perfetto' | 'logger';
 
 function resolveLayer(value: TracePreset): string {
   const overviewTraceFilter = 'info';
@@ -33,11 +34,12 @@ async function ensureFileDir(outputFilePath: string) {
  * `RSPACK_PROFILE=ALL` // all trace events
  * `RSPACK_PROFILE=OVERVIEW` // overview trace events
  * `RSPACK_PROFILE=warn,tokio::net=info` // trace filter from  https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#example-syntax
+ * `RSPACK_TRACE_LAYER=perfetto` // requires the Rspack debug package
  */
 async function applyProfile(
   root: string,
   filterValue: TracePreset,
-  traceLayer = 'perfetto',
+  traceLayer: TraceLayer,
   traceOutput?: string,
 ) {
   if (traceLayer !== 'perfetto' && traceLayer !== 'logger') {
@@ -66,7 +68,10 @@ async function applyProfile(
 
   const filter = resolveLayer(filterValue);
 
-  await ensureFileDir(traceOutput);
+  if (traceLayer === 'perfetto') {
+    await ensureFileDir(traceOutput);
+  }
+
   await rspack.experiments.globalTrace.register(
     filter,
     traceLayer,
@@ -82,11 +87,7 @@ export const pluginRspackProfile = (): RsbuildPlugin => ({
   name: 'rsbuild:rspack-profile',
 
   setup(api) {
-    if (api.context.bundlerType === 'webpack') {
-      return;
-    }
-
-    const { RSPACK_PROFILE } = process.env;
+    const { RSPACK_PROFILE, RSPACK_TRACE_LAYER = 'logger' } = process.env;
     if (!RSPACK_PROFILE) {
       return;
     }
@@ -97,7 +98,7 @@ export const pluginRspackProfile = (): RsbuildPlugin => ({
       traceOutput = await applyProfile(
         api.context.rootPath,
         RSPACK_PROFILE as TracePreset,
-        process.env.RSPACK_TRACE_LAYER,
+        RSPACK_TRACE_LAYER as TraceLayer,
         process.env.RSPACK_TRACE_OUTPUT,
       );
     };
@@ -115,7 +116,11 @@ export const pluginRspackProfile = (): RsbuildPlugin => ({
       }
 
       rspack.experiments.globalTrace.cleanup();
-      logger.info(`profile file saved to ${color.cyan(traceOutput)}`);
+
+      if (RSPACK_TRACE_LAYER === 'perfetto') {
+        const profileMessage = 'profile file saved to';
+        api.logger.info(`${profileMessage} ${color.cyan(traceOutput)}`);
+      }
     });
   },
 });

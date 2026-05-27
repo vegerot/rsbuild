@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 的 html.output-structure 配置项参考，包含作用、默认值、配置行为和使用示例。'
+---
+
 # html.outputStructure
 
 - **Type:** `'flat' | 'nested'`
@@ -16,7 +20,7 @@
 
 你可以将 `html.outputStructure` 配置为 `nested`:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     outputStructure: 'nested',

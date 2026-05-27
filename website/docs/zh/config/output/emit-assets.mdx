@@ -1,3 +1,7 @@
+---
+description: '用于控制是否输出图片、字体、音频、视频等静态资源。'
+---
+
 # output.emitAssets
 
 - **类型：** `boolean`
@@ -11,7 +15,7 @@
 
 比如，以下例子会在构建 web 产物时输出静态资源，而在构建 node 产物时避免输出。
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   environments: {
     web: {

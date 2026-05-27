@@ -1,3 +1,4 @@
+import type { SourceMapInput } from '@jridgewell/trace-mapping';
 import type { LoaderDefinition, RawSourceMap } from '@rspack/core';
 import type { EnvironmentContext } from '../types';
 
@@ -15,9 +16,12 @@ const mergeSourceMap = async (
   }
 
   const { default: remapping } = await import(
-    '../../compiled/@jridgewell/remapping/index.js'
+    /* webpackChunkName: "remapping" */ '@jridgewell/remapping'
   );
-  return remapping([generatedSourceMap, originalSourceMap], () => null);
+  return remapping(
+    [generatedSourceMap, originalSourceMap] as SourceMapInput[],
+    () => null,
+  ) as RawSourceMap;
 };
 
 const transformLoader: LoaderDefinition<TransformLoaderOptions> =
@@ -60,7 +64,7 @@ const transformLoader: LoaderDefinition<TransformLoaderOptions> =
         return;
       }
 
-      if (typeof result === 'string') {
+      if (typeof result === 'string' || Buffer.isBuffer(result)) {
         callback(null, result, map);
         return;
       }

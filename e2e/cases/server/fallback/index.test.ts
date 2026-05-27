@@ -1,39 +1,27 @@
-import { dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 test('should return 204 for OPTIONS requests when no middleware handles them', async ({
-  page,
+  dev,
 }) => {
-  const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {},
-  });
-
-  const response = await fetch(`http://127.0.0.1:${rsbuild.port}`, {
+  const rsbuild = await dev();
+  const response = await fetch(`http://localhost:${rsbuild.port}`, {
     headers: {
       'content-type': 'application/json',
     },
     method: 'OPTIONS',
   });
   expect(response.status).toBe(204);
-
-  await rsbuild.close();
 });
 
 test('should return 200 with custom headers for OPTIONS requests handled by middleware', async ({
-  page,
+  dev,
 }) => {
   const rsbuild = await dev({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+    config: {
       server: {
         cors: false,
-      },
-      dev: {
-        setupMiddlewares: (middlewares) => {
-          middlewares.push((req, res, next) => {
+        setup: ({ server }) => {
+          server.middlewares.use((req, res, next) => {
             if (req.method === 'OPTIONS') {
               res.statusCode = 200;
               res.setHeader(
@@ -50,7 +38,7 @@ test('should return 200 with custom headers for OPTIONS requests handled by midd
     },
   });
 
-  const response = await fetch(`http://127.0.0.1:${rsbuild.port}`, {
+  const response = await fetch(`http://localhost:${rsbuild.port}`, {
     headers: {
       'content-type': 'application/json',
     },
@@ -60,6 +48,4 @@ test('should return 200 with custom headers for OPTIONS requests handled by midd
   expect(response.headers.get('access-control-allow-origin')).toBe(
     'https://example.com',
   );
-
-  await rsbuild.close();
 });

@@ -3,23 +3,23 @@ import type { Http2SecureServer } from 'node:http2';
 import type { Socket } from 'node:net';
 import os from 'node:os';
 import { posix, relative, sep } from 'node:path';
-import { DEFAULT_DEV_HOST } from '../constants';
-import {
-  addTrailingSlash,
-  color,
-  getCommonParentPath,
-  isFunction,
-  removeLeadingSlash,
-} from '../helpers';
-import { logger } from '../logger';
+import { ALL_INTERFACES_IPV4, LOCALHOST } from '../constants';
+import { color, isFunction } from '../helpers';
+import { getCommonParentPath } from '../helpers/path';
+import { addTrailingSlash, removeLeadingSlash } from '../helpers/url';
+import type { Logger } from '../logger';
 import type {
+  Connect,
   InternalContext,
   NormalizedConfig,
   OutputStructure,
   PrintUrls,
   Routes,
+  RsbuildConfig,
   RsbuildEntry,
 } from '../types';
+import type { RsbuildDevServer } from './devServer';
+import type { RsbuildPreviewServer } from './previewServer';
 
 /**
  * It used to subscribe http upgrade event
@@ -30,7 +30,7 @@ export type UpgradeEvent = (
   head: any,
 ) => void;
 
-export type StartServerResult = {
+export type ServerStartResult<T> = {
   /**
    * The URLs that server is listening on.
    */
@@ -39,14 +39,15 @@ export type StartServerResult = {
    * The actual port used by the server.
    */
   port: number;
-  server: {
-    /**
-     * Close the server.
-     * In development mode, this will call the `onCloseDevServer` hook.
-     */
-    close: () => Promise<void>;
-  };
+  /**
+   * The dev server or preview server instance.
+   */
+  server: T;
 };
+
+export type StartDevServerResult = ServerStartResult<RsbuildDevServer>;
+
+export type StartPreviewServerResult = ServerStartResult<RsbuildPreviewServer>;
 
 // remove repeat '/'
 export const normalizeUrl = (url: string): string =>
@@ -92,7 +93,7 @@ export const stripBase = (path: string, base: string): string => {
 };
 
 export const getRoutes = (context: InternalContext): Routes => {
-  const environmentWithHtml = Object.values(context.environments).filter(
+  const environmentWithHtml = context.environmentList.filter(
     (item) => Object.keys(item.htmlPaths).length > 0,
   );
   if (environmentWithHtml.length === 0) {
@@ -150,27 +151,35 @@ function getURLMessages(
 ) {
   if (routes.length <= 1) {
     const pathname = routes.length ? routes[0].pathname : '';
+    const maxTrimmedLength = Math.max(
+      ...urls.map((u) => u.label.trimEnd().length),
+    );
+    const padWidth = Math.max(maxTrimmedLength + 2, 10);
     return urls
       .map(({ label, url }) => {
         const normalizedPathname = normalizeUrl(`${url}${pathname}`);
-        const prefix = `➜  ${color.dim(label.padEnd(10))}`;
+        const prefix = `➜  ${color.dim(label.trimEnd().padEnd(padWidth))}`;
         return `  ${prefix}${color.cyan(normalizedPathname)}\n`;
       })
       .join('');
   }
 
   let message = '';
+  let prevLabel = '';
   const maxNameLength = Math.max(...routes.map((r) => r.entryName.length));
   urls.forEach(({ label, url }, index) => {
-    if (index > 0) {
-      message += '\n';
+    if (prevLabel !== label) {
+      if (index > 0) {
+        message += '\n';
+      }
+      message += `  ➜  ${label}\n`;
+      prevLabel = label;
     }
-    message += `  ➜  ${label}\n`;
 
-    for (const r of routes) {
+    for (const { entryName, pathname } of routes) {
       message += `  ${color.dim('-')}  ${color.dim(
-        r.entryName.padEnd(maxNameLength + 4),
-      )}${color.cyan(normalizeUrl(`${url}${r.pathname}`))}\n`;
+        entryName.padEnd(maxNameLength + 4),
+      )}${color.cyan(normalizeUrl(`${url}${pathname}`))}\n`;
     }
   });
 
@@ -183,14 +192,20 @@ export function printServerURLs({
   routes,
   protocol,
   printUrls,
+  fallbackPathname,
   trailingLineBreak = true,
+  originalConfig,
+  logger,
 }: {
   urls: { url: string; label: string }[];
   port: number;
   routes: Routes;
   protocol: string;
   printUrls?: PrintUrls;
+  fallbackPathname?: string;
   trailingLineBreak?: boolean;
+  originalConfig?: Readonly<RsbuildConfig>;
+  logger: Logger;
 }): string | null {
   if (printUrls === false) {
     return null;
@@ -217,10 +232,10 @@ export function printServerURLs({
       );
     }
 
-    urls = newUrls.map((url) => ({
-      url,
-      label: getUrlLabel(url),
-    }));
+    urls = newUrls.map((u) => {
+      const { url, label } = typeof u === 'string' ? { url: u } : u;
+      return { url, label: label ?? getUrlLabel(url) };
+    });
   }
 
   // If no urls, skip printing
@@ -228,12 +243,23 @@ export function printServerURLs({
     return null;
   }
 
+  // When there are no HTML routes, print the server base URL as the default
+  // access path.
+  const printableRoutes =
+    routes.length === 0 && !useCustomUrl && fallbackPathname !== undefined
+      ? [{ entryName: 'index', pathname: formatPrefix(fallbackPathname) }]
+      : routes;
+
   // If no routes and not use custom url, skip printing
-  if (routes.length === 0 && !useCustomUrl) {
+  if (printableRoutes.length === 0 && !useCustomUrl) {
     return null;
   }
 
-  let message = getURLMessages(urls, routes);
+  let message = getURLMessages(urls, printableRoutes);
+
+  if (originalConfig && originalConfig.server?.host === undefined) {
+    message += `  ➜  ${color.dim('Network:')}  ${color.dim('use')} ${color.bold('--host')} ${color.dim('to expose')}\n`;
+  }
 
   if (!trailingLineBreak && message.endsWith('\n')) {
     message = message.slice(0, -1);
@@ -296,6 +322,14 @@ export const getPort = async ({
     }
   }
 
+  if (!found) {
+    throw new Error(
+      `${color.dim('[rsbuild:server]')} Failed to find an available port after ${
+        tryLimits + 1
+      } attempts, starting from ${color.yellow(original)}.`,
+    );
+  }
+
   if (port !== original) {
     if (strictPort) {
       throw new Error(
@@ -309,14 +343,10 @@ export const getPort = async ({
   return port;
 };
 
-export const getServerConfig = async ({
-  config,
-}: {
-  config: NormalizedConfig;
-}): Promise<{
+export const resolvePort = async (
+  config: NormalizedConfig,
+): Promise<{
   port: number;
-  host: string;
-  https: boolean;
   portTip: string | undefined;
 }> => {
   const { host, port: originalPort, strictPort } = config.server;
@@ -325,23 +355,19 @@ export const getServerConfig = async ({
     port: originalPort,
     strictPort,
   });
-  const https = Boolean(config.server.https);
   const portTip =
     port !== originalPort
       ? `port ${originalPort} is in use, ${color.yellow(`using port ${port}.`)}`
       : undefined;
-
   return {
     port,
-    host,
-    https,
     portTip,
   };
 };
 
 const getIpv4Interfaces = () => {
   const interfaces = os.networkInterfaces();
-  const ipv4Interfaces: Map<string, os.NetworkInterfaceInfo> = new Map();
+  const ipv4Interfaces = new Map<string, os.NetworkInterfaceInfo>();
 
   for (const key of Object.keys(interfaces)) {
     for (const detail of interfaces[key]!) {
@@ -362,7 +388,7 @@ const getIpv4Interfaces = () => {
 
 export const isWildcardHost = (host: string): boolean => {
   const wildcardHosts = new Set([
-    '0.0.0.0',
+    ALL_INTERFACES_IPV4,
     '::',
     '0000:0000:0000:0000:0000:0000:0000:0000',
   ]);
@@ -371,7 +397,7 @@ export const isWildcardHost = (host: string): boolean => {
 
 const isLoopbackHost = (host: string) => {
   const loopbackHosts = new Set([
-    'localhost',
+    LOCALHOST,
     '127.0.0.1',
     '::1',
     '0000:0000:0000:0000:0000:0000:0000:0001',
@@ -380,8 +406,8 @@ const isLoopbackHost = (host: string) => {
 };
 
 export const getHostInUrl = async (host: string): Promise<string> => {
-  if (host === DEFAULT_DEV_HOST) {
-    return 'localhost';
+  if (host === ALL_INTERFACES_IPV4 || host === LOCALHOST) {
+    return LOCALHOST;
   }
 
   const { isIPv6 } = await import('node:net');
@@ -416,15 +442,15 @@ const getUrlLabel = (url: string) => {
 type AddressUrl = { label: string; url: string };
 
 export const getAddressUrls = async ({
-  protocol = 'http',
+  protocol,
   port,
   host,
 }: {
-  protocol?: string;
+  protocol: string;
   port: number;
   host?: string;
 }): Promise<AddressUrl[]> => {
-  if (host && host !== DEFAULT_DEV_HOST) {
+  if (host && host !== ALL_INTERFACES_IPV4) {
     const url = concatUrl({
       port,
       host: await getHostInUrl(host),
@@ -452,7 +478,7 @@ export const getAddressUrls = async ({
 
       addressUrls.push({
         label: LOCAL_LABEL,
-        url: concatUrl({ host: 'localhost', port, protocol }),
+        url: concatUrl({ host: LOCALHOST, port, protocol }),
       });
       hasLocalUrl = true;
     } else {
@@ -492,7 +518,11 @@ export function getServerTerminator(
       }
       if (listened) {
         server.close((err) => {
-          err ? reject(err) : resolve();
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         });
       } else {
         resolve();
@@ -517,3 +547,53 @@ export function escapeHtml(text: string | null | undefined): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+export const HttpCode = {
+  Ok: 200,
+  NotModified: 304,
+  BadRequest: 400,
+  Forbidden: 403,
+  NotFound: 404,
+  PreconditionFailed: 412,
+  RangeNotSatisfiable: 416,
+  InternalServerError: 500,
+} as const;
+
+/**
+ * The public server API shared by both the dev and preview servers.
+ */
+export type RsbuildServerBase = {
+  /**
+   * Close the server.
+   * In the dev server, this will call the `onCloseDevServer` hook.
+   */
+  close: () => Promise<void>;
+  /**
+   * The Node.js HTTP server instance.
+   * - Will be `Http2SecureServer` if `server.https` config is used.
+   * - Will be `null` if `server.middlewareMode` is enabled.
+   */
+  httpServer:
+    | import('node:http').Server
+    | import('node:http2').Http2SecureServer
+    | null;
+  /**
+   * The `connect` app instance.
+   * Can be used to attach custom middlewares to the server.
+   */
+  middlewares: Connect.Server;
+  /**
+   * Open URL in the browser after starting the server.
+   */
+  open: () => Promise<void>;
+  /**
+   * The resolved port.
+   * By default, Rsbuild server listens on port `3000` and automatically increments
+   * the port number if the port is occupied.
+   */
+  port: number;
+  /**
+   * Print the server URLs.
+   */
+  printUrls: () => void;
+};

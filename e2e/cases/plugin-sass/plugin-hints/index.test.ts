@@ -1,9 +1,7 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest('should print Sass plugin hints as expected', async () => {
+test('should print Sass plugin hints as expected', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
     catchBuildError: true,
   });
 
@@ -11,5 +9,4 @@ rspackOnlyTest('should print Sass plugin hints as expected', async () => {
   await rsbuild.expectLog(
     'To enable support for Sass, use "@rsbuild/plugin-sass"',
   );
-  await rsbuild.close();
 });

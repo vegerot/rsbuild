@@ -1,15 +1,15 @@
 import { join } from 'node:path';
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, findFile, getFileContent, test } from '@e2e/helper';
 import { pluginReact } from '@rsbuild/plugin-react';
 
-const fixtures = __dirname;
+const fixtures = import.meta.dirname;
 
-test('should generate prefetch link when prefetch is defined', async () => {
+test('should generate prefetch link when prefetch is defined', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -24,15 +24,10 @@ test('should generate prefetch link when prefetch is defined', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find(
-    (file) =>
-      file.includes('/static/js/async/') && !file.endsWith('.LICENSE.txt'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, /\/static\/js\/async\/.+\.js$/);
+  const content = getFileContent(files, '.html');
 
   // test.js, test.css, image.png
   expect(content.match(/rel="prefetch"/g)?.length).toBe(3);
@@ -46,11 +41,12 @@ test('should generate prefetch link when prefetch is defined', async () => {
   ).toBeTruthy();
 });
 
-test('should generate prefetch link correctly when assetPrefix do not have a protocol', async () => {
+test('should generate prefetch link correctly when assetPrefix do not have a protocol', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -65,15 +61,10 @@ test('should generate prefetch link correctly when assetPrefix do not have a pro
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find(
-    (file) =>
-      file.includes('/static/js/async/') && !file.endsWith('.LICENSE.txt'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, /\/static\/js\/async\/.+\.js$/);
+  const content = getFileContent(files, '.html');
 
   expect(
     content.includes(
@@ -84,11 +75,10 @@ test('should generate prefetch link correctly when assetPrefix do not have a pro
   ).toBeTruthy();
 });
 
-test('should generate prefetch link with include', async () => {
+test('should generate prefetch link with include', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -102,14 +92,10 @@ test('should generate prefetch link with include', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find((file) =>
-    file.includes('/static/image/image'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, 'image.png');
+  const content = getFileContent(files, '.html');
 
   // image.png
   expect(content.match(/rel="prefetch"/g)?.length).toBe(1);
@@ -123,11 +109,10 @@ test('should generate prefetch link with include', async () => {
   ).toBeTruthy();
 });
 
-test('should generate prefetch link with include array', async () => {
+test('should generate prefetch link with include array', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -141,14 +126,10 @@ test('should generate prefetch link with include array', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find((file) =>
-    file.includes('/static/image/image'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, 'image.png');
+  const content = getFileContent(files, '.html');
 
   // image.png, test.js
   expect(content.match(/rel="prefetch"/g)?.length).toBe(2);
@@ -162,11 +143,10 @@ test('should generate prefetch link with include array', async () => {
   ).toBeTruthy();
 });
 
-test('should generate prefetch link with exclude array', async () => {
+test('should generate prefetch link with exclude array', async ({ build }) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           main: join(fixtures, 'src/page1/index.ts'),
@@ -180,14 +160,10 @@ test('should generate prefetch link with exclude array', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const asyncFileName = Object.keys(files).find((file) =>
-    file.includes('/static/image/image'),
-  )!;
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('.html'),
-  )!;
+  const asyncFileName = findFile(files, 'image.png');
+  const content = getFileContent(files, '.html');
 
   // image.png
   expect(content.match(/rel="prefetch"/g)?.length).toBe(1);
@@ -201,11 +177,12 @@ test('should generate prefetch link with exclude array', async () => {
   ).toBeTruthy();
 });
 
-test('should generate prefetch link by config (distinguish html)', async () => {
+test('should generate prefetch link by config (distinguish html)', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: fixtures,
-    plugins: [pluginReact()],
-    rsbuildConfig: {
+    config: {
+      plugins: [pluginReact()],
       source: {
         entry: {
           page1: join(fixtures, 'src/page1/index.ts'),
@@ -220,18 +197,14 @@ test('should generate prefetch link by config (distinguish html)', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const [, content] = Object.entries(files).find(([name]) =>
-    name.endsWith('page1.html'),
-  )!;
+  const content = getFileContent(files, 'page1.html');
 
   // icon.png、test.js, test.css, image.png
   expect(content.match(/rel="prefetch"/g)?.length).toBe(4);
 
-  const assetFileName = Object.keys(files).find((file) =>
-    file.includes('/static/image/'),
-  )!;
+  const assetFileName = findFile(files, 'image.png');
 
   expect(
     content.includes(
@@ -241,80 +214,96 @@ test('should generate prefetch link by config (distinguish html)', async () => {
     ),
   ).toBeTruthy();
 
-  const [, content2] = Object.entries(files).find(([name]) =>
-    name.endsWith('page2.html'),
-  )!;
+  const content2 = getFileContent(files, 'page2.html');
 
   // test.js, test.css, image.png
   expect(content2.match(/rel="prefetch"/g)?.length).toBe(3);
 });
 
-rspackOnlyTest(
-  'should not generate prefetch link for inlined assets',
-  async () => {
-    const rsbuild = await build({
-      cwd: fixtures,
+test('should not generate prefetch link for linked legal comment assets in all-assets mode', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
       plugins: [pluginReact()],
-      rsbuildConfig: {
-        source: {
-          entry: {
-            main: join(fixtures, 'src/page1/index.ts'),
-          },
-        },
-        output: {
-          inlineScripts: true,
-          inlineStyles: true,
-        },
-        performance: {
-          prefetch: true,
+      source: {
+        entry: {
+          main: join(fixtures, 'src/page1/index.ts'),
         },
       },
-    });
-
-    const files = await rsbuild.getDistFiles();
-    const [, content] = Object.entries(files).find(([name]) =>
-      name.endsWith('.html'),
-    )!;
-
-    // image.png
-    expect(content.match(/rel="prefetch"/g)?.length).toBe(1);
-  },
-);
-
-rspackOnlyTest(
-  'should not generate prefetch link for inlined assets with test option',
-  async () => {
-    const rsbuild = await build({
-      cwd: fixtures,
-      plugins: [pluginReact()],
-      rsbuildConfig: {
-        source: {
-          entry: {
-            main: join(fixtures, 'src/page1/index.ts'),
-          },
-        },
-        output: {
-          inlineScripts: {
-            enable: 'auto',
-            test: /\.js$/,
-          },
-          inlineStyles: {
-            enable: 'auto',
-            test: /\.css$/,
-          },
-        },
-        performance: {
-          prefetch: true,
+      performance: {
+        prefetch: {
+          type: 'all-assets',
         },
       },
-    });
+    },
+  });
 
-    const files = await rsbuild.getDistFiles();
-    const [, content] = Object.entries(files).find(([name]) =>
-      name.endsWith('.html'),
-    )!;
+  const files = rsbuild.getDistFiles();
+  const licenseFileName = findFile(files, /\.LICENSE\.txt$/);
+  const content = getFileContent(files, '.html');
+  expect(licenseFileName).toBeTruthy();
+  expect(content.includes('.LICENSE.txt')).toBeFalsy();
+});
 
-    // image.png
-    expect(content.match(/rel="prefetch"/g)?.length).toBe(1);
-  },
-);
+test('should not generate prefetch link for inlined assets', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
+      plugins: [pluginReact()],
+      source: {
+        entry: {
+          main: join(fixtures, 'src/page1/index.ts'),
+        },
+      },
+      output: {
+        inlineScripts: true,
+        inlineStyles: true,
+      },
+      performance: {
+        prefetch: true,
+      },
+    },
+  });
+
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, '.html');
+
+  // image.png
+  expect(content.match(/rel="prefetch"/g)?.length).toBe(1);
+});
+
+test('should not generate prefetch link for inlined assets with test option', async ({
+  build,
+}) => {
+  const rsbuild = await build({
+    config: {
+      plugins: [pluginReact()],
+      source: {
+        entry: {
+          main: join(fixtures, 'src/page1/index.ts'),
+        },
+      },
+      output: {
+        inlineScripts: {
+          enable: 'auto',
+          test: /\.js$/,
+        },
+        inlineStyles: {
+          enable: 'auto',
+          test: /\.css$/,
+        },
+      },
+      performance: {
+        prefetch: true,
+      },
+    },
+  });
+
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, '.html');
+
+  // image.png
+  expect(content.match(/rel="prefetch"/g)?.length).toBe(1);
+});

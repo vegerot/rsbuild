@@ -1,3 +1,7 @@
+---
+description: '默认情况下，Rsbuild 会将 public 目录作为静态资源服务的文件夹，该目录中的文件可在 server.base 路径下访问（默认 /）。'
+---
+
 # server.publicDir
 
 - **类型：**
@@ -6,6 +10,7 @@
 type PublicDirOptions = {
   name?: string;
   copyOnBuild?: boolean | 'auto';
+  ignore?: string[];
   watch?: boolean;
 };
 type PublicDir = false | PublicDirOptions | PublicDirOptions[];
@@ -17,6 +22,7 @@ type PublicDir = false | PublicDirOptions | PublicDirOptions[];
 const defaultValue = {
   name: 'public',
   copyOnBuild: 'auto',
+  ignore: [],
   watch: false,
 };
 ```
@@ -36,7 +42,7 @@ public 目录名称。`name` 的值可以设置为相对路径或绝对路径，
 
 - 相对路径示例：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   server: {
     publicDir: {
@@ -60,6 +66,12 @@ export default {
 };
 ```
 
+:::tip
+不建议将 `name` 设置为源代码目录（如 `src`）。因为 public 目录会在生产构建时被复制到输出目录，可能带来源代码泄露风险。
+
+如果需要使用该目录，也可以将 [copyOnBuild](#copyonbuild) 设置为 `false`，避免在构建产物中拷贝相关文件。
+:::
+
 ### copyOnBuild
 
 - **类型：** `boolean | 'auto'`
@@ -79,7 +91,7 @@ export default {
 
 比如关闭 `copyOnBuild`：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   server: {
     publicDir: {
@@ -97,7 +109,7 @@ export default {
 
 你可以将 `copyOnBuild` 设置为 `true` 来为 `node` target 复制文件：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     target: 'node',
@@ -117,6 +129,27 @@ export default {
 - `web` 环境的构建产物目录设置为 `dist`，`web1` 环境的构建产物目录设置为 `dist/web1`。由于 `dist` 和 `dist/web1` 存在嵌套关系，此时，public 目录文件仅复制到 `dist` 目录下。
 - `esm` 环境的构建产物目录设置为 `dist/esm`，`cjs` 环境的构建产物目录设置为 `dist/cjs`。由于 `dist/esm` 和 `dist/cjs` 不存在嵌套关系，此时，public 目录文件将分别复制到 `dist/esm` 和 `dist/cjs` 目录下。
 
+### ignore
+
+- **类型：** `string[]`
+- **默认值：** `[]`
+
+用于在生产构建复制 `public` 目录时，指定需要忽略的文件或目录的 glob 匹配模式。
+
+该选项只影响构建阶段的复制行为，不会影响开发服务器对静态文件的访问。
+
+例如，在复制 `public` 目录时忽略 `foo.js`：
+
+```ts title="rsbuild.config.ts"
+export default {
+  server: {
+    publicDir: {
+      ignore: ['**/foo.js'],
+    },
+  },
+};
+```
+
 ### watch
 
 - **类型：** `boolean`
@@ -126,7 +159,7 @@ export default {
 
 设置 `watch` 为 `true` 后，开发服务器会监听指定公共目录下的文件变化，并在文件发生变化时重新加载页面：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   server: {
     publicDir: {
@@ -142,7 +175,7 @@ export default {
 
 `server.publicDir` 可以配置为一个数组，这允许你将多个目录作为静态资源服务的文件夹：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   server: {
     publicDir: [
@@ -162,10 +195,16 @@ export default {
 
 你可以将 `publicDir` 设置成 `false` 来禁用静态资源服务：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   server: {
     publicDir: false,
   },
 };
 ```
+
+## 版本历史
+
+| 版本   | 变更内容           |
+| ------ | ------------------ |
+| v2.0.0 | 新增 `ignore` 选项 |

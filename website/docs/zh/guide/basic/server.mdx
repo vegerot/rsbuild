@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 配备了一个内置的开发服务器，旨在提升开发体验。当你执行 rsbuild dev 或 rsbuild preview 命令时，该服务器将启动，并提供页面预览、路由、模块热更新等功能。'
+---
+
 # 开发服务器
 
 Rsbuild 配备了一个内置的开发服务器，旨在提升开发体验。当你执行 `rsbuild dev` 或 `rsbuild preview` 命令时，该服务器将启动，并提供页面预览、路由、模块热更新等功能。
@@ -53,18 +57,10 @@ export default {
 
 ### Fallback 行为
 
-当请求满足以下条件且未找到对应资源时，会被 `server.htmlFallback` 处理，默认会回退到 index.html。
+当请求满足以下条件且未找到对应的静态资源时，[server.htmlFallback](/config/server/html-fallback) 将生效，默认会回退到 `index.html`：
 
-- 当前请求是 GET 或 HEAD 请求
-- 当前请求头接受 `text/html` (请求头 accept 类型为 `text/html` 或 `*/*`)
-
-```ts title="rsbuild.config.ts"
-export default {
-  server: {
-    htmlFallback: 'index',
-  },
-};
-```
+- 请求方法为 `GET` 或 `HEAD`
+- 请求头中的 `Accept` 包含 `text/html`（即类型为 `text/html` 或 `*/*`）
 
 ### 自定义 Fallback 行为
 
@@ -78,7 +74,6 @@ export default {
     },
   },
   server: {
-    htmlFallback: false,
     historyApiFallback: {
       index: '/main.html',
     },
@@ -88,7 +83,7 @@ export default {
 
 ### HTML 输出路径
 
-通常情况下，`/` 指向 dist 产物根目录， 而 HTML 文件输出到 dist 根目录下，此时可通过 `/some-path` 访问对应的 HTML 页面。
+通常情况下，`/` 指向 dist 产物根目录，而 HTML 文件输出到 dist 根目录下，此时可通过 `/some-path` 访问对应的 HTML 页面。
 
 若通过修改 [output.distPath.html](/config/output/dist-path) 将 HTML 文件输出到其他子目录下，此时需通过 `/[htmlPath]/some-path` 访问对应的 HTML 页面。
 
@@ -143,7 +138,7 @@ Rsbuild 不支持使用 Rspack 的 [devServer](https://rspack.rs/zh/config/dev-s
 | [devServer.open](https://rspack.rs/zh/config/dev-server#devserveropen)                               | [server.open](/config/server/open)                               |
 | [devServer.port](https://rspack.rs/zh/config/dev-server#devserverport)                               | [server.port](/config/server/port)                               |
 | [devServer.proxy](https://rspack.rs/zh/config/dev-server#devserverproxy)                             | [server.proxy](/config/server/proxy)                             |
-| [devServer.setupMiddlewares](https://rspack.rs/zh/config/dev-server#devserversetupmiddlewares)       | [dev.setupMiddlewares](/config/dev/setup-middlewares)            |
+| [devServer.setupMiddlewares](https://rspack.rs/zh/config/dev-server#devserversetupmiddlewares)       | [server.setup](/config/server/setup)                             |
 | [devServer.static](https://rspack.rs/zh/config/dev-server#devserverstatic)                           | [server.publicDir](/config/server/public-dir)                    |
 | [devServer.watchFiles](https://rspack.rs/zh/config/dev-server#devserverwatchfiles)                   | [dev.watchFiles](/config/dev/watch-files)                        |
 
@@ -151,19 +146,19 @@ Rsbuild 不支持使用 Rspack 的 [devServer](https://rspack.rs/zh/config/dev-s
 
 ## 中间件
 
-Rsbuild 的中间件实现基于 [connect](https://github.com/senchalabs/connect)，一个轻量级的 HTTP 服务器框架，并使用 Node.js 标准的 `request` 和 `response` 对象来处理 HTTP 交互。
+Rsbuild 的中间件实现基于 [connect-next](https://github.com/rstackjs/connect-next)，一个轻量级的 HTTP 服务器框架，并使用 Node.js 标准的 `request` 和 `response` 对象来处理 HTTP 交互。
 
 ### 注册中间件
 
 Rsbuild 提供了三种方式来注册中间件：
 
-1. 通过 Rsbuild 的 [dev.setupMiddlewares](/config/dev/setup-middlewares) 配置项。
+1. 通过 Rsbuild 的 [server.setup](/config/server/setup) 配置项。
 
 ```ts title="rsbuild.config.ts"
 export default {
-  dev: {
-    setupMiddlewares: (middlewares) => {
-      middlewares.push((req, res, next) => {
+  server: {
+    setup: ({ server }) => {
+      server.middlewares.use((req, res, next) => {
         next();
       });
     },
@@ -211,9 +206,9 @@ const app = express();
 app.use(expressMiddleware);
 
 export default {
-  dev: {
-    setupMiddlewares: (middlewares) => {
-      middlewares.unshift(app);
+  server: {
+    setup: ({ server }) => {
+      server.middlewares.use(app);
     },
   },
 };

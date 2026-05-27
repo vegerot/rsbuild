@@ -1,9 +1,50 @@
-import type { ServerResponse } from 'node:http';
+import type {
+  OutgoingHttpHeader,
+  OutgoingHttpHeaders,
+  ServerResponse,
+} from 'node:http';
 import zlib from 'node:zlib';
 import type { CompressOptions, RequestHandler } from '../types';
 
 const ENCODING_REGEX = /\bgzip\b/;
 const CONTENT_TYPE_REGEX = /text|javascript|\/json|xml/i;
+type WriteHeadHeaders = OutgoingHttpHeaders | OutgoingHttpHeader[];
+
+const getMimeType = (contentType: string) =>
+  contentType.split(';', 1)[0].trim().toLowerCase();
+
+const setWriteHeadHeaders = (
+  res: ServerResponse,
+  headers: WriteHeadHeaders,
+) => {
+  if (Array.isArray(headers)) {
+    const seen = new Set<string>();
+
+    for (let index = 0; index < headers.length; index += 2) {
+      const key = String(headers[index]);
+      const value = headers[index + 1];
+
+      if (value !== undefined) {
+        const lowerKey = key.toLowerCase();
+        if (!seen.has(lowerKey)) {
+          seen.add(lowerKey);
+          res.removeHeader(key);
+        }
+
+        res.appendHeader(key, Array.isArray(value) ? value : String(value));
+      }
+    }
+    return;
+  }
+
+  for (const key of Object.keys(headers)) {
+    const value = headers[key];
+
+    if (value !== undefined) {
+      res.setHeader(key, value);
+    }
+  }
+};
 
 const shouldCompress = (res: ServerResponse) => {
   // already compressed
@@ -11,8 +52,20 @@ const shouldCompress = (res: ServerResponse) => {
     return false;
   }
 
-  const contentType = String(res.getHeader('Content-Type'));
-  if (contentType && !CONTENT_TYPE_REGEX.test(contentType)) {
+  const contentType = res.getHeader('Content-Type');
+  if (!contentType) {
+    return false;
+  }
+
+  const contentTypeValue = String(contentType);
+
+  // Only compress text-like responses by default to avoid transforming binary assets.
+  if (!CONTENT_TYPE_REGEX.test(contentTypeValue)) {
+    return false;
+  }
+
+  // SSE is text-like, but gzip buffering can delay event delivery.
+  if (getMimeType(contentTypeValue) === 'text/event-stream') {
     return false;
   }
 
@@ -20,12 +73,11 @@ const shouldCompress = (res: ServerResponse) => {
   return size === undefined || Number(size) > 1024;
 };
 
-export const gzipMiddleware =
-  ({
-    filter,
-    level = zlib.constants.Z_BEST_SPEED,
-  }: CompressOptions = {}): RequestHandler =>
-  (req, res, next): void => {
+export function gzipMiddleware({
+  filter,
+  level = zlib.constants.Z_BEST_SPEED,
+}: CompressOptions = {}): RequestHandler {
+  return function gzipMiddleware(req, res, next): void {
     if (filter && !filter(req, res)) {
       next();
       return;
@@ -40,8 +92,9 @@ export const gzipMiddleware =
     }
 
     let gzip: zlib.Gzip | undefined;
-    let writeHeadStatus: number | undefined;
     let started = false;
+    let writeHeadStatus: number | undefined;
+    let writeHeadMessage: string | undefined;
 
     const on = res.on.bind(res);
     const end = res.end.bind(res);
@@ -55,7 +108,8 @@ export const gzipMiddleware =
       }
       started = true;
 
-      if (shouldCompress(res)) {
+      const compress = shouldCompress(res);
+      if (compress) {
         res.setHeader('Content-Encoding', 'gzip');
         res.removeHeader('Content-Length');
 
@@ -74,7 +128,7 @@ export const gzipMiddleware =
         });
 
         for (const listener of listeners) {
-          gzip.on.apply(gzip, listener);
+          gzip.on(...listener);
         }
       } else {
         for (const listener of listeners) {
@@ -82,20 +136,32 @@ export const gzipMiddleware =
         }
       }
 
-      writeHead(writeHeadStatus ?? res.statusCode);
+      const statusCode = writeHeadStatus ?? res.statusCode;
+
+      if (writeHeadMessage !== undefined) {
+        writeHead(statusCode, writeHeadMessage);
+      } else {
+        writeHead(statusCode);
+      }
     };
 
-    res.writeHead = (status, reason, headers?) => {
-      if (reason) {
-        for (const [key, value] of Object.entries(headers || reason)) {
-          res.setHeader(key, value);
-        }
-      }
+    res.writeHead = (
+      status: number,
+      reason?: string | WriteHeadHeaders,
+      headers?: WriteHeadHeaders,
+    ) => {
       writeHeadStatus = status;
+      writeHeadMessage = typeof reason === 'string' ? reason : undefined;
+
+      const resolvedHeaders = typeof reason === 'string' ? headers : reason;
+      if (resolvedHeaders) {
+        setWriteHeadHeaders(res, resolvedHeaders);
+      }
+
       return res;
     };
 
-    res.write = (...args: unknown[]) => {
+    res.write = (...args: any[]) => {
       start();
       return gzip
         ? gzip.write(...(args as Parameters<typeof write>))
@@ -104,9 +170,12 @@ export const gzipMiddleware =
 
     res.end = (...args: any[]) => {
       start();
-      return gzip
-        ? (gzip.end as unknown as typeof end)(...args)
-        : end.apply(res, args as Parameters<typeof end>);
+      if (gzip) {
+        (gzip.end as (...args: any[]) => void)(...args);
+        return res;
+      }
+
+      return end.apply(res, args as Parameters<typeof end>);
     };
 
     res.on = (type, listener) => {
@@ -125,3 +194,4 @@ export const gzipMiddleware =
 
     next();
   };
+}

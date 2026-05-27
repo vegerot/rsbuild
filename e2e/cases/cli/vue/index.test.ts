@@ -1,13 +1,10 @@
 import path from 'node:path';
-import { readDirContents, rspackOnlyTest, runCliSync } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, readDirContents, test } from '@e2e/helper';
 
-rspackOnlyTest('should build Vue SFC correctly', async () => {
-  runCliSync('build', {
-    cwd: __dirname,
-  });
+test('should build Vue SFC correctly', async ({ execCliSync }) => {
+  execCliSync('build');
 
-  const outputs = await readDirContents(path.join(__dirname, 'dist'));
+  const outputs = await readDirContents(path.join(import.meta.dirname, 'dist'));
   const outputFiles = Object.keys(outputs);
 
   expect(outputFiles.find((item) => item.includes('index.html'))).toBeTruthy();

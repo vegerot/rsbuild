@@ -1,3 +1,7 @@
+---
+description: '本文档列出了在 Rsbuild 中使用常见 CSS-in-JS 库的方法。'
+---
+
 # CSS-in-JS
 
 本文档列出了在 Rsbuild 中使用常见 CSS-in-JS 库的方法。
@@ -35,7 +39,7 @@ export default defineConfig({
 });
 ```
 
-> 参考示例：[emotion](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/emotion)。
+> 参考示例：[emotion](https://github.com/rstackjs/rstack-examples/tree/main/rsbuild/emotion)。
 
 ## styled-jsx
 
@@ -61,7 +65,7 @@ export default defineConfig({
 
 请注意，你需要选择和当前 `@swc/core` 版本匹配的 SWC 插件，才能使 SWC 正常执行，详见 [tools.swc](/config/tools/swc)。
 
-> 参考示例：[styled-jsx](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/styled-jsx)。
+> 参考示例：[styled-jsx](https://github.com/rstackjs/rstack-examples/tree/main/rsbuild/styled-jsx)。
 
 ## vanilla-extract
 
@@ -82,17 +86,13 @@ export default defineConfig({
       },
     }),
   ],
-  performance: {
-    chunkSplit: {
-      override: {
-        cacheGroups: {
-          vanilla: {
-            test: /@vanilla-extract\/webpack-plugin/,
-            // 确保在开发模式下 @vanilla-extract/webpack-plugin 产生虚拟模块所在的 Chunk id 稳定以避免 HMR 问题
-            name: process.env.NODE_ENV === 'development' && 'vanilla',
-            chunks: 'all',
-          },
-        },
+  splitChunks: {
+    cacheGroups: {
+      vanilla: {
+        test: /@vanilla-extract\/webpack-plugin/,
+        // 确保在开发模式下 @vanilla-extract/webpack-plugin 产生虚拟模块所在的 Chunk id 稳定以避免 HMR 问题
+        name: process.env.NODE_ENV === 'development' && 'vanilla',
+        chunks: 'all',
       },
     },
   },
@@ -104,7 +104,35 @@ export default defineConfig({
 });
 ```
 
-> 参考示例：[vanilla-extract](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/vanilla-extract)。
+> 参考示例：[vanilla-extract](https://github.com/rstackjs/rstack-examples/tree/main/rsbuild/vanilla-extract)。
+
+#### 静态资源
+
+当导入静态资源时，使用 import 语法：
+
+```ts title="src/App.css.ts"
+import { style } from '@vanilla-extract/css';
+import logoUrl from './logo.png';
+
+export const containerStyle = style({
+  backgroundImage: `url(${logoUrl})`,
+});
+```
+
+由于 `logoUrl` 已经是一个指向 dist 目录的解析路径，`css-loader` 不需要再次处理它。通过 [tools.cssLoader.url](/config/tools/css-loader) 禁用 CSS URL 处理，以避免遇到模块解析错误：
+
+```ts title="rsbuild.config.ts"
+export default defineConfig({
+  // ... 其他配置
+  tools: {
+    cssLoader: {
+      url: false,
+    },
+  },
+});
+```
+
+> 参考：[#6215](https://github.com/web-infra-dev/rsbuild/issues/6215)。
 
 ## StyleX
 
@@ -125,7 +153,7 @@ export default defineConfig({
 });
 ```
 
-> 参考示例：[stylex](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/stylex)。
+> 参考示例：[stylex](https://github.com/rstackjs/rstack-examples/tree/main/rsbuild/stylex)。
 
 ## styled-components
 
@@ -144,7 +172,7 @@ export default defineConfig({
 });
 ```
 
-> 参考示例：[styled-components](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/styled-components)。
+> 参考示例：[styled-components](https://github.com/rstackjs/rstack-examples/tree/main/rsbuild/styled-components)。
 
 :::tip
 styled-components 不再推荐用于新项目，因为它已经处于 [维护模式](https://opencollective.com/styled-components/updates/thank-you)。

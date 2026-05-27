@@ -1,10 +1,12 @@
 import { posix } from 'node:path';
 import {
+  ALL_INTERFACES_IPV4,
   DEFAULT_ASSET_PREFIX,
-  DEFAULT_DEV_HOST,
   DEFAULT_PORT,
+  LOCALHOST,
 } from '../constants';
-import { formatPublicPath, getFilename, urlJoin } from '../helpers';
+import { getFilename } from '../helpers';
+import { formatPublicPath, urlJoin } from '../helpers/url';
 import { replacePortPlaceholder } from '../server/open';
 import type {
   NormalizedEnvironmentConfig,
@@ -34,15 +36,13 @@ function getPublicPath({
     publicPath = dev.assetPrefix;
   } else if (dev.assetPrefix) {
     const protocol = context.devServer?.https ? 'https' : 'http';
-    const hostname = context.devServer?.hostname || DEFAULT_DEV_HOST;
+    const hostname = context.devServer?.hostname || LOCALHOST;
 
-    if (hostname === DEFAULT_DEV_HOST) {
-      const localHostname = 'localhost';
-      // If user not specify the hostname, it would use 0.0.0.0
-      // The http://0.0.0.0:port can't visit on Windows, so we shouldn't set publicPath as `//0.0.0.0:${port}/`;
+    if (hostname === ALL_INTERFACES_IPV4) {
+      // http://0.0.0.0:port can't visit on Windows, so we shouldn't set publicPath as `//0.0.0.0:${port}/`;
       // Relative to docs:
       // - https://github.com/quarkusio/quarkus/issues/12246
-      publicPath = `${protocol}://${localHostname}:<port>/`;
+      publicPath = `${protocol}://localhost:<port>/`;
     } else {
       publicPath = `${protocol}://${hostname}:<port>/`;
     }
@@ -77,7 +77,10 @@ export const pluginOutput = (): RsbuildPlugin => ({
 
   setup(api) {
     api.modifyBundlerChain(
-      (chain, { CHAIN_ID, isDev, isProd, isServer, environment, rspack }) => {
+      (
+        chain,
+        { CHAIN_ID, isDev, isProd, isServer, environment, rspack, target },
+      ) => {
         const { distPath, config } = environment;
 
         const publicPath = getPublicPath({
@@ -114,23 +117,35 @@ export const pluginOutput = (): RsbuildPlugin => ({
                 }
               : posix.join(jsAsyncPath, jsFilename),
           )
-          .publicPath(publicPath)
-          // disable pathinfo to improve compile performance
-          // the path info is useless in most cases
-          // see: https://webpack.js.org/guides/build-performance/#output-without-path-info
-          .pathinfo(false)
-          // since webpack v5.54.0+, hashFunction supports xxhash64 as a faster algorithm
-          // which will be used as default when experiments.futureDefaults is enabled.
-          .hashFunction('xxhash64');
+          .publicPath(publicPath);
+
+        const isESM = config.output.module;
 
         if (isServer) {
           chain.output.library({
-            type: 'commonjs2',
             ...(chain.output.get('library') || {}),
+            type: isESM ? 'module' : 'commonjs2',
           });
         }
 
-        if (config.output.copy && api.context.bundlerType === 'rspack') {
+        if (isESM) {
+          if (target === 'web-worker') {
+            throw new Error(
+              '[rsbuild:config] `output.module: true` is not supported for web-worker target.',
+            );
+          }
+
+          // For ESM targets, import.meta.dirname / import.meta.filename / __dirname / __filename
+          // are preserved as-is. This matches the native behavior in browsers and Node.js.
+          chain.node.set('__dirname', false).set('__filename', false);
+          chain.output
+            .module(true)
+            .chunkFormat('module')
+            .chunkLoading('import')
+            .workerChunkLoading('import');
+        }
+
+        if (config.output.copy) {
           const { copy } = config.output;
           const options = Array.isArray(copy) ? { patterns: copy } : copy;
 

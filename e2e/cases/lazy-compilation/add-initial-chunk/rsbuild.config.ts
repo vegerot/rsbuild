@@ -9,33 +9,23 @@ export default defineConfig({
     },
   },
   tools: {
-    rspack(config) {
-      config.output ??= {};
-      config.output.asyncChunks = false;
-    },
-  },
-  performance: {
-    chunkSplit: {
-      strategy: 'custom',
-      override: {
-        chunks: 'all',
-        cacheGroups: {
-          lib: {
-            enforce: true,
-            test: /(initial\.js|core-js)/,
-            name: 'lib',
-            chunks: 'all',
-          },
-          default: false,
-          defaultVendors: false,
-        },
+    rspack: {
+      lazyCompilation: true,
+      output: {
+        asyncChunks: false,
       },
     },
   },
-  dev: {
-    lazyCompilation: true,
-  },
-  output: {
-    polyfill: 'usage',
+  splitChunks: {
+    cacheGroups: {
+      lib: {
+        enforce: true,
+        test: /initial\.js/,
+        name: 'lib',
+        chunks: 'all',
+      },
+      default: false,
+      defaultVendors: false,
+    },
   },
 });

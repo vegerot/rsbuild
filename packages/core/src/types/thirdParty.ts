@@ -2,12 +2,11 @@ import type {
   CssExtractRspackLoaderOptions,
   CssExtractRspackPluginOptions,
 } from '@rspack/core';
-/** @ts-ignore `webpack` type only exists when `@rsbuild/webpack` is installed */
-import type { Configuration as WebpackConfig } from 'webpack';
-import type Connect from '../../compiled/connect/index.js';
-import type HtmlRspackPlugin from '../../compiled/html-rspack-plugin/index.js';
-import type { AcceptedPlugin, ProcessOptions } from '../../compiled/postcss';
+import type * as Connect from 'connect-next';
+import type HtmlRspackPlugin from 'html-rspack-plugin';
+import type { AcceptedPlugin, ProcessOptions } from 'postcss';
 import type { Rspack } from './rspack';
+import type { LiteralUnion } from './utils';
 
 export type { Connect };
 
@@ -17,8 +16,6 @@ export interface CSSExtractOptions {
   pluginOptions?: CssExtractRspackPluginOptions;
   loaderOptions?: CssExtractRspackLoaderOptions;
 }
-
-export type { WebpackConfig };
 
 /**
  * A loose PostCSS plugin type that accepts plugins from different
@@ -182,7 +179,10 @@ export interface CSSLoaderOptions {
   /**
    * Allows to enable/disable CSS Modules or ICSS and setup configuration:
    */
-  modules?: boolean | string | CSSLoaderModulesOptions;
+  modules?:
+    | boolean
+    | LiteralUnion<'local' | 'global' | 'pure' | 'icss', string>
+    | CSSLoaderModulesOptions;
   /**
    * By default generation of source maps depends on the devtool option.
    */
@@ -231,21 +231,24 @@ export interface StyleLoaderOptions {
    */
   attributes?: Record<string, string>;
   /**
-   * By default, the style-loader appends <style>/<link> elements to the end of the style target, which is the <head> tag of the page unless specified by insert.
+   * By default, style-loader appends <style>/<link> elements to the end of the style target,
+   * which is the <head> tag of the page unless specified by insert.
    * This will cause CSS created by the loader to take priority over CSS already present in the target.
    * You can use other values if the standard behavior is not suitable for you, but we do not recommend doing this.
+   * If you target an iframe, make sure you have sufficient access rights.
+   *
+   * Supports:
+   * - a CSS selector where styles are injected
+   * - an absolute path to a custom insert module
    *
    * @default 'head'
    */
-  insert?: string | ((element: HTMLElement) => void);
+  insert?: LiteralUnion<'head' | 'body', string>;
   /**
-   * Allows to setup absolute path to custom function that allows to override default behavior styleTagTransform.
+   * Allows to setup an absolute path to a custom module that overrides
+   * the default styleTagTransform behavior.
+   *
+   * @default undefined
    */
-  styleTagTransform?:
-    | string
-    | ((
-        css: string,
-        styleElement: HTMLStyleElement,
-        options: Record<string, any>,
-      ) => void);
+  styleTagTransform?: string;
 }

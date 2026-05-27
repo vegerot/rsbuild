@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild supports directly modifying the Rspack configuration object, and supports modifying the built-in Rspack configuration of Rsbuild through rspack-chain.'
+---
+
 # Configure Rspack
 
 Rsbuild supports directly modifying the Rspack configuration object, and supports modifying the built-in Rspack configuration of Rsbuild through `rspack-chain`.
@@ -16,19 +20,43 @@ You can also view it through [debug mode](/guide/debug/debug-mode).
 
 You can use the [tools.rspack](/config/tools/rspack) option of Rsbuild to modify the Rspack config object.
 
-For example, register Rspack plugins or webpack plugins:
+For example, registering a built-in Rspack plugin:
 
 ```ts title="rsbuild.config.ts"
+import { rspack } from '@rsbuild/core';
+
 export default {
   tools: {
     rspack: {
-      plugins: [SomeWebpackPlugin()],
+      plugins: [
+        new rspack.CircularDependencyRspackPlugin({
+          // options
+        }),
+      ],
     },
   },
 };
 ```
 
-Or modify the Rspack config with a function:
+Or registering a community webpack plugin:
+
+```ts title="rsbuild.config.ts"
+import { sentryWebpackPlugin } from '@sentry/webpack-plugin';
+
+export default {
+  tools: {
+    rspack: {
+      plugins: [
+        sentryWebpackPlugin({
+          // options
+        }),
+      ],
+    },
+  },
+};
+```
+
+Or modify the built-in Rspack config with a function:
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -176,6 +204,7 @@ export default {
     bundlerChain: (chain, { CHAIN_ID }) => {
       chain.module
         .rule(CHAIN_ID.RULE.JS)
+        .oneOf(CHAIN_ID.ONE_OF.JS_MAIN)
         .use(CHAIN_ID.USE.SWC)
         .tap((options) => {
           console.log(options);
@@ -192,7 +221,10 @@ export default {
 export default {
   tools: {
     bundlerChain: (chain, { CHAIN_ID }) => {
-      chain.module.rule(CHAIN_ID.RULE.JS).uses.delete(CHAIN_ID.USE.SWC);
+      chain.module
+        .rule(CHAIN_ID.RULE.JS)
+        .oneOf(CHAIN_ID.ONE_OF.JS_MAIN)
+        .uses.delete(CHAIN_ID.USE.SWC);
     },
   },
 };
@@ -206,6 +238,7 @@ export default {
     bundlerChain: (chain, { CHAIN_ID }) => {
       chain.module
         .rule(CHAIN_ID.RULE.JS)
+        .oneOf(CHAIN_ID.ONE_OF.JS_MAIN)
         .use('my-loader')
         .after(CHAIN_ID.USE.SWC)
         // The package name or module path of the loader
@@ -228,6 +261,7 @@ export default {
     bundlerChain: (chain, { CHAIN_ID }) => {
       chain.module
         .rule(CHAIN_ID.RULE.JS)
+        .oneOf(CHAIN_ID.ONE_OF.JS_MAIN)
         // Loader ID, not actually meaningful, just for locating
         .use('my-loader')
         .before(CHAIN_ID.USE.SWC)
@@ -260,9 +294,9 @@ Here are examples of adding, modifying, and deleting Rspack plugins.
 ```js title="rsbuild.config.mjs"
 export default {
   tools: {
-    bundlerChain: (chain, { bundler, CHAIN_ID }) => {
+    bundlerChain: (chain, { rspack, CHAIN_ID }) => {
       // Add plugin
-      chain.plugin('custom-define').use(bundler.DefinePlugin, [
+      chain.plugin('custom-define').use(rspack.DefinePlugin, [
         {
           'process.env': {
             NODE_ENV: JSON.stringify(process.env.NODE_ENV),
@@ -316,7 +350,7 @@ export default {
 };
 ```
 
-The above are some common configuration examples. For the complete rspack-chain API, please refer to the [rspack-chain documentation](https://github.com/rspack-contrib/rspack-chain).
+The above are some common configuration examples. For the complete rspack-chain API, please refer to the [rspack-chain documentation](https://github.com/rstackjs/rspack-chain).
 
 ## Configuration modification order
 
@@ -325,6 +359,6 @@ Rsbuild supports modifying the Rspack configuration object through `tools.rspack
 The order of execution between them is:
 
 - [modifyBundlerChain](/plugins/dev/hooks#modifybundlerchain)
-- [tools.bundleChain](/config/tools/bundler-chain)
+- [tools.bundlerChain](/config/tools/bundler-chain)
 - [modifyRspackConfig](/plugins/dev/hooks#modifyrspackconfig)
 - [tools.rspack](/config/tools/rspack)

@@ -1,11 +1,12 @@
 import { join, posix } from 'node:path';
-import type { Compiler } from '@rspack/core';
+import { type Compiler, rspack } from '@rspack/core';
 import { LOADER_PATH } from './constants';
 import { createPublicContext } from './createContext';
-import { color, getFilename, removeLeadingSlash } from './helpers';
+import { color, getFilename } from './helpers';
 import { exitHook } from './helpers/exitHook';
+import { removeLeadingSlash } from './helpers/url';
 import type { TransformLoaderOptions } from './loader/transformLoader';
-import { logger } from './logger';
+import type { Logger } from './logger';
 import { isEnvironmentMatch } from './pluginManager';
 import type {
   GetRsbuildConfig,
@@ -27,6 +28,7 @@ import type {
 export function getHTMLPathByEntry(
   entryName: string,
   config: NormalizedEnvironmentConfig,
+  logger: Logger,
 ): string {
   const filename = getFilename(config, 'html').replace('[name]', entryName);
   const prefix = config.output.distPath.html;
@@ -40,11 +42,8 @@ export function getHTMLPathByEntry(
   return removeLeadingSlash(posix.join(prefix, filename));
 }
 
-const mapProcessAssetsStage = (
-  compiler: Compiler,
-  stage: ProcessAssetsStage,
-) => {
-  const { Compilation } = compiler.webpack;
+const mapProcessAssetsStage = (stage: ProcessAssetsStage) => {
+  const { Compilation } = rspack;
   switch (stage) {
     case 'additional':
       return Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL;
@@ -129,26 +128,22 @@ export function initPluginAPI({
         return context.config;
       case 'normalized':
         return getNormalizedConfig();
+      default:
+        throw new Error(
+          `${color.dim('[rsbuild]')} ${color.yellow('getRsbuildConfig')} received an invalid type parameter.`,
+        );
     }
-    throw new Error(
-      `${color.dim('[rsbuild]')} ${color.yellow('getRsbuildConfig')} get an invalid type param.`,
-    );
   }) as GetRsbuildConfig;
 
-  const exposed: { id: string | symbol; api: any }[] = [];
+  const exposed = new Map<string | symbol, any>();
 
   const expose = (id: string | symbol, api: any) => {
-    exposed.push({ id, api });
+    exposed.set(id, api);
   };
-  const useExposed = (id: string | symbol) => {
-    const matched = exposed.find((item) => item.id === id);
-    if (matched) {
-      return matched.api;
-    }
-  };
+  const useExposed = (id: string | symbol) => exposed.get(id);
 
   let transformId = 0;
-  const transformer: Record<string, TransformHandler> = {};
+  const transformer: Record<string, TransformHandler<boolean>> = {};
   const processAssetsFns: {
     environment?: string;
     descriptor: ProcessAssetsDescriptor;
@@ -202,7 +197,7 @@ export function initPluginAPI({
             childCompiler.__rsbuildTransformer = transformer;
           });
 
-          const { sources } = compiler.webpack;
+          const { sources } = rspack;
 
           for (const {
             descriptor,
@@ -228,7 +223,7 @@ export function initPluginAPI({
             compilation.hooks.processAssets.tapPromise(
               {
                 name: pluginName,
-                stage: mapProcessAssetsStage(compiler, descriptor.stage),
+                stage: mapProcessAssetsStage(descriptor.stage),
               },
               async (assets) =>
                 handler({
@@ -341,7 +336,7 @@ export function initPluginAPI({
   return (environment?: string) => ({
     context: publicContext,
     expose,
-    logger,
+    logger: context.logger,
     transform: getTransformHook(environment),
     useExposed,
     processAssets: setProcessAssets(environment),
@@ -364,8 +359,8 @@ export function initPluginAPI({
     onAfterStartDevServer: hooks.onAfterStartDevServer.tap,
     onBeforeCreateCompiler: hooks.onBeforeCreateCompiler.tap,
     onBeforeStartDevServer: hooks.onBeforeStartDevServer.tap,
-    onAfterStartProdServer: hooks.onAfterStartProdServer.tap,
-    onBeforeStartProdServer: hooks.onBeforeStartProdServer.tap,
+    onAfterStartPreviewServer: hooks.onAfterStartPreviewServer.tap,
+    onBeforeStartPreviewServer: hooks.onBeforeStartPreviewServer.tap,
     modifyRsbuildConfig: hooks.modifyRsbuildConfig.tap,
     modifyHTML: (handler) => {
       hooks.modifyHTML.tapEnvironment({
@@ -387,18 +382,6 @@ export function initPluginAPI({
     },
     modifyRspackConfig: (handler) => {
       hooks.modifyRspackConfig.tapEnvironment({
-        environment,
-        handler,
-      });
-    },
-    modifyWebpackChain: (handler) => {
-      hooks.modifyWebpackChain.tapEnvironment({
-        environment,
-        handler,
-      });
-    },
-    modifyWebpackConfig: (handler) => {
-      hooks.modifyWebpackConfig.tapEnvironment({
         environment,
         handler,
       });

@@ -1,6 +1,10 @@
+---
+description: 'React 插件提供了对 React 的支持，插件内部集成了 JSX 编译、React Refresh 等功能。'
+---
+
 # React 插件
 
-import { SourceCode } from '@rspress/core/theme';
+import { SourceCode } from '@theme';
 
 <SourceCode href="https://github.com/web-infra-dev/rsbuild/tree/main/packages/plugin-react" />
 
@@ -51,7 +55,7 @@ interface ReactConfig {
         refreshSig?: string;
         emitFullSignatures?: boolean;
       };
-  runtime?: 'automatic' | 'classic';
+  runtime?: 'automatic' | 'classic' | 'preserve';
   importSource?: string;
 }
 ```
@@ -69,14 +73,24 @@ const defaultOptions = {
 
 ### swcReactOptions.runtime
 
-设置 JSX runtime 的类型。
+设置在转换 JSX 时使用哪种运行时。
 
-- **类型：** `'automatic' | 'classic'`
+- **类型：** `'automatic' | 'classic' | 'preserve'`
 - **默认值：** `'automatic'`
 
-默认情况下，Rsbuild 使用 React 17 引入的[新版本 JSX runtime](https://legacy.reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html)，即 `runtime: 'automatic'`。
+#### automatic
 
-如果你当前的 React 版本低于 16.14.0，可以将 `runtime` 设置为 `'classic'`：
+默认情况下，Rsbuild 使用 `runtime: 'automatic'` 来利用 React 17 中引入的 [新版 JSX 转换](https://legacy.reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html)。
+
+采用这种方式时，无需在每个 JSX 文件中手动导入 React。
+
+:::tip
+React 16.14.0 及更高版本支持新版 JSX 运行时。
+:::
+
+#### classic
+
+对于 React 16.14.0 之前的版本，将 `runtime` 设置为 `'classic'`：
 
 ```ts
 pluginReact({
@@ -86,16 +100,26 @@ pluginReact({
 });
 ```
 
-> React 16.14.0 可以使用新版本 JSX runtime。
+当使用经典 JSX 运行时的时候，你必须在代码中手动导入 React：
 
-在使用 classic JSX runtime 时，你需要手动在代码中引入 React：
-
-```jsx
+```jsx title="App.jsx"
 import React from 'react';
 
 function App() {
   return <h1>Hello World</h1>;
 }
+```
+
+#### preserve
+
+使用 `runtime: 'preserve'` 可以保持 JSX 语法原样，不做任何转换，这在开发需要保留 JSX 代码的库时非常有用。
+
+```ts
+pluginReact({
+  swcReactOptions: {
+    runtime: 'preserve',
+  },
+});
 ```
 
 ### swcReactOptions.importSource
@@ -128,9 +152,9 @@ pluginReact({
 
 ### splitChunks
 
-在 [chunkSplit.strategy](/config/performance/chunk-split) 设置为 `split-by-experience` 时，Rsbuild 默认会自动将 `react` 和 `router` 相关的包拆分为单独的 chunk:
+当使用 Rsbuild 的 [默认拆包 preset](/config/split-chunks#default) 时，该插件会将与 `react` 和 `react-router` 相关的包拆分到独立的 chunk 中。
 
-- `lib-react.js`：包含 `react`、`react-dom`，以及它们的子依赖（`scheduler`）。
+- `lib-react.js`：包含 `react`、`react-dom`，以及它们的子依赖（`scheduler`）。在开发环境下，它还会包含 React Fast Refresh 运行时包（`react-refresh`、`@rspack/plugin-react-refresh`）。
 - `lib-router.js`：包含 `react-router`、`react-router-dom`，以及它们的子依赖（`history`，`@remix-run/router`）。
 
 该选项用于控制这一行为，决定是否需要将 `react` 和 `router` 相关的包拆分为单独的 chunk。
@@ -138,27 +162,28 @@ pluginReact({
 - **类型：**
 
 ```ts
-type SplitReactChunkOptions = {
-  react?: boolean;
-  router?: boolean;
-};
+type SplitChunks =
+  | boolean
+  | {
+      react?: boolean;
+      router?: boolean;
+    };
 ```
 
-- **默认值：**
+- **默认值：** `true`（等价于 `{ react: true, router: true }`）
+
+例如，禁用所有 chunks 拆分：
 
 ```ts
-const defaultOptions = {
-  react: true,
-  router: true,
-};
+pluginReact({ splitChunks: false });
 ```
 
-- **示例：**
+或是仅禁用 `router` chunk 拆分：
 
 ```ts
 pluginReact({
   splitChunks: {
-    react: false,
+    react: true,
     router: false,
   },
 });
@@ -210,7 +235,7 @@ pluginReact({
 
 ```ts
 type ReactRefreshOptions = {
-  // @link https://rspack.rs/config/module#condition
+  // @link https://rspack.rs/zh/config/module-rules#condition
   test?: Rspack.RuleSetCondition;
   include?: Rspack.RuleSetCondition;
   exclude?: Rspack.RuleSetCondition;
@@ -234,7 +259,7 @@ const defaultOptions = {
 };
 ```
 
-设置 [@rspack/plugin-react-refresh](https://github.com/rspack-contrib/rspack-plugin-react-refresh) 的选项，传入的值会与默认值进行浅合并。
+设置 [@rspack/plugin-react-refresh](https://github.com/rstackjs/rspack-plugin-react-refresh) 的选项，传入的值会与默认值进行浅合并。
 
 - **示例：**
 
@@ -253,7 +278,7 @@ pluginReact({
 
 是否在开发模式下启用 [React Fast Refresh](https://npmjs.com/package/react-refresh)。
 
-当 `fastRefresh` 设置为 `true` 时，`@rsbuild/plugin-react` 会自动注册 [@rspack/plugin-react-refresh](https://github.com/rspack-contrib/rspack-plugin-react-refresh) 插件。
+当 `fastRefresh` 设置为 `true` 时，`@rsbuild/plugin-react` 会自动注册 [@rspack/plugin-react-refresh](https://github.com/rstackjs/rspack-plugin-react-refresh) 插件。
 
 如果你需要禁用 Fast Refresh，可以将其设置为 `false`：
 

@@ -16,7 +16,7 @@ export const rsbuildPluginOverview: RsbuildPlugin = {
     const files = await glob(globPath);
     const groups: Group[] = [
       {
-        name: 'top level',
+        name: 'base',
         items: [
           {
             text: 'root',
@@ -35,8 +35,16 @@ export const rsbuildPluginOverview: RsbuildPlugin = {
             link: '/config/log-level',
           },
           {
+            text: 'splitChunks',
+            link: '/config/split-chunks',
+          },
+          {
             text: 'environments',
             link: '/config/environments',
+          },
+          {
+            text: 'customLogger',
+            link: '/config/custom-logger',
           },
         ],
       },
@@ -66,7 +74,7 @@ export const rsbuildPluginOverview: RsbuildPlugin = {
     }
 
     const order = [
-      'top level',
+      'base',
       'source',
       'output',
       'html',

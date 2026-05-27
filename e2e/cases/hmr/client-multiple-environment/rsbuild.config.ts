@@ -1,6 +1,30 @@
 import { defineConfig } from '@rsbuild/core';
-import { pluginReact } from '@rsbuild/plugin-react';
 
 export default defineConfig({
-  plugins: [pluginReact()],
+  environments: {
+    foo: {
+      source: {
+        entry: {
+          foo: './src/foo.js',
+        },
+      },
+      dev: {
+        client: {
+          host: 'http://foo.com',
+        },
+      },
+    },
+    bar: {
+      source: {
+        entry: {
+          bar: './src/bar.js',
+        },
+      },
+      dev: {
+        client: {
+          host: 'http://bar.com',
+        },
+      },
+    },
+  },
 });

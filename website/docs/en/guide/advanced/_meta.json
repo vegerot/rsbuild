@@ -2,9 +2,11 @@
   "alias",
   "env-vars",
   "hmr",
+  "logging",
   "browserslist",
   "browser-compatibility",
   "module-federation",
   "environments",
-  "ssr"
+  "ssr",
+  "testing"
 ]

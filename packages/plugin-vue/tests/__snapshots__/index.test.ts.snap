@@ -5,24 +5,25 @@ exports[`plugin-vue > should add vue-loader and VueLoaderPlugin correctly 1`] = 
   "test": /\\\\\\.vue\\$/,
   "use": [
     {
-      "loader": "<ROOT>/node_modules/<PNPM_INNER>/vue-loader/dist/index.js",
+      "loader": "<PNPM_INNER>/rspack-vue-loader/dist/index.js",
       "options": {
         "compilerOptions": {
           "preserveWhitespace": false,
         },
         "experimentalInlineMatchResource": true,
+        "isServerBuild": undefined,
       },
     },
   ],
 }
 `;
 
-exports[`plugin-vue > should add vue-loader and VueLoaderPlugin correctly 2`] = `null`;
+exports[`plugin-vue > should add vue-loader and VueLoaderPlugin correctly 2`] = `VueLoaderPlugin {}`;
 
 exports[`plugin-vue > should add vue-loader and VueLoaderPlugin correctly 3`] = `
 {
   "alias": {
-    "@swc/helpers": "<ROOT>/node_modules/<PNPM_INNER>/@swc/helpers",
+    "@swc/helpers": "<PNPM_INNER>/@swc/helpers",
   },
   "extensions": [
     ".ts",
@@ -41,16 +42,58 @@ exports[`plugin-vue > should allow to configure vueLoader options 1`] = `
   "test": /\\\\\\.vue\\$/,
   "use": [
     {
-      "loader": "<ROOT>/node_modules/<PNPM_INNER>/vue-loader/dist/index.js",
+      "loader": "<PNPM_INNER>/rspack-vue-loader/dist/index.js",
       "options": {
         "compilerOptions": {
           "preserveWhitespace": false,
         },
         "experimentalInlineMatchResource": true,
         "hotReload": false,
+        "isServerBuild": undefined,
       },
     },
   ],
+}
+`;
+
+exports[`plugin-vue > should allow to custom test condition 1`] = `
+{
+  "test": /\\\\\\.\\(vue\\|md\\)\\$/,
+  "use": [
+    {
+      "loader": "<PNPM_INNER>/rspack-vue-loader/dist/index.js",
+      "options": {
+        "compilerOptions": {
+          "preserveWhitespace": false,
+        },
+        "experimentalInlineMatchResource": true,
+        "isServerBuild": undefined,
+      },
+    },
+  ],
+}
+`;
+
+exports[`plugin-vue > should apply splitChunks with Rsbuild v1 1`] = `
+{
+  "cacheGroups": {
+    "lib-axios": {
+      "name": "lib-axios",
+      "priority": 0,
+      "test": /node_modules\\[\\\\\\\\/\\]axios\\(-\\.\\+\\)\\?\\[\\\\\\\\/\\]/,
+    },
+    "router": {
+      "name": "lib-router",
+      "priority": 0,
+      "test": /node_modules\\[\\\\\\\\/\\]vue-router\\[\\\\\\\\/\\]/,
+    },
+    "vue": {
+      "name": "lib-vue",
+      "priority": 0,
+      "test": /node_modules\\[\\\\\\\\/\\]\\(\\?:vue\\|rspack-vue-loader\\|@vue\\[\\\\\\\\/\\]shared\\|@vue\\[\\\\\\\\/\\]reactivity\\|@vue\\[\\\\\\\\/\\]runtime-dom\\|@vue\\[\\\\\\\\/\\]runtime-core\\)\\[\\\\\\\\/\\]/,
+    },
+  },
+  "chunks": "all",
 }
 `;
 

@@ -1,27 +1,21 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-
-const cwd = __dirname;
+import type { BuildResult } from '@e2e/helper';
+import { expect, getFileContent, test } from '@e2e/helper';
 
 const expectConsoleType = async (
-  rsbuild: Awaited<ReturnType<typeof build>>,
+  rsbuild: Awaited<BuildResult>,
   consoleType: Record<string, boolean>,
 ) => {
-  const files = await rsbuild.getDistFiles();
-  const indexFile = Object.keys(files).find(
-    (name) => name.includes('index.') && name.endsWith('.js'),
-  )!;
-  const content = files[indexFile];
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, 'index.js');
 
   for (const [key, value] of Object.entries(consoleType)) {
     expect(content.includes(`test-console-${key}`)).toEqual(value);
   }
 };
 
-test('should remove specified console correctly', async () => {
+test('should remove specified console correctly', async ({ build }) => {
   const rsbuild = await build({
-    cwd,
-    rsbuildConfig: {
+    config: {
       performance: {
         removeConsole: ['log', 'warn'],
       },
@@ -36,10 +30,9 @@ test('should remove specified console correctly', async () => {
   });
 });
 
-test('should remove all console correctly', async () => {
+test('should remove all console correctly', async ({ build }) => {
   const rsbuild = await build({
-    cwd,
-    rsbuildConfig: {
+    config: {
       performance: {
         removeConsole: true,
       },
@@ -52,4 +45,10 @@ test('should remove all console correctly', async () => {
     debug: false,
     error: false,
   });
+
+  const files = rsbuild.getDistFiles();
+  const content = getFileContent(files, 'index.js');
+
+  expect(content).not.toContain('test-console-side-effect');
+  expect(content).toContain('side-effect-preserved');
 });

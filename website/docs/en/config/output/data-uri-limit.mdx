@@ -1,3 +1,7 @@
+---
+description: 'Set the size threshold to inline static assets such as images and fonts.'
+---
+
 # output.dataUriLimit
 
 - **Type:**
@@ -28,9 +32,9 @@ const defaultDatUriLimit = {
 
 Set the size threshold to inline static assets such as images and fonts.
 
-By default, static assets will be Base64 encoded and inline into the page if the size is less than 4KiB.
+By default, static assets will be Base64 encoded and inlined into the page if they are smaller than 4KiB.
 
-You can adjust the threshold by setting the `dataUriLimit` config.
+You can adjust this threshold by setting the `dataUriLimit` config.
 
 Details:
 
@@ -46,7 +50,7 @@ Details:
 
 - Inline all static assets less than 10KiB:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     dataUriLimit: 10 * 1024,
@@ -56,7 +60,7 @@ export default {
 
 - Disable inlining of static assets:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     dataUriLimit: 0,
@@ -66,7 +70,7 @@ export default {
 
 - Inline all static assets:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     dataUriLimit: Number.MAX_SAFE_INTEGER,
@@ -74,9 +78,9 @@ export default {
 };
 ```
 
-- Set the threshold for image assets to 5KiB, do not inline video assets:
+- Set the threshold for image assets to 5KiB and do not inline video assets:
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     dataUriLimit: {

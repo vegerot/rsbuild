@@ -1,27 +1,42 @@
-import type { RsbuildPluginAPI, Rspack } from '@rsbuild/core';
+import type {
+  NormalizedEnvironmentConfig,
+  RsbuildPluginAPI,
+  Rspack,
+} from '@rsbuild/core';
 import type { SplitReactChunkOptions } from './index.js';
 
-const isPlainObject = (obj: unknown): obj is Record<string, any> =>
-  obj !== null &&
-  typeof obj === 'object' &&
-  Object.prototype.toString.call(obj) === '[object Object]';
+const isDefaultPreset = (config: NormalizedEnvironmentConfig) => {
+  const { performance, splitChunks } = config;
+  // Compatible with legacy `performance.chunkSplit` option
+  if (performance.chunkSplit) {
+    return performance.chunkSplit?.strategy === 'split-by-experience';
+  }
+  if (typeof splitChunks === 'object') {
+    return !splitChunks.preset || splitChunks.preset === 'default';
+  }
+  return false;
+};
 
-export const applySplitChunksRule = (
+export function applySplitChunksRule(
   api: RsbuildPluginAPI,
-  options: SplitReactChunkOptions = {
-    react: true,
-    router: true,
-  },
-): void => {
+  options: SplitReactChunkOptions | boolean,
+): void {
   api.modifyBundlerChain((chain, { environment, isProd }) => {
     const { config } = environment;
-    if (config.performance.chunkSplit.strategy !== 'split-by-experience') {
+    if (
+      !isDefaultPreset(config) ||
+      config.output.target !== 'web' ||
+      options === false
+    ) {
       return;
     }
 
+    const normalizedOptions =
+      options === true ? { react: true, router: true } : options;
+
     const currentConfig =
       chain.optimization.splitChunks.values() as Rspack.Optimization['splitChunks'];
-    if (!isPlainObject(currentConfig)) {
+    if (typeof currentConfig !== 'object') {
       return;
     }
 
@@ -30,7 +45,7 @@ export const applySplitChunksRule = (
       Rspack.OptimizationSplitChunksCacheGroup
     > = {};
 
-    if (options.react) {
+    if (normalizedOptions.react) {
       extraGroups.react = {
         name: 'lib-react',
         test: isProd
@@ -40,7 +55,7 @@ export const applySplitChunksRule = (
       };
     }
 
-    if (options.router) {
+    if (normalizedOptions.router) {
       extraGroups.router = {
         name: 'lib-router',
         test: /node_modules[\\/](?:react-router|react-router-dom|history|@remix-run[\\/]router)[\\/]/,
@@ -61,4 +76,4 @@ export const applySplitChunksRule = (
       },
     });
   });
-};
+}

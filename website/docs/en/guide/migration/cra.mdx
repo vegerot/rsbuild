@@ -1,3 +1,7 @@
+---
+description: 'This chapter introduces how to migrate a Create React App (CRA) or CRACO project to Rsbuild.'
+---
+
 # Create React App
 
 This chapter introduces how to migrate a [Create React App](https://github.com/facebook/create-react-app) (CRA) or [CRACO](https://craco.js.org/) project to Rsbuild.
@@ -8,6 +12,16 @@ If your project has already run the CRA `eject` command, then most of the conten
 After ejecting a CRA project, it becomes more like a project directly using webpack, so you can refer to the [webpack migration guide](/guide/migration/webpack).
 
 :::
+
+## Using Agent Skills
+
+If you are using a coding agent that supports Skills, install the [migrate-cra-to-rsbuild](https://github.com/rstackjs/agent-skills#migrate-cra-to-rsbuild) skill to help with the migration process.
+
+```bash
+npx skills add rstackjs/agent-skills --skill migrate-cra-to-rsbuild
+```
+
+After installation, let the coding agent guide you through the migration process.
 
 ## Installing dependencies
 
@@ -35,7 +49,7 @@ Next, you need to update the npm scripts in package.json to Rsbuild's CLI comman
     "start": "react-scripts start", // [!code --]
     "build": "react-scripts build", // [!code --]
     "eject": "react-scripts eject", // [!code --]
-    "start": "rsbuild dev", // [!code ++]
+    "start": "rsbuild", // [!code ++]
     "build": "rsbuild build", // [!code ++]
     "preview": "rsbuild preview" // [!code ++]
   }
@@ -43,7 +57,7 @@ Next, you need to update the npm scripts in package.json to Rsbuild's CLI comman
 ```
 
 :::tip
-Rsbuild does not integrate testing frameworks, so it does not provide a command to replace `react-scripts test`. You can directly use testing frameworks such as [Rstest](https://github.com/web-infra-dev/rstest), Jest or Vitest. You can refer to the [Rsbuild react-rstest](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/react-rstest) or [Rsbuild react-jest](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/react-jest) example project for configuration.
+Rsbuild doesn't include built-in testing frameworks, so it does not provide a command to replace `react-scripts test`. You can directly use testing frameworks such as [Rstest](https://github.com/web-infra-dev/rstest), Jest or Vitest. Check the [Testing](/guide/advanced/testing) section for more details.
 :::
 
 ## Creating configuration file
@@ -153,7 +167,7 @@ Here is the corresponding Rsbuild configuration for [CRA configuration](https://
 | GENERATE_SOURCEMAP      | [output.sourceMap](/config/output/source-map)                                                   |
 | IMAGE_INLINE_SIZE_LIMIT | [output.dataUriLimit](/config/output/data-uri-limit)                                            |
 | FAST_REFRESH            | [dev.hmr](/config/dev/hmr)                                                                      |
-| TSC_COMPILE_ON_ERROR    | [@rsbuild/plugin-type-check](https://github.com/rspack-contrib/rsbuild-plugin-type-check)       |
+| TSC_COMPILE_ON_ERROR    | [@rsbuild/plugin-type-check](https://github.com/rstackjs/rsbuild-plugin-type-check)             |
 
 Notes:
 
@@ -274,7 +288,11 @@ import 'react-app-polyfill/ie11'; // [!code --]
 import 'react-app-polyfill/stable'; // [!code --]
 ```
 
-2. Configure [output.polyfill](/config/output/polyfill):
+2. Install `core-js`:
+
+<PackageManagerTabs command="add core-js" />
+
+3. Configure [output.polyfill](/config/output/polyfill):
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -311,7 +329,7 @@ Then, you can use the `npm run lint` command to run ESLint.
 
 ### Run ESLint during the build
 
-In addition to adding the `lint` command in `package.json`, you can also add the [@rsbuild/plugin-eslint](https://github.com/rspack-contrib/rsbuild-plugin-eslint) plugin to maintain the same behavior as CRA.
+In addition to adding the `lint` command in `package.json`, you can also add the [@rsbuild/plugin-eslint](https://github.com/rstackjs/rsbuild-plugin-eslint) plugin to maintain the same behavior as CRA.
 
 `@rsbuild/plugin-eslint` allows you to run ESLint during the build process.
 
@@ -339,19 +357,19 @@ To use this feature in Rsbuild, refer to the [Path Alias - jsconfig.json](/guide
 
 If your project is using [CRACO](https://craco.js.org) to override CRA configuration, you can refer to the table below for migration:
 
-| CRACO                                                                                           | Rsbuild                                                                                   |
-| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [webpack.configure](https://craco.js.org/docs/configuration/webpack/#webpackconfigure)          | [tools.rspack](/config/tools/rspack)                                                      |
-| [webpack.alias](https://craco.js.org/docs/configuration/webpack/#webpackalias)                  | [resolve.alias](/config/resolve/alias)                                                    |
-| [webpack.plugins.add](https://craco.js.org/docs/configuration/webpack/#webpackplugins)          | [appendPlugins of tools.rspack](/config/tools/rspack#appendplugins)                       |
-| [webpack.plugins.remove](https://craco.js.org/docs/configuration/webpack/#webpackpluginsremove) | [removePlugin of tools.rspack](/config/tools/rspack#removeplugin)                         |
-| [style.modules](https://craco.js.org/docs/configuration/style/#stylemodules)                    | [output.cssModules](/config/output/css-modules)                                           |
-| [style.css](https://craco.js.org/docs/configuration/style/#stylecss)                            | [tools.cssLoader](/config/tools/css-loader)                                               |
-| [style.sass](https://craco.js.org/docs/configuration/style/#stylesass)                          | [Sass Plugin](/plugins/list/plugin-sass)                                                  |
-| [style.postcss](https://craco.js.org/docs/configuration/style/#stylepostcss)                    | [tools.postcss](/config/tools/postcss)                                                    |
-| [babel](https://craco.js.org/docs/configuration/babel/)                                         | [Babel Plugin](/plugins/list/plugin-babel)                                                |
-| [typescript](https://craco.js.org/docs/configuration/typescript/)                               | [@rsbuild/plugin-type-check](https://github.com/rspack-contrib/rsbuild-plugin-type-check) |
-| [devServer](https://craco.js.org/docs/configuration/devserver/)                                 | [server configs](/config/index)                                                           |
+| CRACO                                                                                           | Rsbuild                                                                             |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [webpack.configure](https://craco.js.org/docs/configuration/webpack/#webpackconfigure)          | [tools.rspack](/config/tools/rspack)                                                |
+| [webpack.alias](https://craco.js.org/docs/configuration/webpack/#webpackalias)                  | [resolve.alias](/config/resolve/alias)                                              |
+| [webpack.plugins.add](https://craco.js.org/docs/configuration/webpack/#webpackplugins)          | [appendPlugins of tools.rspack](/config/tools/rspack#appendplugins)                 |
+| [webpack.plugins.remove](https://craco.js.org/docs/configuration/webpack/#webpackpluginsremove) | [removePlugin of tools.rspack](/config/tools/rspack#removeplugin)                   |
+| [style.modules](https://craco.js.org/docs/configuration/style/#stylemodules)                    | [output.cssModules](/config/output/css-modules)                                     |
+| [style.css](https://craco.js.org/docs/configuration/style/#stylecss)                            | [tools.cssLoader](/config/tools/css-loader)                                         |
+| [style.sass](https://craco.js.org/docs/configuration/style/#stylesass)                          | [Sass Plugin](/plugins/list/plugin-sass)                                            |
+| [style.postcss](https://craco.js.org/docs/configuration/style/#stylepostcss)                    | [tools.postcss](/config/tools/postcss)                                              |
+| [babel](https://craco.js.org/docs/configuration/babel/)                                         | [Babel Plugin](/plugins/list/plugin-babel)                                          |
+| [typescript](https://craco.js.org/docs/configuration/typescript/)                               | [@rsbuild/plugin-type-check](https://github.com/rstackjs/rsbuild-plugin-type-check) |
+| [devServer](https://craco.js.org/docs/configuration/devserver/)                                 | [server configs](/config/index)                                                     |
 
 ### Example
 

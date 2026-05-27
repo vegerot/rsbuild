@@ -1,8 +1,9 @@
 import path from 'node:path';
 import { createRsbuild } from '../createRsbuild';
-import { castArray, ensureAbsolutePath } from '../helpers';
+import { castArray } from '../helpers';
+import { ensureAbsolutePath } from '../helpers/path';
 import { loadConfig as baseLoadConfig } from '../loadConfig';
-import { logger } from '../logger';
+import { defaultLogger } from '../logger';
 import { watchFilesForRestart } from '../restart';
 import type { RsbuildInstance } from '../types';
 import type { CommonOptions } from './commands';
@@ -48,7 +49,7 @@ const loadConfig = async (root: string) => {
     config.server.open = commonOpts.open;
   }
 
-  if (commonOpts.host) {
+  if (commonOpts.host !== undefined) {
     config.server.host = commonOpts.host;
   }
 
@@ -89,9 +90,13 @@ export async function init({
   }
 
   // Build multiple environments can be shortened to: --environment name1,name2
-  commonOpts.environment = commonOpts.environment?.flatMap((env) =>
-    env.split(','),
-  );
+  if (commonOpts.environment?.some((env) => env.includes(','))) {
+    commonOpts.environment = commonOpts.environment.flatMap((env) =>
+      env.split(','),
+    );
+  }
+
+  let logger = defaultLogger;
 
   try {
     const cwd = process.cwd();
@@ -101,7 +106,7 @@ export async function init({
 
     const rsbuild = await createRsbuild({
       cwd: root,
-      rsbuildConfig: () => loadConfig(root),
+      config: () => loadConfig(root),
       environment: commonOpts.environment,
       loadEnv:
         commonOpts.env === false
@@ -111,6 +116,7 @@ export async function init({
               mode: commonOpts.envMode,
             },
     });
+    logger = rsbuild.logger;
 
     rsbuild.onBeforeCreateCompiler(() => {
       // Skip watching files when not in dev mode or not in build watch mode

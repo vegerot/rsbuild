@@ -1,21 +1,38 @@
-import type { RsbuildPluginAPI, Rspack } from '@rsbuild/core';
+import type {
+  NormalizedEnvironmentConfig,
+  RsbuildPluginAPI,
+  Rspack,
+} from '@rsbuild/core';
 import type { SplitVueChunkOptions } from './index.js';
 
-const isPlainObject = (obj: unknown): obj is Record<string, any> =>
+const isPlainObject = (obj: unknown): obj is Record<string, unknown> =>
   obj !== null &&
   typeof obj === 'object' &&
   Object.prototype.toString.call(obj) === '[object Object]';
 
-export const applySplitChunksRule = (
+const isDefaultPreset = (config: NormalizedEnvironmentConfig) => {
+  const { performance, splitChunks } = config;
+
+  // Compatible with legacy `performance.chunkSplit` option
+  if (performance.chunkSplit) {
+    return performance.chunkSplit?.strategy === 'split-by-experience';
+  }
+  if (typeof splitChunks === 'object') {
+    return !splitChunks.preset || splitChunks.preset === 'default';
+  }
+  return false;
+};
+
+export function applySplitChunksRule(
   api: RsbuildPluginAPI,
   options: SplitVueChunkOptions = {
     vue: true,
     router: true,
   },
-): void => {
+): void {
   api.modifyBundlerChain((chain, { environment }) => {
     const { config } = environment;
-    if (config.performance.chunkSplit.strategy !== 'split-by-experience') {
+    if (!isDefaultPreset(config) || config.output.target !== 'web') {
       return;
     }
 
@@ -33,7 +50,7 @@ export const applySplitChunksRule = (
     if (options.vue) {
       extraGroups.vue = {
         name: 'lib-vue',
-        test: /node_modules[\\/](?:vue|vue-loader|@vue[\\/]shared|@vue[\\/]reactivity|@vue[\\/]runtime-dom|@vue[\\/]runtime-core)[\\/]/,
+        test: /node_modules[\\/](?:vue|rspack-vue-loader|@vue[\\/]shared|@vue[\\/]reactivity|@vue[\\/]runtime-dom|@vue[\\/]runtime-core)[\\/]/,
         priority: 0,
       };
     }
@@ -59,4 +76,4 @@ export const applySplitChunksRule = (
       },
     });
   });
-};
+}

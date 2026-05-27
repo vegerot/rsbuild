@@ -5,9 +5,9 @@ exports[`svgr > configure SVGR options 1`] = `
   "oneOf": [
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
-      "resourceQuery": /\\^\\\\\\?\\(__inline=false\\|url\\)\\$/,
+      "resourceQuery": /\\^\\\\\\?url\\$/,
       "type": "asset/resource",
     },
     {
@@ -25,13 +25,17 @@ exports[`svgr > configure SVGR options 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -46,23 +50,15 @@ exports[`svgr > configure SVGR options 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -92,7 +88,7 @@ exports[`svgr > configure SVGR options 1`] = `
     },
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
       "parser": {
         "dataUrlCondition": {
@@ -111,9 +107,9 @@ exports[`svgr > exportType default / mixedImport false 1`] = `
   "oneOf": [
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
-      "resourceQuery": /\\^\\\\\\?\\(__inline=false\\|url\\)\\$/,
+      "resourceQuery": /\\^\\\\\\?url\\$/,
       "type": "asset/resource",
     },
     {
@@ -131,13 +127,17 @@ exports[`svgr > exportType default / mixedImport false 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -152,23 +152,15 @@ exports[`svgr > exportType default / mixedImport false 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -205,13 +197,17 @@ exports[`svgr > exportType default / mixedImport false 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -226,23 +222,15 @@ exports[`svgr > exportType default / mixedImport false 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -271,7 +259,7 @@ exports[`svgr > exportType default / mixedImport false 1`] = `
     },
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
       "parser": {
         "dataUrlCondition": {
@@ -290,9 +278,9 @@ exports[`svgr > exportType default / mixedImport true 1`] = `
   "oneOf": [
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
-      "resourceQuery": /\\^\\\\\\?\\(__inline=false\\|url\\)\\$/,
+      "resourceQuery": /\\^\\\\\\?url\\$/,
       "type": "asset/resource",
     },
     {
@@ -310,13 +298,17 @@ exports[`svgr > exportType default / mixedImport true 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -331,23 +323,15 @@ exports[`svgr > exportType default / mixedImport true 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -384,13 +368,17 @@ exports[`svgr > exportType default / mixedImport true 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -405,23 +393,15 @@ exports[`svgr > exportType default / mixedImport true 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -450,7 +430,7 @@ exports[`svgr > exportType default / mixedImport true 1`] = `
     },
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
       "parser": {
         "dataUrlCondition": {
@@ -469,9 +449,9 @@ exports[`svgr > exportType named / mixedImport false 1`] = `
   "oneOf": [
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
-      "resourceQuery": /\\^\\\\\\?\\(__inline=false\\|url\\)\\$/,
+      "resourceQuery": /\\^\\\\\\?url\\$/,
       "type": "asset/resource",
     },
     {
@@ -489,13 +469,17 @@ exports[`svgr > exportType named / mixedImport false 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -510,23 +494,15 @@ exports[`svgr > exportType named / mixedImport false 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -563,13 +539,17 @@ exports[`svgr > exportType named / mixedImport false 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -584,23 +564,15 @@ exports[`svgr > exportType named / mixedImport false 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -629,7 +601,7 @@ exports[`svgr > exportType named / mixedImport false 1`] = `
     },
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
       "parser": {
         "dataUrlCondition": {
@@ -648,9 +620,9 @@ exports[`svgr > exportType named / mixedImport true 1`] = `
   "oneOf": [
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
-      "resourceQuery": /\\^\\\\\\?\\(__inline=false\\|url\\)\\$/,
+      "resourceQuery": /\\^\\\\\\?url\\$/,
       "type": "asset/resource",
     },
     {
@@ -668,13 +640,17 @@ exports[`svgr > exportType named / mixedImport true 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -689,23 +665,15 @@ exports[`svgr > exportType named / mixedImport true 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -742,13 +710,17 @@ exports[`svgr > exportType named / mixedImport true 1`] = `
         {
           "loader": "builtin:swc-loader",
           "options": {
+            "collectTypeScriptInfo": {
+              "exportedEnum": false,
+              "typeExports": true,
+            },
+            "detectSyntax": "auto",
             "env": {
-              "mode": undefined,
               "targets": [
-                "chrome >= 87",
-                "edge >= 88",
-                "firefox >= 78",
-                "safari >= 14",
+                "chrome >= 107",
+                "edge >= 107",
+                "firefox >= 104",
+                "safari >= 16",
               ],
             },
             "isModule": "unknown",
@@ -763,23 +735,15 @@ exports[`svgr > exportType named / mixedImport true 1`] = `
               },
               "parser": {
                 "decorators": true,
-                "syntax": "typescript",
-                "tsx": true,
               },
               "transform": {
-                "decoratorVersion": "2022-03",
+                "decoratorVersion": "2023-11",
                 "legacyDecorator": false,
                 "react": {
-                  "development": false,
+                  "development": true,
                   "refresh": false,
                   "runtime": "automatic",
                 },
-              },
-            },
-            "rspackExperiments": {
-              "collectTypeScriptInfo": {
-                "exportedEnum": false,
-                "typeExports": true,
               },
             },
           },
@@ -805,17 +769,17 @@ exports[`svgr > exportType named / mixedImport true 1`] = `
           },
         },
         {
-          "loader": "<ROOT>/packages/plugin-svgr/compiled/url-loader/index.js",
+          "loader": "<ROOT>/packages/plugin-svgr/src/assetLoader.mjs",
           "options": {
             "limit": 4096,
-            "name": "static/svg/[name].[contenthash:8].svg",
+            "name": "static/svg/[name].[contenthash:10].svg",
           },
         },
       ],
     },
     {
       "generator": {
-        "filename": "static/svg/[name].[contenthash:8].svg",
+        "filename": "static/svg/[name].[contenthash:10].svg",
       },
       "parser": {
         "dataUrlCondition": {

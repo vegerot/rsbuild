@@ -1,13 +1,10 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 test('should import default from SVG with custom query correctly', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-  });
+  await buildPreview();
 
   await expect(
     page.evaluate(`document.getElementById('component').tagName === 'svg'`),
@@ -17,6 +14,4 @@ test('should import default from SVG with custom query correctly', async ({
   await expect(
     page.evaluate(`document.getElementById('url').src`),
   ).resolves.toMatch(/http:/);
-
-  await rsbuild.close();
 });

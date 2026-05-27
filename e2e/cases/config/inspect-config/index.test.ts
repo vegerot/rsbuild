@@ -1,158 +1,142 @@
 import fs from 'node:fs';
 import path, { join } from 'node:path';
-import { createRsbuild, proxyConsole, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import type { RsbuildPlugin } from '@rsbuild/core';
-import { remove, removeSync } from 'fs-extra';
+import { createRsbuild } from '@rsbuild/core';
+import fse from 'fs-extra';
 
 test.afterAll(() => {
-  const files = fs.readdirSync(__dirname);
+  const files = fs.readdirSync(import.meta.dirname);
   for (const file of files) {
     if (file.startsWith('test-temp') || file.startsWith('dist')) {
-      removeSync(join(__dirname, file));
+      fse.removeSync(join(import.meta.dirname, file));
     }
   }
 });
 
 const rsbuildConfig = path.resolve(
-  __dirname,
+  import.meta.dirname,
   './dist/.rsbuild/rsbuild.config.mjs',
 );
 
 const rsbuildNodeConfig = path.resolve(
-  __dirname,
+  import.meta.dirname,
   './dist/.rsbuild/rsbuild.config.node.mjs',
 );
-const bundlerConfig = path.resolve(
-  __dirname,
-  `./dist/.rsbuild/${process.env.PROVIDE_TYPE || 'rspack'}.config.web.mjs`,
+const rspackConfig = path.resolve(
+  import.meta.dirname,
+  `./dist/.rsbuild/rspack.config.web.mjs`,
 );
 const bundlerNodeConfig = path.resolve(
-  __dirname,
-  `./dist/.rsbuild/${process.env.PROVIDE_TYPE || 'rspack'}.config.node.mjs`,
+  import.meta.dirname,
+  `./dist/.rsbuild/rspack.config.node.mjs`,
 );
 
 const INSPECT_LOG = 'config inspection completed';
 
-rspackOnlyTest(
-  'should generate config files when writeToDisk is true',
-  async () => {
-    const { expectLog, restore } = proxyConsole();
+test('should generate config files when writeToDisk is true', async ({
+  logHelper,
+}) => {
+  const { expectLog } = logHelper;
 
-    const rsbuild = await createRsbuild({
-      cwd: __dirname,
-    });
-    await rsbuild.inspectConfig({
-      writeToDisk: true,
-    });
+  const rsbuild = await createRsbuild({
+    cwd: import.meta.dirname,
+  });
+  await rsbuild.inspectConfig({
+    writeToDisk: true,
+  });
 
-    expect(fs.existsSync(bundlerConfig)).toBeTruthy();
-    expect(fs.existsSync(rsbuildConfig)).toBeTruthy();
-    await expectLog(INSPECT_LOG);
+  expect(fs.existsSync(rspackConfig)).toBeTruthy();
+  expect(fs.existsSync(rsbuildConfig)).toBeTruthy();
+  await expectLog(INSPECT_LOG);
 
-    await remove(rsbuildConfig);
-    await remove(bundlerConfig);
+  await fse.remove(rsbuildConfig);
+  await fse.remove(rspackConfig);
+});
 
-    restore();
-  },
-);
+test('should generate config files correctly when output is specified', async ({
+  logHelper,
+}) => {
+  const { expectLog } = logHelper;
 
-rspackOnlyTest(
-  'should generate config files correctly when output is specified',
-  async () => {
-    const { expectLog, restore } = proxyConsole();
+  const rsbuild = await createRsbuild({
+    cwd: import.meta.dirname,
+  });
+  await rsbuild.inspectConfig({
+    writeToDisk: true,
+    outputPath: 'foo',
+  });
 
-    const rsbuild = await createRsbuild({
-      cwd: __dirname,
-    });
-    await rsbuild.inspectConfig({
-      writeToDisk: true,
-      outputPath: 'foo',
-    });
+  const rspackConfig = path.resolve(
+    import.meta.dirname,
+    `./dist/foo/rspack.config.web.mjs`,
+  );
 
-    const bundlerConfig = path.resolve(
-      __dirname,
-      `./dist/foo/${process.env.PROVIDE_TYPE || 'rspack'}.config.web.mjs`,
-    );
+  const rsbuildConfig = path.resolve(
+    import.meta.dirname,
+    './dist/foo/rsbuild.config.mjs',
+  );
 
-    const rsbuildConfig = path.resolve(
-      __dirname,
-      './dist/foo/rsbuild.config.mjs',
-    );
+  expect(fs.existsSync(rspackConfig)).toBeTruthy();
+  expect(fs.existsSync(rsbuildConfig)).toBeTruthy();
+  await expectLog(INSPECT_LOG);
 
-    expect(fs.existsSync(bundlerConfig)).toBeTruthy();
-    expect(fs.existsSync(rsbuildConfig)).toBeTruthy();
-    await expectLog(INSPECT_LOG);
+  await fse.remove(rsbuildConfig);
+  await fse.remove(rspackConfig);
+});
 
-    await remove(rsbuildConfig);
-    await remove(bundlerConfig);
+test('should generate bundler config for node when target contains node', async ({
+  logHelper,
+}) => {
+  const { expectLog } = logHelper;
 
-    restore();
-  },
-);
-
-rspackOnlyTest(
-  'should generate bundler config for node when target contains node',
-  async () => {
-    const { expectLog, restore } = proxyConsole();
-
-    const rsbuild = await createRsbuild({
-      cwd: __dirname,
-      rsbuildConfig: {
-        environments: {
-          web: {
-            output: {
-              target: 'web',
-            },
-          },
-          node: {
-            output: {
-              target: 'node',
-            },
+  const rsbuild = await createRsbuild({
+    cwd: import.meta.dirname,
+    config: {
+      environments: {
+        web: {},
+        node: {
+          output: {
+            target: 'node',
           },
         },
       },
-    });
-    await rsbuild.inspectConfig({
-      writeToDisk: true,
-    });
+    },
+  });
+  await rsbuild.inspectConfig({
+    writeToDisk: true,
+  });
 
-    expect(fs.existsSync(rsbuildNodeConfig)).toBeTruthy();
-    expect(fs.existsSync(bundlerConfig)).toBeTruthy();
-    expect(fs.existsSync(bundlerNodeConfig)).toBeTruthy();
-    await expectLog(INSPECT_LOG);
+  expect(fs.existsSync(rsbuildNodeConfig)).toBeTruthy();
+  expect(fs.existsSync(rspackConfig)).toBeTruthy();
+  expect(fs.existsSync(bundlerNodeConfig)).toBeTruthy();
+  await expectLog(INSPECT_LOG);
 
-    await remove(rsbuildConfig);
-    await remove(rsbuildNodeConfig);
-    await remove(bundlerConfig);
-    await remove(bundlerNodeConfig);
+  await fse.remove(rsbuildConfig);
+  await fse.remove(rsbuildNodeConfig);
+  await fse.remove(rspackConfig);
+  await fse.remove(bundlerNodeConfig);
+});
 
-    restore();
-  },
-);
+test('should not generate config files when writeToDisk is false', async () => {
+  const rsbuild = await createRsbuild({
+    cwd: import.meta.dirname,
+  });
+  await rsbuild.inspectConfig({
+    writeToDisk: false,
+  });
 
-rspackOnlyTest(
-  'should not generate config files when writeToDisk is false',
-  async () => {
-    const rsbuild = await createRsbuild({
-      cwd: __dirname,
-    });
-    await rsbuild.inspectConfig({
-      writeToDisk: false,
-    });
+  expect(fs.existsSync(rsbuildConfig)).toBeFalsy();
+  expect(fs.existsSync(rspackConfig)).toBeFalsy();
+});
 
-    expect(fs.existsSync(rsbuildConfig)).toBeFalsy();
-    expect(fs.existsSync(bundlerConfig)).toBeFalsy();
-  },
-);
-
-rspackOnlyTest('should allow to specify absolute output path', async () => {
-  const { expectLog, restore } = proxyConsole();
+test('should allow to specify absolute output path', async ({ logHelper }) => {
+  const { expectLog } = logHelper;
 
   const rsbuild = await createRsbuild({
-    cwd: __dirname,
+    cwd: import.meta.dirname,
   });
-  const outputPath = path.join(__dirname, 'test-temp-output');
+  const outputPath = path.join(import.meta.dirname, 'test-temp-output');
 
   await rsbuild.inspectConfig({
     writeToDisk: true,
@@ -165,16 +149,14 @@ rspackOnlyTest('should allow to specify absolute output path', async () => {
     fs.existsSync(path.join(outputPath, 'rspack.config.web.mjs')),
   ).toBeTruthy();
 
-  await remove(rsbuildConfig);
-
-  restore();
+  await fse.remove(rsbuildConfig);
 });
 
-rspackOnlyTest('should generate extra config files', async () => {
-  const { expectLog, restore } = proxyConsole();
+test('should generate extra config files', async ({ logHelper }) => {
+  const { expectLog } = logHelper;
 
   const rsbuild = await createRsbuild({
-    cwd: __dirname,
+    cwd: import.meta.dirname,
   });
   await rsbuild.inspectConfig({
     writeToDisk: true,
@@ -186,20 +168,16 @@ rspackOnlyTest('should generate extra config files', async () => {
   });
 
   const rstestConfig = path.resolve(
-    __dirname,
+    import.meta.dirname,
     './dist/.rsbuild/rstest.config.mjs',
   );
 
   expect(fs.existsSync(rstestConfig)).toBeTruthy();
   await expectLog('Rstest Config:');
-  await remove(rstestConfig);
-
-  restore();
+  await fse.remove(rstestConfig);
 });
 
-rspackOnlyTest('should apply plugin correctly', async () => {
-  const { restore } = proxyConsole();
-
+test('should apply plugin correctly', async () => {
   let servePluginApplied = false;
   let buildPluginApplied = false;
 
@@ -220,8 +198,8 @@ rspackOnlyTest('should apply plugin correctly', async () => {
   };
 
   const rsbuild1 = await createRsbuild({
-    cwd: __dirname,
-    rsbuildConfig: {
+    cwd: import.meta.dirname,
+    config: {
       mode: 'development',
       plugins: [servePlugin, buildPlugin],
     },
@@ -234,8 +212,8 @@ rspackOnlyTest('should apply plugin correctly', async () => {
   servePluginApplied = false;
 
   const rsbuild2 = await createRsbuild({
-    cwd: __dirname,
-    rsbuildConfig: {
+    cwd: import.meta.dirname,
+    config: {
       mode: 'production',
       plugins: [servePlugin, buildPlugin],
     },
@@ -244,6 +222,4 @@ rspackOnlyTest('should apply plugin correctly', async () => {
 
   expect(servePluginApplied).toBe(false);
   expect(buildPluginApplied).toBe(true);
-
-  restore();
 });

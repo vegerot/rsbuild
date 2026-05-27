@@ -1,17 +1,20 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { build, dev, mapSourceMapPositions, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import {
+  expect,
+  getDistFiles,
+  getFileContent,
+  mapSourceMapPositions,
+  test,
+} from '@e2e/helper';
 
 const expectSourceMap = async (files: Record<string, string>) => {
   const sourceCode = readFileSync(
-    path.join(__dirname, 'src/index.ts'),
+    path.join(import.meta.dirname, 'src/index.ts'),
     'utf-8',
   );
-  const outputCode =
-    files[Object.keys(files).find((file) => file.endsWith('index.js'))!];
-  const sourceMap =
-    files[Object.keys(files).find((file) => file.endsWith('index.js.map'))!];
+  const outputCode = getFileContent(files, 'index.js');
+  const sourceMap = getFileContent(files, 'index.js.map');
 
   const argsPosition = outputCode.indexOf('"args"');
   const helloPosition = outputCode.indexOf('"hello"');
@@ -30,13 +33,13 @@ const expectSourceMap = async (files: Record<string, string>) => {
   const sourceLines = sourceCode.split('\n');
   expect(positions).toEqual([
     {
-      source: 'webpack:///src/index.ts',
+      source: '../../../src/index.ts',
       line: 2,
       column: sourceLines[1].indexOf(`'args'`),
       name: null,
     },
     {
-      source: 'webpack:///src/index.ts',
+      source: '../../../src/index.ts',
       line: 5,
       column: sourceLines[4].indexOf(`'hello'`),
       name: null,
@@ -44,29 +47,20 @@ const expectSourceMap = async (files: Record<string, string>) => {
   ]);
 };
 
-rspackOnlyTest(
-  'should merge source map when plugin transforms code in build',
-  async () => {
-    const rsbuild = await build({
-      cwd: __dirname,
-    });
-    const files = await rsbuild.getDistFiles({ sourceMaps: true });
+test('should merge source map when plugin transforms code in build', async ({
+  build,
+}) => {
+  const rsbuild = await build();
+  const files = rsbuild.getDistFiles({ sourceMaps: true });
 
-    await expectSourceMap(files);
-    await rsbuild.close();
-  },
-);
+  await expectSourceMap(files);
+});
 
-rspackOnlyTest(
-  'should merge source map when plugin transforms code in dev',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-    });
-    const files = await rsbuild.getDistFiles({ sourceMaps: true });
+test('should merge source map when plugin transforms code in dev', async ({
+  dev,
+}) => {
+  const rsbuild = await dev();
+  const files = await getDistFiles(rsbuild.distPath, true);
 
-    await expectSourceMap(files);
-    await rsbuild.close();
-  },
-);
+  await expectSourceMap(files);
+});

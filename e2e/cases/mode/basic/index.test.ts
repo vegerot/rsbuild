@@ -1,88 +1,94 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-test('should allow to set development mode when building', async () => {
+test('should allow to set development mode when building', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       mode: 'development',
     },
   });
 
-  const files = await rsbuild.getDistFiles({ sourceMaps: true });
+  const files = rsbuild.getDistFiles({ sourceMaps: true });
 
   // should not have filename hash in dev
-  const indexFile = Object.keys(files).find((key) =>
-    key.endsWith('static/js/index.js'),
-  )!;
+  const indexJs = getFileContent(files, 'static/js/index.js');
 
   // should replace `process.env.NODE_ENV` with `'development'`
-  expect(files[indexFile]).toContain('this is development mode!');
+  expect(indexJs).toContain('this is development mode!');
 
   // should not remove comments
-  expect(files[indexFile]).toContain('// this is a comment');
+  expect(indexJs).toContain('// this is a comment');
 
   // should have JavaScript source map
-  const indexSourceMap = Object.keys(files).find((key) =>
-    key.endsWith('static/js/index.js.map'),
-  );
-  expect(indexSourceMap).toBeTruthy();
+  expect(() => getFileContent(files, 'static/js/index.js.map')).not.toThrow();
 });
 
-test('should allow to set none mode when building', async () => {
+test('should allow to set none mode when building', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       mode: 'none',
     },
   });
 
-  const files = await rsbuild.getDistFiles({ sourceMaps: true });
+  const files = rsbuild.getDistFiles({ sourceMaps: true });
 
   // should not have filename hash in none mode
-  const indexFile = Object.keys(files).find((key) =>
-    key.endsWith('static/js/index.js'),
-  )!;
+  const indexJs = getFileContent(files, 'static/js/index.js');
 
-  expect(files[indexFile]).toContain('this is none mode!');
+  expect(indexJs).toContain('this is none mode!');
 
   // should not remove comments
-  expect(files[indexFile]).toContain('// this is a comment');
+  expect(indexJs).toContain('// this is a comment');
 });
 
-rspackOnlyTest(
-  'should allow to set production mode when starting dev server',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
-        mode: 'production',
-        dev: {
-          writeToDisk: true,
-        },
-      },
-    });
+test('should allow to set production mode when starting dev server', async ({
+  page,
+  dev,
+  logHelper,
+}) => {
+  const browserErrors: string[] = [];
+  const pageErrors: string[] = [];
 
-    const files = await rsbuild.getDistFiles({ sourceMaps: true });
+  page.on('console', (consoleMessage) => {
+    const text = consoleMessage.text();
+    logHelper.addLog(text);
+    if (consoleMessage.type() === 'error') {
+      browserErrors.push(text);
+    }
+  });
+  page.on('pageerror', (error) => {
+    pageErrors.push(error.message);
+  });
 
-    // should have filename hash in build
-    const indexFile = Object.keys(files).find((key) =>
-      key.match(/static\/js\/index\.\w+\.js/),
-    )!;
+  const rsbuild = await dev({
+    config: {
+      mode: 'production',
+    },
+  });
 
-    // should replace `process.env.NODE_ENV` with `'production'`
-    expect(files[indexFile]).toContain('this is production mode!');
+  const files = rsbuild.getDistFiles({ sourceMaps: true });
 
-    // should remove comments
-    expect(files[indexFile]).not.toContain('// this is a comment');
+  // should have filename hash in build
+  const indexJs = getFileContent(
+    files,
+    (key) => /static\/js\/index\.\w+\.js/.test(key),
+    { ignoreHash: false },
+  );
 
-    // should not have JavaScript source map
-    const indexSourceMap = Object.keys(files).find((key) =>
-      key.endsWith('.js.map'),
-    );
-    expect(indexSourceMap).toBeFalsy();
+  // should replace `process.env.NODE_ENV` with `'production'`
+  expect(indexJs).toContain('this is production mode!');
 
-    await rsbuild.close();
-  },
-);
+  // should print the expected runtime log after page visit
+  await logHelper.expectLog('this is production mode!');
+
+  // should not have runtime errors in browser
+  expect(browserErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+
+  // should remove comments
+  expect(indexJs).not.toContain('// this is a comment');
+
+  // should not have JavaScript source map
+  expect(() => getFileContent(files, '.js.map')).toThrow();
+});

@@ -1,7 +1,8 @@
 import cac, { type CAC, type Command } from 'cac';
+import { RSPACK_BUILD_ERROR } from '../build';
+import { color } from '../helpers';
 import type { ConfigLoader } from '../loadConfig';
-import { logger } from '../logger';
-import { RSPACK_BUILD_ERROR } from '../provider/build';
+import { defaultLogger } from '../logger';
 import { onBeforeRestartServer } from '../restart';
 import type { LogLevel, RsbuildMode } from '../types';
 import { init } from './init';
@@ -16,7 +17,7 @@ export type CommonOptions = {
   envDir?: string;
   envMode?: string;
   open?: boolean | string;
-  host?: string;
+  host?: true | string;
   port?: number;
   environment?: string[];
   logLevel?: LogLevel;
@@ -45,9 +46,9 @@ const applyCommonOptions = (cli: CAC) => {
     )
     .option(
       '--config-loader <loader>',
-      'Set the config file loader (jiti | native)',
+      'Set the config file loader (auto | jiti | native)',
       {
-        default: 'jiti',
+        default: 'auto',
       },
     )
     .option('--env-dir <dir>', 'Set the directory for loading `.env` files')
@@ -78,20 +79,19 @@ const applyServerOptions = (command: Command) => {
   command
     .option('-o, --open [url]', 'Open the page in browser on startup')
     .option('--port <port>', 'Set the port number for the server')
-    .option('--host <host>', 'Set the host that the server listens to');
+    .option('--host [host]', 'Set the host that the server listens to');
 };
 
 export function setupCommands(): void {
   const cli = cac('rsbuild');
 
-  cli.help();
   cli.version(RSBUILD_VERSION);
 
   // Apply common options to all commands
   applyCommonOptions(cli);
 
-  // Allow to run `rsbuild` without any sub-command to trigger dev
-  const devCommand = cli.command('dev', 'Start the dev server').alias('');
+  const devDescription = `Start the dev server ${color.dim('(default if no command is given)')}`;
+  const devCommand = cli.command('', devDescription).alias('dev');
   const buildCommand = cli.command('build', 'Build the app for production');
   const previewCommand = cli.command(
     'preview',
@@ -105,10 +105,19 @@ export function setupCommands(): void {
   applyServerOptions(devCommand);
   applyServerOptions(previewCommand);
 
+  let logger = defaultLogger;
+
   devCommand.action(async (options: DevOptions) => {
     try {
-      const rsbuild = await init({ cliOptions: options });
-      await rsbuild?.startDevServer();
+      const rsbuild = await init({
+        cliOptions: options,
+      });
+      if (!rsbuild) {
+        return;
+      }
+
+      logger = rsbuild.logger;
+      await rsbuild.startDevServer();
     } catch (err) {
       logger.error('Failed to start dev server.');
       logger.error(err);
@@ -123,19 +132,29 @@ export function setupCommands(): void {
     )
     .action(async (options: BuildOptions) => {
       try {
+        if (!options.watch) {
+          process.env.RSPACK_UNSAFE_FAST_DROP = 'true';
+        }
+
         const rsbuild = await init({
           cliOptions: options,
           isBuildWatch: options.watch,
         });
-        const buildInstance = await rsbuild?.build({
+        if (!rsbuild) {
+          return;
+        }
+
+        logger = rsbuild.logger;
+
+        const buildResult = await rsbuild.build({
           watch: options.watch,
         });
 
-        if (buildInstance) {
+        if (buildResult) {
           if (options.watch) {
-            onBeforeRestartServer(buildInstance.close);
+            onBeforeRestartServer(buildResult.close);
           } else {
-            await buildInstance.close();
+            await buildResult.close();
           }
         }
       } catch (err) {
@@ -152,8 +171,16 @@ export function setupCommands(): void {
 
   previewCommand.action(async (options: PreviewOptions) => {
     try {
-      const rsbuild = await init({ cliOptions: options });
-      await rsbuild?.preview();
+      const rsbuild = await init({
+        cliOptions: options,
+      });
+
+      if (!rsbuild) {
+        return;
+      }
+
+      logger = rsbuild.logger;
+      await rsbuild.preview();
     } catch (err) {
       logger.error('Failed to start preview server.');
       logger.error(err);
@@ -166,8 +193,16 @@ export function setupCommands(): void {
     .option('--verbose', 'Show complete function definitions in output')
     .action(async (options: InspectOptions) => {
       try {
-        const rsbuild = await init({ cliOptions: options });
-        await rsbuild?.inspectConfig({
+        const rsbuild = await init({
+          cliOptions: options,
+        });
+
+        if (!rsbuild) {
+          return;
+        }
+
+        logger = rsbuild.logger;
+        await rsbuild.inspectConfig({
           verbose: options.verbose,
           outputPath: options.output,
           writeToDisk: true,
@@ -178,6 +213,36 @@ export function setupCommands(): void {
         process.exit(1);
       }
     });
+
+  cli.help((sections) => {
+    // remove the default version log as we already log it in greeting
+    sections.shift();
+
+    for (const section of sections) {
+      if (section.title === 'Usage') {
+        section.body = section.body.replace(
+          '$ rsbuild',
+          color.yellow(`$ rsbuild [command] [options]`),
+        );
+      }
+
+      // Fix the dev command name
+      if (section.title === 'Commands') {
+        section.body = section.body.replace(
+          `         ${devDescription}`,
+          `dev      ${devDescription}`,
+        );
+      }
+
+      // Simplify the help output for sub-commands
+      if (section.title?.startsWith('For more info')) {
+        section.title = color.dim('  For details on a sub-command, run');
+        section.body = color.dim('  $ rsbuild <command> -h');
+      } else if (section.title) {
+        section.title = color.cyan(section.title);
+      }
+    }
+  });
 
   cli.parse();
 }

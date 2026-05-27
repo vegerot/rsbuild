@@ -1,20 +1,20 @@
 import path, { join } from 'node:path';
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getDistFiles, test } from '@e2e/helper';
 import fse from 'fs-extra';
 
-const cwd = __dirname;
+test('should serve publicDir for dev server correctly', async ({
+  page,
+  devOnly,
+}) => {
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
 
-test('should serve publicDir for dev server correctly', async ({ page }) => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
-
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       output: {
-        distPath: {
-          root: 'dist-dev-1',
-        },
+        distPath: 'dist-dev-1',
       },
     },
   });
@@ -24,26 +24,25 @@ test('should serve publicDir for dev server correctly', async ({ page }) => {
   );
 
   expect((await res?.body())?.toString().trim()).toBe('a');
-
-  await rsbuild.close();
 });
 
 test('should serve publicDir with assetPrefix for dev server correctly', async ({
   page,
+  devOnly,
 }) => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
 
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       dev: {
         assetPrefix: '/dev/',
       },
       output: {
         assetPrefix: '/prod/',
-        distPath: {
-          root: 'dist-dev-1',
-        },
+        distPath: 'dist-dev-1',
       },
     },
   });
@@ -53,26 +52,28 @@ test('should serve publicDir with assetPrefix for dev server correctly', async (
   );
 
   expect((await res?.body())?.toString().trim()).toBe('a');
-
-  await rsbuild.close();
 });
 
 test('should serve multiple publicDir for dev server correctly', async ({
   page,
+  devOnly,
 }) => {
-  await fse.outputFile(join(__dirname, 'test-temp-dir1', 'a.txt'), 'a');
-  await fse.outputFile(join(__dirname, 'test-temp-dir2', 'b.txt'), 'b');
+  await fse.outputFile(
+    join(import.meta.dirname, 'test-temp-dir1', 'a.txt'),
+    'a',
+  );
+  await fse.outputFile(
+    join(import.meta.dirname, 'test-temp-dir2', 'b.txt'),
+    'b',
+  );
 
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         publicDir: [{ name: 'test-temp-dir1' }, { name: 'test-temp-dir2' }],
       },
       output: {
-        distPath: {
-          root: 'dist-dev-1',
-        },
+        distPath: 'dist-dev-1',
       },
     },
   });
@@ -82,30 +83,26 @@ test('should serve multiple publicDir for dev server correctly', async ({
 
   const resB = await page.goto(`http://localhost:${rsbuild.port}/b.txt`);
   expect((await resB?.body())?.toString().trim()).toBe('b');
-
-  await rsbuild.close();
 });
 
 test('should serve custom publicDir for dev server correctly', async ({
   page,
+  devOnly,
 }) => {
   await fse.outputFile(
-    join(__dirname, 'public1', 'test-temp-file.txt'),
+    join(import.meta.dirname, 'public1', 'test-temp-file.txt'),
     'a111',
   );
 
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         publicDir: {
           name: 'public1',
         },
       },
       output: {
-        distPath: {
-          root: 'dist-dev-1',
-        },
+        distPath: 'dist-dev-1',
       },
     },
   });
@@ -115,22 +112,20 @@ test('should serve custom publicDir for dev server correctly', async ({
   );
 
   expect((await res?.body())?.toString().trim()).toBe('a111');
-
-  await rsbuild.close();
 });
 
-test('should not serve publicDir when publicDir is false', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    rsbuildConfig: {
+test('should not serve publicDir when publicDir is false', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly({
+    config: {
       server: {
         publicDir: false,
         htmlFallback: false,
       },
       output: {
-        distPath: {
-          root: 'dist-dev-1',
-        },
+        distPath: 'dist-dev-1',
       },
     },
   });
@@ -140,23 +135,21 @@ test('should not serve publicDir when publicDir is false', async ({ page }) => {
   );
 
   expect(res?.status()).toBe(404);
-
-  await rsbuild.close();
 });
 
 test('should serve publicDir for preview server correctly', async ({
   page,
+  buildPreview,
 }) => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
 
-  const rsbuild = await build({
-    cwd,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       output: {
-        distPath: {
-          root: 'dist-build-1',
-        },
+        distPath: 'dist-build-1',
       },
     },
   });
@@ -166,43 +159,39 @@ test('should serve publicDir for preview server correctly', async ({
   );
 
   expect((await res?.body())?.toString().trim()).toBe('a');
-
-  await rsbuild.close();
 });
 
-test('should copy publicDir to the environment distDir when multiple environments', async () => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
+test('should copy publicDir to the environment distDir when multiple environments', async ({
+  build,
+}) => {
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
 
   const rsbuild = await build({
-    cwd,
-    rsbuildConfig: {
+    config: {
       environments: {
         web1: {
           output: {
-            distPath: {
-              root: 'dist-build-web-1',
-            },
+            distPath: 'dist-build-web-1',
           },
         },
         web2: {
           output: {
-            distPath: {
-              root: 'dist-build-web-2',
-            },
+            distPath: 'dist-build-web-2',
           },
         },
         node: {
           output: {
             target: 'node',
-            distPath: {
-              root: 'dist-build-node',
-            },
+            distPath: 'dist-build-node',
           },
         },
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = await getDistFiles(rsbuild.distPath);
   const filenames = Object.keys(files);
 
   expect(
@@ -222,12 +211,16 @@ test('should copy publicDir to the environment distDir when multiple environment
   ).toBeFalsy();
 });
 
-test('should copy publicDir to the node distDir when copyOnBuild is specified as true', async () => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
+test('should copy publicDir to the node distDir when copyOnBuild is specified as true', async ({
+  build,
+}) => {
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
 
   const rsbuild = await build({
-    cwd,
-    rsbuildConfig: {
+    config: {
       server: {
         publicDir: {
           copyOnBuild: true,
@@ -237,15 +230,13 @@ test('should copy publicDir to the node distDir when copyOnBuild is specified as
         node: {
           output: {
             target: 'node',
-            distPath: {
-              root: 'dist-build-node-1',
-            },
+            distPath: 'dist-build-node-1',
           },
         },
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = await getDistFiles(rsbuild.distPath);
   const filenames = Object.keys(files);
 
   expect(
@@ -255,32 +246,32 @@ test('should copy publicDir to the node distDir when copyOnBuild is specified as
   ).toBeTruthy();
 });
 
-test('should copy publicDir to root dist when environment dist path has a parent-child relationship', async () => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
-  fse.removeSync(join(__dirname, 'dist-build-web'));
+test('should copy publicDir to root dist when environment dist path has a parent-child relationship', async ({
+  build,
+}) => {
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
+  fse.removeSync(join(import.meta.dirname, 'dist-build-web'));
 
   const rsbuild = await build({
-    cwd,
-    rsbuildConfig: {
+    config: {
       environments: {
         web1: {
           output: {
-            distPath: {
-              root: 'dist-build-web/1',
-            },
+            distPath: 'dist-build-web/1',
           },
         },
         web2: {
           output: {
-            distPath: {
-              root: 'dist-build-web',
-            },
+            distPath: 'dist-build-web',
           },
         },
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = await getDistFiles(rsbuild.distPath);
   const filenames = Object.keys(files);
 
   expect(
@@ -297,21 +288,21 @@ test('should copy publicDir to root dist when environment dist path has a parent
 
 test('should serve publicDir for preview server with assetPrefix correctly', async ({
   page,
+  buildPreview,
 }) => {
-  await fse.outputFile(join(__dirname, 'public', 'test-temp-file.txt'), 'a');
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
 
-  const rsbuild = await build({
-    cwd,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       dev: {
         assetPrefix: '/dev/',
       },
       output: {
         assetPrefix: '/prod/',
-        distPath: {
-          root: 'dist-build-1',
-        },
+        distPath: 'dist-build-1',
       },
     },
   });
@@ -321,27 +312,28 @@ test('should serve publicDir for preview server with assetPrefix correctly', asy
   );
 
   expect((await res?.body())?.toString().trim()).toBe('a');
-
-  await rsbuild.close();
 });
 
 test('should serve multiple publicDir for preview server correctly', async ({
   page,
+  buildPreview,
 }) => {
-  await fse.outputFile(join(__dirname, 'test-temp-dir1', 'a.txt'), 'a');
-  await fse.outputFile(join(__dirname, 'test-temp-dir2', 'b.txt'), 'b');
+  await fse.outputFile(
+    join(import.meta.dirname, 'test-temp-dir1', 'a.txt'),
+    'a',
+  );
+  await fse.outputFile(
+    join(import.meta.dirname, 'test-temp-dir2', 'b.txt'),
+    'b',
+  );
 
-  const rsbuild = await build({
-    cwd,
-    page,
-    rsbuildConfig: {
+  const rsbuild = await buildPreview({
+    config: {
       server: {
         publicDir: [{ name: 'test-temp-dir1' }, { name: 'test-temp-dir2' }],
       },
       output: {
-        distPath: {
-          root: 'dist-build-1',
-        },
+        distPath: 'dist-build-1',
       },
     },
   });
@@ -351,15 +343,14 @@ test('should serve multiple publicDir for preview server correctly', async ({
 
   const resB = await page.goto(`http://localhost:${rsbuild.port}/b.txt`);
   expect((await resB?.body())?.toString().trim()).toBe('b');
-
-  await rsbuild.close();
 });
 
-test('should reload page when publicDir file changes', async ({ page }) => {
-  const rsbuild = await dev({
-    cwd,
-    page,
-    rsbuildConfig: {
+test('should reload page when publicDir file changes', async ({
+  page,
+  dev,
+}) => {
+  await dev({
+    config: {
       server: {
         publicDir: {
           watch: true,
@@ -368,7 +359,7 @@ test('should reload page when publicDir file changes', async ({ page }) => {
     },
   });
 
-  const file = path.join(__dirname, '/public/test-temp-file.txt');
+  const file = path.join(import.meta.dirname, '/public/test-temp-file.txt');
 
   await fse.outputFile(file, 'test');
   // check the page is reloaded
@@ -378,16 +369,14 @@ test('should reload page when publicDir file changes', async ({ page }) => {
 
   // reset file
   await fse.outputFile(file, 'a');
-  await rsbuild.close();
 });
 
 test('should reload page when custom publicDir file changes', async ({
   page,
+  dev,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-    page,
-    rsbuildConfig: {
+  await dev({
+    config: {
       server: {
         publicDir: {
           name: 'public1',
@@ -397,7 +386,7 @@ test('should reload page when custom publicDir file changes', async ({
     },
   });
 
-  const file = path.join(__dirname, '/public1/test-temp-file.txt');
+  const file = path.join(import.meta.dirname, '/public1/test-temp-file.txt');
 
   await fse.outputFile(file, 'test');
   // check the page is reloaded
@@ -407,5 +396,43 @@ test('should reload page when custom publicDir file changes', async ({
 
   // reset file
   await fse.outputFile(file, 'a111');
-  await rsbuild.close();
+});
+
+test('should ignore files matching ignore patterns when copying publicDir', async ({
+  build,
+}) => {
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'test-temp-file.txt'),
+    'a',
+  );
+  await fse.outputFile(
+    join(import.meta.dirname, 'public', 'config.prd.js'),
+    'should be ignored',
+  );
+
+  const rsbuild = await build({
+    config: {
+      server: {
+        publicDir: {
+          ignore: ['**/config.prd.js'],
+        },
+      },
+      output: {
+        distPath: 'dist-build-ignore',
+      },
+    },
+  });
+
+  const files = await getDistFiles(rsbuild.distPath);
+  const filenames = Object.keys(files);
+
+  expect(
+    filenames.some((filename) => filename.includes('test-temp-file.txt')),
+  ).toBeTruthy();
+  expect(
+    filenames.some((filename) => filename.includes('config.prd.js')),
+  ).toBeFalsy();
+
+  await fse.remove(join(import.meta.dirname, 'public', 'test-temp-file.txt'));
+  await fse.remove(join(import.meta.dirname, 'public', 'config.prd.js'));
 });

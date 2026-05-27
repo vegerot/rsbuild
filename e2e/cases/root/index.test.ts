@@ -1,12 +1,10 @@
 import { join } from 'node:path';
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import fse from 'fs-extra';
 
-test('should support setting a relative root path', async () => {
+test('should support setting a relative root path', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       root: './test',
     },
   });
@@ -16,11 +14,10 @@ test('should support setting a relative root path', async () => {
   expect(rsbuild.distPath).toContain('test');
 });
 
-test('should support setting an absolute root path', async () => {
+test('should support setting an absolute root path', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
-      root: join(__dirname, './test'),
+    config: {
+      root: join(import.meta.dirname, './test'),
     },
   });
 
@@ -29,15 +26,17 @@ test('should support setting an absolute root path', async () => {
   expect(rsbuild.distPath).toContain('test');
 });
 
-test('should serve publicDir correctly when setting root', async ({ page }) => {
+test('should serve publicDir correctly when setting root', async ({
+  page,
+  devOnly,
+}) => {
   await fse.outputFile(
-    join(__dirname, 'test/public', 'test-temp-file.txt'),
+    join(import.meta.dirname, 'test/public', 'test-temp-file.txt'),
     'a',
   );
 
-  const rsbuild = await dev({
-    cwd: __dirname,
-    rsbuildConfig: {
+  const rsbuild = await devOnly({
+    config: {
       root: './test',
     },
   });
@@ -47,6 +46,4 @@ test('should serve publicDir correctly when setting root', async ({ page }) => {
   );
 
   expect((await res?.body())?.toString().trim()).toBe('a');
-
-  await rsbuild.close();
 });

@@ -4,7 +4,7 @@
  */
 
 import type * as Rspack from '@rspack/core';
-import { rspack } from './rspack';
+import { rspack } from '@rspack/core';
 
 export { runCLI } from './cli';
 export { createRsbuild } from './createRsbuild';
@@ -29,21 +29,27 @@ export type { ChainIdentifier } from './configChain';
 // Constants
 export { PLUGIN_CSS_NAME, PLUGIN_SWC_NAME } from './constants';
 export { defaultAllowedOrigins } from './defaultConfig';
-export { ensureAssetPrefix } from './helpers';
+export { ensureAssetPrefix } from './helpers/url';
 // Helpers
-export { type Logger, logger } from './logger';
+export { createLogger, type Logger, defaultLogger as logger } from './logger';
 export { mergeRsbuildConfig } from './mergeConfig';
 export type { RsbuildDevServer } from './server/devServer';
-export type { StartServerResult } from './server/helper';
+export type {
+  RsbuildServerBase,
+  ServerStartResult,
+  StartDevServerResult,
+  StartPreviewServerResult,
+} from './server/helper';
+export type { RsbuildPreviewServer } from './server/previewServer';
 // Types
 export type {
   AliasStrategy,
   AppIcon,
   AppIconItem,
+  AutoExternal,
   Build,
   BuildOptions,
   BuildResult,
-  BundlerPluginInstance,
   Charset,
   CleanDistPath,
   CleanDistPathObject,
@@ -67,6 +73,7 @@ export type {
   EnvironmentConfig,
   EnvironmentContext,
   FilenameConfig,
+  FilenameHash,
   HistoryApiFallbackContext,
   HistoryApiFallbackOptions,
   HtmlBasicTag,
@@ -106,10 +113,6 @@ export type {
   ModifyRsbuildConfigUtils,
   ModifyRspackConfigFn,
   ModifyRspackConfigUtils,
-  ModifyWebpackChainFn,
-  ModifyWebpackChainUtils,
-  ModifyWebpackConfigFn,
-  ModifyWebpackConfigUtils,
   ModuleFederationConfig,
   NormalizedConfig,
   NormalizedDevConfig,
@@ -118,27 +121,30 @@ export type {
   NormalizedModuleFederationConfig,
   NormalizedOutputConfig,
   NormalizedPerformanceConfig,
+  NormalizedResolveConfig,
   NormalizedSecurityConfig,
   NormalizedServerConfig,
   NormalizedSourceConfig,
+  NormalizedSplitChunksConfig,
   NormalizedToolsConfig,
   OnAfterBuildFn,
   OnAfterCreateCompilerFn,
   OnAfterDevCompileFn,
   OnAfterEnvironmentCompileFn,
   OnAfterStartDevServerFn,
-  OnAfterStartProdServerFn,
+  OnAfterStartPreviewServerFn,
   OnBeforeBuildFn,
   OnBeforeCreateCompilerFn,
   OnBeforeDevCompileFn,
   OnBeforeEnvironmentCompileFn,
   OnBeforeStartDevServerFn,
-  OnBeforeStartProdServerFn,
+  OnBeforeStartPreviewServerFn,
   OnCloseBuildFn,
   OnCloseDevServerFn,
   OnDevCompileDoneFn,
   OnExitFn,
   OutputConfig,
+  OverlayOptions,
   OutputStructure,
   PerformanceConfig,
   PluginManager,
@@ -160,6 +166,7 @@ export type {
   PublicDir,
   PublicDirOptions,
   RequestHandler,
+  ResolveConfig,
   ResolvedCreateRsbuildOptions,
   ResolveHandler,
   ResolveHook,
@@ -173,8 +180,6 @@ export type {
   RsbuildPlugin,
   RsbuildPluginAPI,
   RsbuildPlugins,
-  RsbuildProvider,
-  RsbuildProviderHelpers,
   RsbuildTarget,
   RspackChain,
   RspackRule,
@@ -186,7 +191,12 @@ export type {
   SetupMiddlewaresFn,
   SourceConfig,
   SourceMap,
+  SourceMapExtract,
+  SourceMapExtractOptions,
+  SourceMapExtractTarget,
   SplitChunks,
+  SplitChunksConfig,
+  SplitChunksPreset,
   SriAlgorithm,
   SriOptions,
   StartDevServerOptions,

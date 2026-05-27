@@ -1,11 +1,20 @@
 import path from 'node:path';
-import { expectFileWithContent, rspackOnlyTest, runCli } from '@e2e/helper';
+import { expectFileWithContent, test } from '@e2e/helper';
 import fse from 'fs-extra';
 
-rspackOnlyTest('should support restart build when config changed', async () => {
-  const indexFile = path.join(__dirname, 'src/index.js');
-  const distIndexFile = path.join(__dirname, 'dist/static/js/index.js');
-  const tempConfig = path.join(__dirname, 'test-temp-rsbuild.config.mjs');
+test('should support restart build when config changed', async ({
+  execCli,
+  logHelper,
+}) => {
+  const indexFile = path.join(import.meta.dirname, 'src/index.js');
+  const distIndexFile = path.join(
+    import.meta.dirname,
+    'dist/static/js/index.js',
+  );
+  const tempConfig = path.join(
+    import.meta.dirname,
+    'test-temp-rsbuild.config.mjs',
+  );
 
   fse.outputFileSync(indexFile, `console.log('hello!');`);
   fse.outputFileSync(
@@ -18,12 +27,8 @@ rspackOnlyTest('should support restart build when config changed', async () => {
 `,
   );
 
-  const { close, clearLogs, expectLog, expectBuildEnd } = runCli(
-    `build --watch -c ${tempConfig}`,
-    {
-      cwd: __dirname,
-    },
-  );
+  execCli(`build --watch -c ${tempConfig}`);
+  const { clearLogs, expectLog, expectBuildEnd } = logHelper;
 
   await expectBuildEnd();
   await expectFileWithContent(distIndexFile, 'hello!');
@@ -46,6 +51,4 @@ rspackOnlyTest('should support restart build when config changed', async () => {
   fse.outputFileSync(indexFile, `console.log('hello2!');`);
   await expectBuildEnd();
   await expectFileWithContent(distIndexFile, 'hello2!');
-
-  close();
 });

@@ -1,7 +1,6 @@
-import fs from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { findExists, hash, isFileExists } from '../helpers';
-import { logger } from '../logger';
+import { hash } from '../helpers';
+import { findExists, isFileExists } from '../helpers/fs';
 import type {
   BuildCacheOptions,
   EnvironmentContext,
@@ -9,44 +8,6 @@ import type {
   RsbuildContext,
   RsbuildPlugin,
 } from '../types';
-
-/**
- * If the filenames in the buildDependencies are changed, webpack will not invalidate the previous cache.
- * So we need to remove the cache directory to make sure the cache is invalidated.
- */
-async function validateWebpackCache(
-  cacheDirectory: string,
-  buildDependencies: Record<string, string[]>,
-) {
-  const configFile = join(cacheDirectory, 'buildDependencies.json');
-
-  if (await isFileExists(configFile)) {
-    const rawConfigFile = await fs.promises.readFile(configFile, 'utf-8');
-
-    let prevBuildDependencies: Record<string, string[]> | null = null;
-    try {
-      prevBuildDependencies = JSON.parse(rawConfigFile);
-    } catch (e) {
-      logger.debug('failed to parse the previous buildDependencies.json', e);
-    }
-
-    if (
-      JSON.stringify(prevBuildDependencies) ===
-      JSON.stringify(buildDependencies)
-    ) {
-      return;
-    }
-
-    await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
-  }
-
-  try {
-    await fs.promises.mkdir(cacheDirectory, { recursive: true });
-    await fs.promises.writeFile(configFile, JSON.stringify(buildDependencies));
-  } catch (e) {
-    logger.debug('failed to write the buildDependencies.json', e);
-  }
-}
 
 function getCacheDirectory(
   { cacheDirectory }: BuildCacheOptions,
@@ -57,7 +18,7 @@ function getCacheDirectory(
       ? cacheDirectory
       : join(context.rootPath, cacheDirectory);
   }
-  return join(context.cachePath, context.bundlerType);
+  return join(context.cachePath, 'rspack');
 }
 
 /**
@@ -68,7 +29,7 @@ async function getBuildDependencies(
   context: Readonly<RsbuildContext>,
   config: NormalizedEnvironmentConfig,
   environmentContext: EnvironmentContext,
-  userBuildDependencies: Record<string, string[]>,
+  additionalDependencies?: string[],
 ) {
   const rootPackageJson = join(context.rootPath, 'package.json');
   const browserslistConfig = join(context.rootPath, '.browserslistrc');
@@ -102,10 +63,11 @@ async function getBuildDependencies(
     buildDependencies.tailwindcss = [tailwindConfig];
   }
 
-  return {
-    ...buildDependencies,
-    ...userBuildDependencies,
-  };
+  if (additionalDependencies) {
+    buildDependencies.additional = additionalDependencies;
+  }
+
+  return buildDependencies;
 }
 
 export const pluginCache = (): RsbuildPlugin => ({
@@ -116,12 +78,7 @@ export const pluginCache = (): RsbuildPlugin => ({
 
     api.modifyBundlerChain(async (chain, { environment, env }) => {
       const { config } = environment;
-      const { bundlerType } = api.context;
-
-      // Enable webpack persistent cache by default
-      // Rspack's persistent cache is still experimental and should be manually enabled
-      const buildCache =
-        config.performance.buildCache ?? bundlerType === 'webpack';
+      const { buildCache = false } = config.performance;
 
       if (buildCache === false) {
         return;
@@ -136,16 +93,8 @@ export const pluginCache = (): RsbuildPlugin => ({
         context,
         config,
         environment,
-        cacheConfig.buildDependencies
-          ? {
-              userBuildDependencies: cacheConfig.buildDependencies,
-            }
-          : {},
+        cacheConfig.buildDependencies,
       );
-
-      if (bundlerType === 'webpack') {
-        await validateWebpackCache(cacheDirectory, buildDependencies);
-      }
 
       const useDigest =
         Array.isArray(cacheConfig.cacheDigest) &&
@@ -156,33 +105,20 @@ export const pluginCache = (): RsbuildPlugin => ({
         ? `${environment.name}-${env}-${await hash(JSON.stringify(cacheConfig.cacheDigest))}`
         : `${environment.name}-${env}`;
 
-      if (bundlerType === 'rspack') {
-        chain.cache(true);
-        chain.experiments({
-          ...chain.get('experiments'),
-          cache: {
-            type: 'persistent',
-            version: cacheVersion,
-            storage: {
-              type: 'filesystem',
-              directory: cacheDirectory,
-            },
-            buildDependencies: Object.values(buildDependencies).flat(),
-          },
-        });
-      } else {
-        chain.cache({
-          name: cacheVersion,
+      chain.cache({
+        type: 'persistent',
+        version: cacheVersion,
+        storage: {
           type: 'filesystem',
-          cacheDirectory,
-          buildDependencies,
-        });
-      }
+          directory: cacheDirectory,
+        },
+        buildDependencies: Object.values(buildDependencies).flat(),
+      });
     });
 
     api.onAfterCreateCompiler(() => {
-      if (cacheEnabled && api.context.bundlerType === 'rspack') {
-        logger.debug('Rspack persistent cache enabled');
+      if (cacheEnabled) {
+        api.logger.debug('Rspack persistent cache enabled');
       }
     });
   },

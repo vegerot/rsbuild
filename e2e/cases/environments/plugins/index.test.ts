@@ -1,37 +1,10 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-import { pluginReact } from '@rsbuild/plugin-react';
-
-test('should add single environment plugin correctly', async ({ page }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
-      environments: {
-        web: {
-          output: {
-            filenameHash: false,
-          },
-          plugins: [pluginReact()],
-        },
-        web1: {
-          source: {
-            entry: {
-              main: './src/index1.ts',
-            },
-          },
-          output: {
-            assetPrefix: 'auto',
-            filenameHash: false,
-            distPath: {
-              root: 'dist/web1',
-            },
-          },
-        },
-      },
-    },
-    page,
-  });
+test('should add single environment plugin correctly', async ({
+  page,
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview();
 
   const button = page.locator('#test');
   await expect(button).toHaveText('Hello Rsbuild!');
@@ -42,7 +15,7 @@ test('should add single environment plugin correctly', async ({ page }) => {
 
   await expect(page.locator('#test1')).toHaveText('Hello Rsbuild!');
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   expect(

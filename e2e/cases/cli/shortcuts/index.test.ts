@@ -1,12 +1,11 @@
-import { rspackOnlyTest, runCommand } from '@e2e/helper';
+import { test } from '@e2e/helper';
 
-rspackOnlyTest('should display shortcuts as expected in dev', async () => {
-  const { childProcess, expectLog, clearLogs, close } = runCommand(
-    'node ./dev.mjs',
-    {
-      cwd: __dirname,
-    },
-  );
+test('should display shortcuts as expected in dev', async ({
+  exec,
+  logHelper,
+}) => {
+  const { childProcess } = exec('node ./dev.js');
+  const { expectLog, clearLogs } = logHelper;
 
   // help
   await expectLog('press h + enter to show shortcuts');
@@ -23,17 +22,14 @@ rspackOnlyTest('should display shortcuts as expected in dev', async () => {
   childProcess.stdin?.write('r\n');
   await expectLog('restarting server');
   await expectLog('➜  Local:    http://localhost:');
-
-  close();
 });
 
-rspackOnlyTest('should display shortcuts as expected in preview', async () => {
-  const { childProcess, expectLog, clearLogs, close } = runCommand(
-    'node ./preview.mjs',
-    {
-      cwd: __dirname,
-    },
-  );
+test('should display shortcuts as expected in preview', async ({
+  exec,
+  logHelper,
+}) => {
+  const { childProcess } = exec('node ./preview.js');
+  const { expectLog, clearLogs } = logHelper;
 
   // help
   await expectLog('press h + enter to show shortcuts');
@@ -44,34 +40,25 @@ rspackOnlyTest('should display shortcuts as expected in preview', async () => {
   clearLogs();
   childProcess.stdin?.write('u\n');
   await expectLog('➜  Local:    http://localhost:');
-
-  close();
 });
 
-rspackOnlyTest('should support custom shortcuts in dev', async () => {
-  const { childProcess, expectLog, clearLogs, close } = runCommand(
-    'node ./devCustom.mjs',
-    {
-      cwd: __dirname,
-    },
-  );
+test('should support custom shortcuts in dev', async ({ exec, logHelper }) => {
+  const { childProcess } = exec('node ./devCustom.js');
+  const { expectLog, clearLogs } = logHelper;
 
   await expectLog('press h + enter to show shortcuts');
 
   clearLogs();
   childProcess.stdin?.write('s\n');
   await expectLog('hello world!');
-
-  close();
 });
 
-rspackOnlyTest('should support custom shortcuts in preview', async () => {
-  const { childProcess, expectLog, clearLogs, close } = runCommand(
-    'node ./previewCustom.mjs',
-    {
-      cwd: __dirname,
-    },
-  );
+test('should support custom shortcuts in preview', async ({
+  exec,
+  logHelper,
+}) => {
+  const { childProcess } = exec('node ./previewCustom.js');
+  const { expectLog, clearLogs } = logHelper;
 
   // help
   await expectLog('press h + enter to show shortcuts');
@@ -79,6 +66,4 @@ rspackOnlyTest('should support custom shortcuts in preview', async () => {
   clearLogs();
   childProcess.stdin?.write('s\n');
   await expectLog('hello world!');
-
-  close();
 });

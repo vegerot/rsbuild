@@ -1,22 +1,22 @@
-import { dev, gotoPage, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, gotoPage, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should lazy compile dynamic imported modules',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-    });
+const BUILD_FOO = 'building src/foo.js';
 
-    // the first build
-    await rsbuild.expectBuildEnd();
-    rsbuild.clearLogs();
+test('should lazy compile dynamic imported modules', async ({
+  page,
+  devOnly,
+}) => {
+  const rsbuild = await devOnly();
 
-    // build foo.js
-    await gotoPage(page, rsbuild, 'index');
-    await rsbuild.expectBuildEnd();
-    const value = await page.evaluate(() => window.foo);
-    expect(value).toBe(42);
-    await rsbuild.close();
-  },
-);
+  // initial build
+  await rsbuild.expectBuildEnd();
+  rsbuild.expectNoLog(BUILD_FOO, { posix: true });
+  rsbuild.clearLogs();
+
+  // build foo.js
+  await gotoPage(page, rsbuild, 'index');
+  await rsbuild.expectLog(BUILD_FOO, { posix: true });
+  await rsbuild.expectBuildEnd();
+  const value = await page.evaluate(() => window.foo);
+  expect(value).toBe(42);
+});

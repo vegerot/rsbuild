@@ -1,46 +1,33 @@
 import fs from 'node:fs';
 import { join } from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import { remove } from 'fs-extra';
+import { expect, test } from '@e2e/helper';
 
-test('should allow to import TS files with .js extension', async ({ page }) => {
-  await build({
-    cwd: __dirname,
-    page,
-  });
+test('should allow to import TS files with .js extension', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview();
   expect(await page.evaluate(() => window.test)).toBe('ts');
 });
 
 test('should resolve the .js file first if both .js and .ts exist', async ({
   page,
+  buildPreview,
+  copySrcDir,
 }) => {
-  await fs.promises.cp(
-    join(__dirname, 'src'),
-    join(__dirname, 'test-temp-src'),
-    {
-      recursive: true,
-    },
-  );
+  const tempSrc = await copySrcDir();
 
-  fs.writeFileSync(
-    join(__dirname, 'test-temp-src/foo.js'),
-    'export const foo = "js";',
-  );
+  fs.writeFileSync(join(tempSrc, 'foo.js'), 'export const foo = "js";');
 
-  await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
+  await buildPreview({
+    config: {
       source: {
         entry: {
-          index: join(__dirname, 'test-temp-src/index.ts'),
+          index: join(tempSrc, 'index.ts'),
         },
       },
     },
   });
 
   expect(await page.evaluate(() => window.test)).toBe('js');
-
-  await remove(join(__dirname, 'test-temp-src'));
 });

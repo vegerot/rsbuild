@@ -1,12 +1,9 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest('should set the hash format to fullhash', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+test('should set the hash format to fullhash', async ({ build }) => {
+  const rsbuild = await build();
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   let firstHash = '';

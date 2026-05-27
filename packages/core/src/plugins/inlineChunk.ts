@@ -1,11 +1,8 @@
-import path from 'node:path';
 import { isRegExp } from 'node:util/types';
 import { CSS_REGEX, JS_REGEX } from '../constants';
-import {
-  addTrailingSlash,
-  getPublicPathFromCompiler,
-  isFunction,
-} from '../helpers';
+import { isFunction } from '../helpers';
+import { getPublicPathFromCompiler } from '../helpers/compiler';
+import { addTrailingSlash, ensureAssetPrefix } from '../helpers/url';
 import type {
   HtmlBasicTag,
   InlineChunkTest,
@@ -15,7 +12,7 @@ import type {
 } from '../types';
 
 /**
- * If we inlined the chunk to HTML,we should update the value of sourceMappingURL,
+ * If we inlined the chunk to HTML, we should update the value of sourceMappingURL,
  * because the relative path of source code has been changed.
  */
 function updateSourceMappingURL({
@@ -40,9 +37,8 @@ function updateSourceMappingURL({
     source.includes('# sourceMappingURL')
   ) {
     const prefix = addTrailingSlash(
-      path.join(publicPath, config.output.distPath[type] || ''),
+      ensureAssetPrefix(config.output.distPath[type] || '', publicPath),
     );
-
     return source.replace(
       /# sourceMappingURL=/,
       `# sourceMappingURL=${prefix}`,
@@ -66,12 +62,10 @@ function matchTests(
   });
 }
 
-export const getInlineTests = (
-  config: NormalizedEnvironmentConfig,
-): {
+export function getInlineTests(config: NormalizedEnvironmentConfig): {
   scriptTests: InlineChunkTest[];
   styleTests: InlineChunkTest[];
-} => {
+} {
   const isProd = config.mode === 'production';
   const { inlineStyles, inlineScripts } = config.output;
   const scriptTests: InlineChunkTest[] = [];
@@ -79,9 +73,13 @@ export const getInlineTests = (
 
   if (inlineScripts) {
     if (inlineScripts === true) {
-      isProd && scriptTests.push(JS_REGEX);
+      if (isProd) {
+        scriptTests.push(JS_REGEX);
+      }
     } else if (isRegExp(inlineScripts) || isFunction(inlineScripts)) {
-      isProd && scriptTests.push(inlineScripts);
+      if (isProd) {
+        scriptTests.push(inlineScripts);
+      }
     } else {
       const enabled =
         inlineScripts.enable === 'auto' ? isProd : inlineScripts.enable;
@@ -93,9 +91,13 @@ export const getInlineTests = (
 
   if (inlineStyles) {
     if (inlineStyles === true) {
-      isProd && styleTests.push(CSS_REGEX);
+      if (isProd) {
+        styleTests.push(CSS_REGEX);
+      }
     } else if (isRegExp(inlineStyles) || isFunction(inlineStyles)) {
-      isProd && styleTests.push(inlineStyles);
+      if (isProd) {
+        styleTests.push(inlineStyles);
+      }
     } else {
       const enable =
         inlineStyles.enable === 'auto' ? isProd : inlineStyles.enable;
@@ -106,18 +108,28 @@ export const getInlineTests = (
   }
 
   return { scriptTests, styleTests };
-};
+}
 
 export const pluginInlineChunk = (): RsbuildPlugin => ({
   name: 'rsbuild:inline-chunk',
 
   setup(api) {
-    const inlinedAssets = new Set<string>();
+    const inlineAssetsByEnvironment = new Map<string, Set<string>>();
+
+    const getInlinedAssetsSet = (name: string) => {
+      let set = inlineAssetsByEnvironment.get(name);
+      if (!set) {
+        set = new Set<string>();
+        inlineAssetsByEnvironment.set(name, set);
+      }
+      return set;
+    };
 
     const getInlinedScriptTag = (
       publicPath: string,
       tag: HtmlBasicTag,
       compilation: Rspack.Compilation,
+      inlinedAssets: Set<string>,
       scriptTests: InlineChunkTest[],
       config: NormalizedEnvironmentConfig,
     ) => {
@@ -167,6 +179,7 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
       publicPath: string,
       tag: HtmlBasicTag,
       compilation: Rspack.Compilation,
+      inlinedAssets: Set<string>,
       styleTests: InlineChunkTest[],
       config: NormalizedEnvironmentConfig,
     ) => {
@@ -214,6 +227,7 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
       publicPath: string,
       tag: HtmlBasicTag,
       compilation: Rspack.Compilation,
+      inlinedAssets: Set<string>,
       scriptTests: InlineChunkTest[],
       styleTests: InlineChunkTest[],
       config: NormalizedEnvironmentConfig,
@@ -223,6 +237,7 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
           publicPath,
           tag,
           compilation,
+          inlinedAssets,
           scriptTests,
           config,
         );
@@ -232,6 +247,7 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
           publicPath,
           tag,
           compilation,
+          inlinedAssets,
           styleTests,
           config,
         );
@@ -247,23 +263,29 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
          */
         stage: 'summarize',
       },
-      ({ compiler, compilation }) => {
-        if (inlinedAssets.size === 0) {
+      ({ compiler, compilation, environment }) => {
+        const inlinedAssets = inlineAssetsByEnvironment.get(environment.name);
+        if (!inlinedAssets || inlinedAssets.size === 0) {
           return;
         }
 
         const { devtool } = compiler.options;
 
+        const hasSourceMap =
+          devtool !== 'hidden-source-map' && devtool !== false;
         for (const name of inlinedAssets) {
-          // If the source map reference is removed,
-          // we do not need to preserve the source map of inlined files
-          if (devtool === 'hidden-source-map' || devtool === false) {
-            compilation.deleteAsset(name);
-          } else {
-            // use delete instead of compilation.deleteAsset
-            // because we want to preserve the related files such as source map
-            delete compilation.assets[name];
+          const asset = compilation.assets[name];
+          if (!asset) {
+            continue;
           }
+          // Preserve source maps of inlined assets. Setting `related.sourceMap` to `null` prevents
+          // `deleteAsset` from removing the source map file.
+          if (hasSourceMap) {
+            compilation.updateAsset(name, asset, {
+              related: { sourceMap: null },
+            });
+          }
+          compilation.deleteAsset(name);
         }
 
         inlinedAssets.clear();
@@ -278,6 +300,8 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
           return { headTags, bodyTags };
         }
 
+        const inlinedAssets = getInlinedAssetsSet(environment.name);
+
         const { scriptTests, styleTests } = getInlineTests(config);
 
         if (!scriptTests.length && !styleTests.length) {
@@ -291,6 +315,7 @@ export const pluginInlineChunk = (): RsbuildPlugin => ({
             publicPath,
             tag,
             compilation,
+            inlinedAssets,
             scriptTests,
             styleTests,
             environment.config,

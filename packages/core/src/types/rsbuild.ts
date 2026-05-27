@@ -1,26 +1,22 @@
 import type { Compiler, MultiCompiler } from '@rspack/core';
 import type { LoadEnvOptions } from '../loadEnv';
-import type * as providerHelpers from '../provider/helpers';
+import type { Logger } from '../logger';
 import type { RsbuildDevServer } from '../server/devServer';
-import type { StartServerResult } from '../server/helper';
+import type {
+  StartDevServerResult,
+  StartPreviewServerResult,
+} from '../server/helper';
 import type {
   NormalizedConfig,
   NormalizedEnvironmentConfig,
   RsbuildConfig,
 } from './config';
-import type { InternalContext, RsbuildContext } from './context';
-import type { PluginManager, RsbuildPlugin, RsbuildPluginAPI } from './plugin';
+import type { RsbuildContext } from './context';
+import type { RsbuildPlugin, RsbuildPluginAPI } from './plugin';
 import type { Rspack } from './rspack';
-import type { WebpackConfig } from './thirdParty';
 import type { Falsy } from './utils';
 
-export type Bundler = 'rspack' | 'webpack';
-
 export type StartDevServerOptions = {
-  /**
-   * Using a custom Rspack Compiler object.
-   */
-  compiler?: Compiler | MultiCompiler;
   /**
    * Whether to get port silently and not print any logs.
    * @default false
@@ -55,10 +51,6 @@ export type BuildOptions = {
    * @default false
    */
   watch?: boolean;
-  /**
-   * Using a custom Rspack Compiler object.
-   */
-  compiler?: Compiler | MultiCompiler;
 };
 
 export type Build = (options?: BuildOptions) => Promise<BuildResult>;
@@ -115,21 +107,18 @@ export type InspectConfigOptions = {
   extraConfigs?: Record<string, unknown>;
 };
 
-export type InspectConfigResult<B extends 'rspack' | 'webpack' = 'rspack'> = {
+export type InspectConfigResult = {
   rsbuildConfig: string;
   bundlerConfigs: string[];
   environmentConfigs: string[];
   origin: {
     rsbuildConfig: Omit<NormalizedConfig, 'environments'>;
     environmentConfigs: Record<string, NormalizedEnvironmentConfig>;
-    bundlerConfigs: B extends 'rspack'
-      ? Rspack.Configuration[]
-      : WebpackConfig[];
+    bundlerConfigs: Rspack.Configuration[];
   };
 };
 
-// Allow user to manually narrow Compiler type
-export type CreateCompiler = <C = Compiler | MultiCompiler>() => Promise<C>;
+export type CreateCompiler = () => Promise<Compiler | MultiCompiler>;
 
 export type CreateRsbuildOptions = {
   /**
@@ -151,10 +140,15 @@ export type CreateRsbuildOptions = {
    */
   environment?: string[];
   /**
+   * Alias for `config`.
+   * This option will be deprecated in the future.
+   */
+  rsbuildConfig?: RsbuildConfig | (() => Promise<RsbuildConfig>);
+  /**
    * Rsbuild configurations.
    * Passing a function to load the config asynchronously with custom logic.
    */
-  rsbuildConfig?: RsbuildConfig | (() => Promise<RsbuildConfig>);
+  config?: RsbuildConfig | (() => Promise<RsbuildConfig>);
   /**
    * Whether to call `loadEnv` to load environment variables and define them
    * as global variables via `source.define`.
@@ -176,34 +170,11 @@ export type CreateDevServer = (
 
 export type StartDevServer = (
   options?: StartDevServerOptions,
-) => Promise<StartServerResult>;
+) => Promise<StartDevServerResult>;
 
-export type InspectConfig<B extends 'rspack' | 'webpack' = 'rspack'> = (
+export type InspectConfig = (
   options?: InspectConfigOptions,
-) => Promise<InspectConfigResult<B>>;
-
-export type ProviderInstance<B extends 'rspack' | 'webpack' = 'rspack'> = Pick<
-  RsbuildInstance,
-  'build' | 'createCompiler' | 'createDevServer' | 'startDevServer'
-> & {
-  readonly bundler: Bundler;
-
-  initConfigs: (
-    options?: InitConfigsOptions,
-  ) => Promise<B extends 'rspack' ? Rspack.Configuration[] : WebpackConfig[]>;
-
-  inspectConfig: InspectConfig<B>;
-};
-
-export type RsbuildProviderHelpers = typeof providerHelpers;
-
-export type RsbuildProvider<B extends 'rspack' | 'webpack' = 'rspack'> =
-  (options: {
-    context: InternalContext;
-    pluginManager: PluginManager;
-    rsbuildOptions: ResolvedCreateRsbuildOptions;
-    helpers: RsbuildProviderHelpers;
-  }) => Promise<ProviderInstance<B>> | ProviderInstance<B>;
+) => Promise<InspectConfigResult>;
 
 export type AddPluginsOptions = {
   /**
@@ -224,6 +195,12 @@ export type AddPlugins = (
 ) => void;
 
 export type RsbuildInstance = {
+  /**
+   * The logger associated with the current Rsbuild instance.
+   * It reflects `config.customLogger` when provided, otherwise uses a logger
+   * created specifically for the current Rsbuild instance.
+   */
+  logger: Logger;
   /**
    * Register one or more Rsbuild plugins, which can be called multiple times.
    * This method needs to be called before compiling. If it is called after
@@ -252,7 +229,7 @@ export type RsbuildInstance = {
        * Remove the plugin in the specified environment.
        * If environment is not specified, remove it in all environments.
        */
-      environment: string;
+      environment?: string;
     },
   ) => void;
   /**
@@ -264,7 +241,7 @@ export type RsbuildInstance = {
    * Start a server to preview the production build locally.
    * This method should be executed after `rsbuild.build`.
    */
-  preview: (options?: PreviewOptions) => Promise<StartServerResult>;
+  preview: (options?: PreviewOptions) => Promise<StartPreviewServerResult>;
   /**
    * Initialize and return the internal Rspack configurations used by Rsbuild.
    * This method processes all plugins and configurations to generate the final
@@ -328,13 +305,13 @@ export type RsbuildInstance = {
   | 'onAfterDevCompile'
   | 'onAfterEnvironmentCompile'
   | 'onAfterStartDevServer'
-  | 'onAfterStartProdServer'
+  | 'onAfterStartPreviewServer'
   | 'onBeforeBuild'
   | 'onBeforeCreateCompiler'
   | 'onBeforeDevCompile'
   | 'onBeforeEnvironmentCompile'
   | 'onBeforeStartDevServer'
-  | 'onBeforeStartProdServer'
+  | 'onBeforeStartPreviewServer'
   | 'onCloseBuild'
   | 'onCloseDevServer'
   | 'onDevCompileDone'
@@ -358,3 +335,15 @@ export type RsbuildEntry = Record<
 >;
 
 export type RsbuildMode = 'development' | 'production' | 'none';
+
+export type RsbuildStatsItem = Pick<
+  Rspack.StatsCompilation,
+  'errors' | 'warnings' | 'entrypoints' | 'hash'
+>;
+
+/**
+ * A subset of Rspack's StatsCompilation with only the fields we need
+ */
+export type RsbuildStats = RsbuildStatsItem & {
+  children: RsbuildStatsItem[];
+};

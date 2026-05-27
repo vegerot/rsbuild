@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    "helpers:pinGitHubActionDigests",
+    "github>rstackjs/renovate:security"
+  ],
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "groupName": "Babel",
+      "groupSlug": "babel",
+      "matchPackageNames": ["/babel/"]
+    },
+    {
+      "groupName": "Rspress",
+      "groupSlug": "rspress",
+      "matchPackageNames": ["/rspress/"]
+    },
+    {
+      "groupName": "Rstest",
+      "groupSlug": "rstest",
+      "matchPackageNames": ["/rstest/"]
+    },
+    {
+      "groupName": "Sass",
+      "groupSlug": "sass",
+      "matchPackageNames": ["/sass/"]
+    },
+    {
+      "groupName": "Module Federation",
+      "groupSlug": "module-federation",
+      "matchPackageNames": ["/module-federation/"]
+    },
+    {
+      "groupName": "all patch dependencies",
+      "groupSlug": "all-patch",
+      "matchUpdateTypes": ["patch"],
+      "matchPackageNames": ["*"]
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["engines"],
+      "matchPackageNames": ["node"],
+      "enabled": false
+    },
+    {
+      "matchDepTypes": ["peerDependencies"],
+      "enabled": false
+    }
+  ],
+  "ignoreDeps": ["loader-utils", "@rsbuild/core-v1"]
+}

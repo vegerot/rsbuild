@@ -1,47 +1,17 @@
 import assert from 'node:assert';
 import { join } from 'node:path';
 import { stripVTControlCharacters as stripAnsi } from 'node:util';
-import type {
-  CreateRsbuildOptions,
-  RsbuildConfig,
-  RsbuildPlugins,
+import {
+  type CreateRsbuildOptions,
+  createRsbuild,
+  type BuildResult as RsbuildBuildResult,
+  type RsbuildConfig,
+  type RsbuildDevServer,
+  type RsbuildInstance,
 } from '@rsbuild/core';
-import { pluginSwc } from '@rsbuild/plugin-webpack-swc';
 import type { Page } from 'playwright';
-import { proxyConsole } from './logs';
-import { getDistFiles, getRandomPort, gotoPage, noop } from './utils';
-
-export const createRsbuild = async (
-  rsbuildOptions: CreateRsbuildOptions & { rsbuildConfig?: RsbuildConfig },
-  plugins: RsbuildPlugins = [],
-) => {
-  const { createRsbuild } = await import('@rsbuild/core');
-
-  rsbuildOptions.rsbuildConfig ||= {};
-  rsbuildOptions.rsbuildConfig.plugins = [
-    ...(rsbuildOptions.rsbuildConfig.plugins || []),
-    ...(plugins || []),
-  ];
-
-  if (process.env.PROVIDE_TYPE === 'rspack') {
-    const rsbuild = await createRsbuild(rsbuildOptions);
-
-    return rsbuild;
-  }
-
-  const { webpackProvider } = await import('@rsbuild/webpack');
-
-  rsbuildOptions.rsbuildConfig.provider = webpackProvider;
-
-  const rsbuild = await createRsbuild(rsbuildOptions);
-
-  const swc = pluginSwc();
-  if (!rsbuild.isPluginExists(swc.name)) {
-    rsbuild.addPlugins([swc]);
-  }
-
-  return rsbuild;
-};
+import type { LogHelper } from './logs.ts';
+import { getRandomPort, gotoPage, noop, toPosixPath } from './utils.ts';
 
 const updateConfigForTest = async (
   originalConfig: RsbuildConfig,
@@ -53,11 +23,6 @@ const updateConfigForTest = async (
   });
 
   const baseConfig: RsbuildConfig = {
-    resolve: {
-      alias: {
-        '@assets': join(__dirname, '../assets'),
-      },
-    },
     server: {
       // make port random to avoid conflict
       port: await getRandomPort(),
@@ -76,17 +41,54 @@ const updateConfigForTest = async (
   return mergedConfig;
 };
 
-/**
- * Start the dev server and return the server instance.
- */
-export async function dev({
-  plugins,
-  page,
-  waitFirstCompileDone = true,
-  ...options
-}: CreateRsbuildOptions & {
-  plugins?: RsbuildPlugins;
-  rsbuildConfig?: RsbuildConfig;
+const filterSourceMaps = (distFiles: Record<string, string>) => {
+  return Object.entries(distFiles).reduce(
+    (acc, [key, value]) => {
+      if (key.endsWith('.map')) {
+        return acc;
+      }
+      acc[key] = value;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+};
+
+const collectOutputFiles = (rsbuild: RsbuildInstance) => {
+  let outputFiles: Record<string, string> = {};
+
+  const reset = () => {
+    outputFiles = {};
+  };
+
+  rsbuild.onBeforeBuild(reset);
+  rsbuild.onBeforeStartDevServer(reset);
+
+  rsbuild.onAfterCreateCompiler(({ compiler }) => {
+    const compilers = 'compilers' in compiler ? compiler.compilers : [compiler];
+    for (const compiler of compilers) {
+      compiler.hooks.emit.tap('CollectAssetsPlugin', (compilation) => {
+        for (const asset of compilation.getAssets()) {
+          // skip inlined assets
+          if (!asset.source) {
+            continue;
+          }
+          const outputPath = compilation.options.output.path;
+          const assetPath = toPosixPath(
+            outputPath ? join(outputPath, asset.name) : asset.name,
+          );
+          outputFiles[assetPath] = asset.source.source().toString();
+        }
+      });
+    }
+  });
+
+  return () => outputFiles;
+};
+
+export type DevOptions = CreateRsbuildOptions & {
+  logHelper?: LogHelper;
+  config?: RsbuildConfig;
   /**
    * Playwright Page instance.
    * This method will automatically goto the page.
@@ -98,17 +100,23 @@ export async function dev({
    * @default true
    */
   waitFirstCompileDone?: boolean;
-}) {
+};
+
+/**
+ * Start the dev server and return the server instance.
+ */
+export async function dev({
+  page,
+  waitFirstCompileDone = true,
+  logHelper,
+  ...options
+}: DevOptions = {}) {
   process.env.NODE_ENV = 'development';
 
-  const logHelper = proxyConsole();
+  options.config = await updateConfigForTest(options.config || {}, options.cwd);
 
-  options.rsbuildConfig = await updateConfigForTest(
-    options.rsbuildConfig || {},
-    options.cwd,
-  );
-
-  const rsbuild = await createRsbuild(options, plugins);
+  const rsbuild = await createRsbuild(options);
+  const getOutputFiles = collectOutputFiles(rsbuild);
 
   const wait = waitFirstCompileDone
     ? new Promise<void>((resolve) => {
@@ -121,6 +129,11 @@ export async function dev({
       })
     : Promise.resolve();
 
+  let server: RsbuildDevServer | undefined;
+  rsbuild.onBeforeStartDevServer((context) => {
+    server = context.server;
+  });
+
   const result = await rsbuild.startDevServer();
 
   await wait;
@@ -129,32 +142,25 @@ export async function dev({
     await gotoPage(page, result);
   }
 
+  const { distPath } = rsbuild.context;
+
   return {
     ...result,
-    ...logHelper,
+    ...logHelper!,
+    distPath,
+    server,
     instance: rsbuild,
     getDistFiles: ({ sourceMaps }: { sourceMaps?: boolean } = {}) =>
-      getDistFiles(rsbuild.context.distPath, sourceMaps),
+      sourceMaps ? getOutputFiles() : filterSourceMaps(getOutputFiles()),
     close: async () => {
       await result.server.close();
-      logHelper.restore();
     },
   };
 }
 
-/**
- * Build the project and return the build result.
- */
-export async function build({
-  plugins,
-  catchBuildError = false,
-  runServer = false,
-  watch = false,
-  page,
-  ...options
-}: CreateRsbuildOptions & {
-  plugins?: RsbuildPlugins;
-  rsbuildConfig?: RsbuildConfig;
+export type BuildOptions = CreateRsbuildOptions & {
+  logHelper?: LogHelper;
+  config?: RsbuildConfig;
   /**
    * Whether to catch the build error.
    * @default false
@@ -174,24 +180,31 @@ export async function build({
    * Whether to watch files.
    */
   watch?: boolean;
-}) {
+};
+
+/**
+ * Build the project and return the build result.
+ */
+export async function build({
+  catchBuildError = false,
+  runServer = false,
+  watch = false,
+  page,
+  logHelper,
+  ...options
+}: BuildOptions = {}) {
   process.env.NODE_ENV = 'production';
 
-  const logHelper = proxyConsole();
+  options.config = await updateConfigForTest(options.config || {}, options.cwd);
 
-  options.rsbuildConfig = await updateConfigForTest(
-    options.rsbuildConfig || {},
-    options.cwd,
-  );
-
-  const rsbuild = await createRsbuild(options, plugins);
+  const rsbuild = await createRsbuild(options);
+  const getOutputFiles = collectOutputFiles(rsbuild);
 
   let buildError: Error | undefined;
-  let closeBuild: () => Promise<void> | undefined;
+  let buildResult: RsbuildBuildResult | undefined;
 
   try {
-    const result = await rsbuild.build({ watch });
-    closeBuild = result.close;
+    buildResult = await rsbuild.build({ watch });
   } catch (error) {
     buildError = error as Error;
     buildError.message = stripAnsi(buildError.message);
@@ -207,20 +220,17 @@ export async function build({
   let server = { close: noop };
 
   if (runServer || page) {
-    const ret = await rsbuild.preview();
-    port = ret.port;
-    server = ret.server;
+    const result = await rsbuild.preview();
+    port = result.port;
+    server = result.server;
   }
 
   const getIndexBundle = async () => {
-    const files = await getDistFiles(distPath);
     const [name, content] =
-      Object.entries(files).find(
+      Object.entries(getOutputFiles()).find(
         ([file]) => file.includes('index') && file.endsWith('.js'),
       ) || [];
-
     assert(name && content);
-
     return content;
   };
 
@@ -229,20 +239,23 @@ export async function build({
   }
 
   return {
-    ...logHelper,
+    ...logHelper!,
     distPath,
     port,
+    stats: buildResult?.stats,
     close: async () => {
-      await closeBuild?.();
+      await buildResult?.close();
       await server.close();
-      logHelper.restore();
     },
     buildError,
     getDistFiles: ({ sourceMaps }: { sourceMaps?: boolean } = {}) =>
-      getDistFiles(rsbuild.context.distPath, sourceMaps),
+      sourceMaps ? getOutputFiles() : filterSourceMaps(getOutputFiles()),
     getIndexBundle,
     instance: rsbuild,
   };
 }
 
-export type BuildResult = Awaited<ReturnType<typeof build>>;
+export type Build = typeof build;
+export type BuildResult = Awaited<ReturnType<Build>>;
+export type Dev = typeof dev;
+export type DevResult = Awaited<ReturnType<Dev>>;

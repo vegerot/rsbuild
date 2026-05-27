@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 的 html.app-icon 配置项参考，包含作用、默认值、配置行为和使用示例。'
+---
+
 # html.appIcon
 
 - **类型：**
@@ -7,7 +11,7 @@ type AppIconItem = {
   src: string;
   size: number;
   target?: 'apple-touch-icon' | 'web-app-manifest';
-  purpose?: string;
+  purpose?: 'any' | 'maskable' | 'monochrome' | string;
 };
 
 type AppIcon = {
@@ -22,7 +26,7 @@ type AppIcon = {
 设置 Web 应用的图标，用于在添加到移动设备的主屏幕时显示：
 
 - 生成 web app manifest 文件和其中的 `icons` 字段。
-- 生成 HTML 文件中的 `apple-touch-icon` 标签和 `manifest` 标签。
+- 生成 HTML 文件中的 [apple-touch-icon](https://webhint.io/docs/user-guide/hints/hint-apple-touch-icons/) 标签和 `manifest` 标签。
 
 :::tip
 
@@ -39,7 +43,7 @@ type AppIcon = {
 
 最常用的图标大小是 `192x192` 和 `512x512`，你也可以根据需要来自定义图标大小和图标数量。
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {
@@ -131,7 +135,7 @@ export default {
 
 使用 `target` 选项来指定图标的目标：
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {
@@ -165,7 +169,7 @@ export default {
 
 manifest 文件的文件名。
 
-```js
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     appIcon: {

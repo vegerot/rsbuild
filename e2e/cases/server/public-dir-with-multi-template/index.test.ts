@@ -1,14 +1,10 @@
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-
-const cwd = __dirname;
+import { expect, test } from '@e2e/helper';
 
 test('should serve publicDir with templates for dev server correctly', async ({
   page,
+  devOnly,
 }) => {
-  const rsbuild = await dev({
-    cwd,
-  });
+  const rsbuild = await devOnly();
 
   const res = await page.goto(`http://localhost:${rsbuild.port}/aa.txt`);
   expect((await res?.body())?.toString().trim()).toBe('aaaa');
@@ -20,17 +16,13 @@ test('should serve publicDir with templates for dev server correctly', async ({
   await page.goto(`http://localhost:${rsbuild.port}/bar`);
   const title2 = await page.$('#test');
   expect(await title2?.innerText()).toBe('Hello Bar!');
-
-  await rsbuild.close();
 });
 
 test('should serve publicDir with templates for preview server correctly', async ({
   page,
+  buildPreview,
 }) => {
-  const rsbuild = await build({
-    cwd,
-    page,
-  });
+  const rsbuild = await buildPreview();
 
   const res = await page.goto(`http://localhost:${rsbuild.port}/aa.txt`);
   expect((await res?.body())?.toString().trim()).toBe('aaaa');
@@ -42,6 +34,4 @@ test('should serve publicDir with templates for preview server correctly', async
   await page.goto(`http://localhost:${rsbuild.port}/bar`);
   const title2 = await page.$('#test');
   expect(await title2?.innerText()).toBe('Hello Bar!');
-
-  await rsbuild.close();
 });

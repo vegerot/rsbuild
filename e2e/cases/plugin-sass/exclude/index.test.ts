@@ -1,10 +1,10 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-test('should exclude specified Sass files using the exclude option', async () => {
+test('should exclude specified Sass files using the exclude option', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       tools: {
         bundlerChain(chain) {
           chain.module
@@ -16,7 +16,7 @@ test('should exclude specified Sass files using the exclude option', async () =>
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const cssFiles = Object.keys(files).filter((file) => file.endsWith('.css'));
   const scssFiles = Object.keys(files).filter((file) => file.endsWith('.scss'));
 

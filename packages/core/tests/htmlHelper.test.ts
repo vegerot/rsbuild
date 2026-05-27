@@ -1,4 +1,4 @@
-import type { NormalizedConfig } from '../src';
+import { logger, type NormalizedConfig } from '../src';
 import { getHTMLPathByEntry } from '../src/initPlugins';
 import { hasTitle } from '../src/rspack-plugins/RsbuildHtmlPlugin';
 
@@ -24,33 +24,43 @@ test('should detect HTML title via "hasTitle" correctly', () => {
 
 describe('getHTMLPathByEntry', () => {
   it('should use distPath.html as the folder', async () => {
-    const htmlPath = getHTMLPathByEntry('main', {
-      output: {
-        distPath: {
-          html: 'my-html',
+    const htmlPath = getHTMLPathByEntry(
+      'main',
+      {
+        output: {
+          distPath: {
+            html: 'my-html',
+          },
+          filename: {},
+          filenameHash: {},
         },
-        filename: {},
-      },
-      html: {
-        outputStructure: 'nested',
-      },
-    } as NormalizedConfig);
+        html: {
+          outputStructure: 'nested',
+        },
+      } as NormalizedConfig,
+      logger,
+    );
 
     expect(htmlPath).toEqual('my-html/main/index.html');
   });
 
-  it('should allow to disable html folder', async () => {
-    const htmlPath = getHTMLPathByEntry('main', {
-      output: {
-        distPath: {
-          html: 'html',
+  it('should allow disabling html folder', async () => {
+    const htmlPath = getHTMLPathByEntry(
+      'main',
+      {
+        output: {
+          distPath: {
+            html: 'html',
+          },
+          filename: {},
+          filenameHash: {},
         },
-        filename: {},
-      },
-      html: {
-        outputStructure: 'flat',
-      },
-    } as NormalizedConfig);
+        html: {
+          outputStructure: 'flat',
+        },
+      } as NormalizedConfig,
+      logger,
+    );
 
     expect(htmlPath).toEqual('html/main.html');
   });

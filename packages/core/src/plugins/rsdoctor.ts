@@ -1,15 +1,11 @@
-import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import type { Configuration } from '@rspack/core';
-import { color } from '../helpers';
-import { logger } from '../logger';
-import type { BundlerPluginInstance, RsbuildPlugin } from '../types';
-
-const require = createRequire(import.meta.url);
+import { isWindows } from '../constants';
+import { color, require } from '../helpers';
+import type { RsbuildPlugin, Rspack } from '../types';
 
 type RsdoctorExports = {
-  RsdoctorRspackPlugin: { new (): BundlerPluginInstance };
-  RsdoctorWebpackPlugin: { new (): BundlerPluginInstance };
+  RsdoctorRspackPlugin: { new (): Rspack.RspackPluginInstance };
 };
 
 type MaybeRsdoctorPlugin = Configuration['plugins'] & {
@@ -27,10 +23,7 @@ export const pluginRsdoctor = (): RsbuildPlugin => ({
       }
 
       // Add Rsdoctor plugin to start analysis.
-      const isRspack = api.context.bundlerType === 'rspack';
-      const pluginName = isRspack
-        ? 'RsdoctorRspackPlugin'
-        : 'RsdoctorWebpackPlugin';
+      const pluginName = 'RsdoctorRspackPlugin';
 
       const isRsdoctorPlugin = (plugin: MaybeRsdoctorPlugin) =>
         plugin?.isRsdoctorPlugin === true ||
@@ -47,9 +40,7 @@ export const pluginRsdoctor = (): RsbuildPlugin => ({
         }
       }
 
-      const packageName = isRspack
-        ? '@rsdoctor/rspack-plugin'
-        : '@rsdoctor/webpack-plugin';
+      const packageName = '@rsdoctor/rspack-plugin';
       let packagePath: string;
 
       try {
@@ -57,7 +48,7 @@ export const pluginRsdoctor = (): RsbuildPlugin => ({
           paths: [api.context.rootPath],
         });
       } catch {
-        logger.warn(
+        api.logger.warn(
           `\`process.env.RSDOCTOR\` enabled, please install ${color.bold(color.yellow(packageName))} package.`,
         );
         return;
@@ -65,13 +56,12 @@ export const pluginRsdoctor = (): RsbuildPlugin => ({
 
       let module: RsdoctorExports;
       try {
-        const moduleURL =
-          process.platform === 'win32'
-            ? pathToFileURL(packagePath).href
-            : packagePath;
+        const moduleURL = isWindows
+          ? pathToFileURL(packagePath).href
+          : packagePath;
         module = await import(moduleURL);
       } catch {
-        logger.error(
+        api.logger.error(
           `\`process.env.RSDOCTOR\` enabled, but failed to load ${color.bold(color.yellow(packageName))} module.`,
         );
         return;
@@ -86,7 +76,7 @@ export const pluginRsdoctor = (): RsbuildPlugin => ({
         config.plugins.push(new module[pluginName]());
       }
 
-      logger.info(`${color.bold(color.yellow(packageName))} enabled.`);
+      api.logger.info(`${color.bold(color.yellow(packageName))} enabled.`);
     });
   },
 });

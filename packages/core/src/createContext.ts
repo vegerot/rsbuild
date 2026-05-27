@@ -6,11 +6,10 @@ import { hash } from './helpers';
 import { ensureAbsolutePath, getCommonParentPath } from './helpers/path';
 import { initHooks } from './hooks';
 import { getHTMLPathByEntry } from './initPlugins';
-import { logger } from './logger';
+import type { Logger } from './logger';
 import type {
   EnvironmentContext,
   InternalContext,
-  NormalizedConfig,
   NormalizedEnvironmentConfig,
   ResolvedCreateRsbuildOptions,
   RsbuildConfig,
@@ -18,10 +17,7 @@ import type {
   RsbuildEntry,
 } from './types';
 
-function getAbsoluteDistPath(
-  cwd: string,
-  config: RsbuildConfig | NormalizedConfig | NormalizedEnvironmentConfig,
-) {
+function getAbsoluteDistPath(cwd: string, config: NormalizedEnvironmentConfig) {
   const dirRoot = config.output?.distPath?.root ?? ROOT_DIST_DIR;
   return ensureAbsolutePath(cwd, dirRoot);
 }
@@ -31,7 +27,7 @@ const browsersListCache = new Map<string, string[]>();
 
 export function getBrowserslist(path: string): string[] | null {
   const env = process.env.NODE_ENV;
-  const cacheKey = path + env;
+  const cacheKey = `${path}:${env ?? ''}`;
 
   if (browsersListCache.has(cacheKey)) {
     return browsersListCache.get(cacheKey)!;
@@ -71,6 +67,7 @@ export function getBrowserslistByEnvironment(
 const getEnvironmentHTMLPaths = (
   entry: RsbuildEntry,
   config: NormalizedEnvironmentConfig,
+  logger: Logger,
 ) => {
   if (config.output.target !== 'web' || config.tools.htmlPlugin === false) {
     return {};
@@ -85,7 +82,7 @@ const getEnvironmentHTMLPaths = (
       Array.isArray(entryValue) ||
       entryValue.html !== false
     ) {
-      prev[key] = getHTMLPathByEntry(key, config);
+      prev[key] = getHTMLPathByEntry(key, config, logger);
     }
 
     return prev;
@@ -102,7 +99,7 @@ export async function updateEnvironmentContext(
     const browserslist = getBrowserslistByEnvironment(context.rootPath, config);
 
     const { entry = {}, tsconfigPath } = config.source;
-    const htmlPaths = getEnvironmentHTMLPaths(entry, config);
+    const htmlPaths = getEnvironmentHTMLPaths(entry, config, context.logger);
     const webSocketToken =
       context.action === 'dev' ? await hash(context.rootPath + name) : '';
 
@@ -119,7 +116,7 @@ export async function updateEnvironmentContext(
     };
 
     // EnvironmentContext is readonly.
-    context.environments[name] = new Proxy(environmentContext, {
+    const readonlyEnvironmentContext = new Proxy(environmentContext, {
       get(target, prop: keyof EnvironmentContext) {
         return target[prop];
       },
@@ -127,13 +124,16 @@ export async function updateEnvironmentContext(
         if (prop === 'manifest') {
           target[prop] = newValue;
         } else {
-          logger.error(
+          context.logger.error(
             `EnvironmentContext is readonly, you can not assign to the "environment.${prop}" prop.`,
           );
         }
         return true;
       },
     });
+
+    context.environmentList[index] = readonlyEnvironmentContext;
+    context.environments[name] = readonlyEnvironmentContext;
   }
 }
 
@@ -141,14 +141,12 @@ export function updateContextByNormalizedConfig(
   context: InternalContext,
 ): void {
   // Try to get the parent dist path from all environments
-  const distPaths = Object.values(context.environments).map(
-    (item) => item.distPath,
-  );
+  const distPaths = context.environmentList.map((item) => item.distPath);
   context.distPath = getCommonParentPath(distPaths);
 }
 
 export function createPublicContext(
-  context: RsbuildContext,
+  context: InternalContext,
 ): Readonly<RsbuildContext> {
   const exposedKeys: (keyof RsbuildContext)[] = [
     'action',
@@ -169,8 +167,8 @@ export function createPublicContext(
       }
       return undefined;
     },
-    set(_, prop: keyof RsbuildContext) {
-      logger.error(
+    set(target, prop: keyof RsbuildContext) {
+      target.logger.error(
         `Context is readonly, you can not assign to the "context.${prop}" prop.`,
       );
       return true;
@@ -185,6 +183,7 @@ export function createPublicContext(
 export async function createContext(
   options: ResolvedCreateRsbuildOptions,
   userConfig: RsbuildConfig,
+  logger: Logger,
 ): Promise<InternalContext> {
   const { cwd } = options;
   const rootPath = userConfig.root
@@ -198,19 +197,26 @@ export async function createContext(
       ? options.environment
       : undefined;
 
-  const bundlerType = userConfig.provider ? 'webpack' : 'rspack';
-
   return {
     version: RSBUILD_VERSION,
     rootPath,
     distPath: '',
     cachePath,
+    logger,
     callerName: options.callerName,
-    bundlerType,
+    bundlerType: 'rspack',
     environments: {},
+    environmentList: [],
+    publicPathnames: [],
     hooks: initHooks(),
     config: { ...rsbuildConfig },
     originalConfig: userConfig,
     specifiedEnvironments,
+    buildState: {
+      stats: null,
+      status: 'idle',
+      hasErrors: false,
+      time: {},
+    },
   };
 }

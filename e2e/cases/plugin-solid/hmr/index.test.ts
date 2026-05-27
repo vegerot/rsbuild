@@ -1,10 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest('HMR should work properly', async ({ page }) => {
-  const root = __dirname;
+test('HMR should work properly', async ({ page, dev, editFile }) => {
+  const root = import.meta.dirname;
   const compFilePath = path.join(root, 'src/test-temp-B.jsx');
   const compSourceCode = `const B = (props) => {
   return <div id="B">B: {props.count()}</div>;
@@ -15,10 +14,7 @@ export default B;
 
   fs.writeFileSync(compFilePath, compSourceCode, 'utf-8');
 
-  const rsbuild = await dev({
-    cwd: root,
-    page,
-  });
+  await dev();
 
   const a = page.locator('#A');
   const b = page.locator('#B');
@@ -31,11 +27,7 @@ export default B;
   await expect(b).toHaveText('B: 5');
 
   // simulate a change to component B's source code
-  fs.writeFileSync(
-    compFilePath,
-    compSourceCode.replace('B:', 'Beep:'),
-    'utf-8',
-  );
+  await editFile(compFilePath, (code) => code.replace('B:', 'Beep:'));
 
   await page.waitForFunction(() => {
     const aText = document.querySelector('#A')?.textContent;
@@ -48,6 +40,4 @@ export default B;
       bText === 'Beep: 5'
     );
   });
-
-  await rsbuild.close();
 });

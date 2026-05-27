@@ -1,19 +1,18 @@
 import { castArray, RspackChain } from './helpers';
-import { logger } from './logger';
 import type { InternalContext, ModifyBundlerChainUtils } from './types';
 
 export async function modifyBundlerChain(
   context: InternalContext,
   utils: ModifyBundlerChainUtils,
 ): Promise<RspackChain> {
-  logger.debug('applying modifyBundlerChain hook');
+  context.logger.debug('applying modifyBundlerChain hook');
 
-  const bundlerChain = new RspackChain();
+  const rspackChain = new RspackChain();
 
   const [modifiedBundlerChain] =
     await context.hooks.modifyBundlerChain.callChain({
       environment: utils.environment.name,
-      args: [bundlerChain, utils],
+      args: [rspackChain, utils],
     });
 
   if (utils.environment.config.tools?.bundlerChain) {
@@ -22,7 +21,7 @@ export async function modifyBundlerChain(
     }
   }
 
-  logger.debug('applied modifyBundlerChain hook');
+  context.logger.debug('applied modifyBundlerChain hook');
 
   return modifiedBundlerChain;
 }
@@ -34,48 +33,28 @@ export const CHAIN_ID = {
     MJS: 'mjs',
     /** Rule for fonts */
     FONT: 'font',
+    /** Rule for JSON */
+    JSON: 'json',
     /** Rule for images */
     IMAGE: 'image',
     /** Rule for media */
     MEDIA: 'media',
     /** Rule for additional assets */
     ADDITIONAL_ASSETS: 'additional-assets',
-    /** Rule for js */
+    /** Rule for JS */
     JS: 'js',
-    /** Rule for raw js */
-    JS_RAW: 'js-raw',
     /** Rule for data uri encoded javascript */
     JS_DATA_URI: 'js-data-uri',
-    /** Rule for ts */
-    TS: 'ts',
     /** Rule for CSS */
     CSS: 'css',
-    /** Rule for raw CSS */
-    CSS_RAW: 'css-raw',
-    /** Rule for inline CSS */
-    CSS_INLINE: 'css-inline',
     /** Rule for Less */
     LESS: 'less',
-    /** Rule for raw Less */
-    LESS_RAW: 'less-raw',
-    /** Rule for inline Less */
-    LESS_INLINE: 'less-inline',
     /** Rule for Sass */
     SASS: 'sass',
-    /** Rule for raw Sass */
-    SASS_RAW: 'sass-raw',
-    /** Rule for inline Sass */
-    SASS_INLINE: 'sass-inline',
     /** Rule for stylus */
     STYLUS: 'stylus',
-    /** Rule for raw stylus */
-    STYLUS_RAW: 'stylus-raw',
-    /** Rule for inline stylus */
-    STYLUS_INLINE: 'stylus-inline',
     /** Rule for svg */
     SVG: 'svg',
-    /** Rule for pug */
-    PUG: 'pug',
     /** Rule for Vue */
     VUE: 'vue',
     /** Rule for wasm */
@@ -85,6 +64,16 @@ export const CHAIN_ID = {
   },
   /** Predefined rule groups */
   ONE_OF: {
+    /** JS oneOf rules */
+    JS_MAIN: 'js',
+    JS_WORKER: 'js-worker',
+    JS_RAW: 'js-raw',
+    /** CSS oneOf rules */
+    CSS_MAIN: 'css',
+    CSS_RAW: 'css-raw',
+    CSS_URL: 'css-url',
+    CSS_INLINE: 'css-inline',
+    /** SVG oneOf rules */
     SVG: 'svg',
     SVG_RAW: 'svg-asset-raw',
     SVG_URL: 'svg-asset-url',
@@ -98,6 +87,8 @@ export const CHAIN_ID = {
     TS: 'ts',
     /** css-loader */
     CSS: 'css',
+    /** CSS URL loader */
+    CSS_URL: 'css-url',
     /** sass-loader */
     SASS: 'sass',
     /** less-loader */
@@ -106,12 +97,12 @@ export const CHAIN_ID = {
     STYLUS: 'stylus',
     /** url-loader */
     URL: 'url',
-    /** pug-loader */
-    PUG: 'pug',
     /** vue-loader */
     VUE: 'vue',
     /** swc-loader */
     SWC: 'swc',
+    /** worker query loader */
+    WORKER_QUERY: 'worker-query',
     /** svgr */
     SVGR: 'svgr',
     /** babel-loader */
@@ -126,8 +117,6 @@ export const CHAIN_ID = {
     LIGHTNINGCSS: 'lightningcss',
     /** ignore-css-loader */
     IGNORE_CSS: 'ignore-css',
-    /** css-modules-typescript-loader */
-    CSS_MODULES_TS: 'css-modules-typescript',
     /** CssExtractRspackPlugin.loader */
     MINI_CSS_EXTRACT: 'mini-css-extract',
     /** resolve-url-loader */
@@ -145,12 +134,10 @@ export const CHAIN_ID = {
     DEFINE: 'define',
     /** ProgressPlugin */
     PROGRESS: 'progress',
-    /** WebpackManifestPlugin */
-    MANIFEST: 'webpack-manifest',
+    /** RspackManifestPlugin */
+    MANIFEST: 'rspack-manifest',
     /** ForkTsCheckerWebpackPlugin */
     TS_CHECKER: 'ts-checker',
-    /** WebpackBundleAnalyzer */
-    BUNDLE_ANALYZER: 'bundle-analyze',
     /** ModuleFederationPlugin */
     MODULE_FEDERATION: 'module-federation',
     /** HtmlResourceHintsPlugin (prefetch) */
@@ -172,11 +159,6 @@ export const CHAIN_ID = {
     JS: 'js',
     /** LightningCssMinimizerRspackPlugin */
     CSS: 'css',
-  },
-  /** Predefined resolve plugins */
-  RESOLVE_PLUGIN: {
-    /** TsConfigPathsPlugin */
-    TS_CONFIG_PATHS: 'ts-config-paths',
   },
 } as const;
 

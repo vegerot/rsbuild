@@ -1,12 +1,9 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 test('should allow to import TSX files with .jsx extension', async ({
   page,
+  buildPreview,
 }) => {
-  await build({
-    cwd: __dirname,
-    page,
-  });
+  await buildPreview();
   expect(await page.evaluate(() => window.test)).toBe(1);
 });

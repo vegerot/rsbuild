@@ -1,20 +1,12 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, findFile, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow to custom the filename hash of Wasm files',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-    });
-    const files = await rsbuild.getDistFiles();
+test('should allow to custom the filename hash of Wasm files', async ({
+  buildPreview,
+}) => {
+  const rsbuild = await buildPreview();
+  const files = rsbuild.getDistFiles();
 
-    const wasmFile = Object.keys(files).find((file) =>
-      file.endsWith('module.wasm'),
-    );
+  const wasmFile = findFile(files, 'module.wasm');
 
-    expect(/[a-f0-9]{16}\.module\.wasm/.test(wasmFile!)).toBeTruthy();
-    await rsbuild.close();
-  },
-);
+  expect(/[a-f0-9]{16}\.module\.wasm/.test(wasmFile)).toBeTruthy();
+});

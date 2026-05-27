@@ -1,236 +1,140 @@
-import { createStubRsbuild } from '@scripts/test-helper';
+import { createRsbuild } from '../src';
 import {
   getPackageNameFromModulePath,
   MODULE_PATH_REGEX,
-  pluginSplitChunks,
 } from '../src/plugins/splitChunks';
 
 describe('plugin-split-chunks', () => {
-  it('should set split-by-experience config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'split-by-experience',
-          },
-        },
+  it('should set `default` preset by default', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           polyfill: 'entry',
         },
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toMatchSnapshot();
   });
 
-  it('should set split-by-experience config correctly when polyfill is off', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'split-by-experience',
-          },
-        },
-        output: {
-          polyfill: 'off',
-        },
-      },
-    });
-
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
-  });
-
-  it('should set split-by-module config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'split-by-module',
-          },
-        },
+  it('should set `per-package` preset', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           polyfill: 'entry',
         },
+        splitChunks: {
+          preset: 'per-package',
+        },
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toMatchSnapshot();
   });
 
-  it('should set single-vendor config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'single-vendor',
-          },
-        },
+  it('should set `single-vendor` preset', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           polyfill: 'entry',
         },
+        splitChunks: {
+          preset: 'single-vendor',
+        },
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toMatchSnapshot();
   });
 
-  it('should set single-size config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'split-by-size',
-            minSize: 1000,
-            maxSize: 5000,
-          },
-        },
+  it('should disable split chunks', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           polyfill: 'entry',
         },
+        splitChunks: false,
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toEqual(false);
   });
 
-  it('should set all-in-one config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'all-in-one',
-          },
-        },
+  it('should merge split chunks options', async () => {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           polyfill: 'entry',
         },
-      },
-    });
-
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
-  });
-
-  it('should set custom config', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'custom',
-            forceSplitting: [/react/],
-            splitChunks: {
-              cacheGroups: {},
+        splitChunks: {
+          preset: 'default',
+          cacheGroups: {
+            commons: {
+              name: 'commons',
+              test: /[\\/]src[\\/]commons[\\/]/,
+              minChunks: 2,
+              priority: -10,
             },
           },
         },
-        output: {
-          polyfill: 'entry',
-        },
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
-  });
-
-  it('should allow forceSplitting to be an object', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        performance: {
-          chunkSplit: {
-            strategy: 'custom',
-            forceSplitting: {
-              axios: /axios/,
-            },
-            splitChunks: {
-              cacheGroups: {},
-            },
-          },
-        },
-        output: {
-          polyfill: 'entry',
-        },
-      },
-    });
-
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
-  });
-
-  it('should not split chunks when target is node', async () => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginSplitChunks()],
-      rsbuildConfig: {
-        output: {
-          target: 'node',
-        },
-      },
-    });
-
-    const config = await rsbuild.unwrapConfig();
-    expect(config).toMatchSnapshot();
+    const config = await rsbuild.initConfigs();
+    expect(config[0].optimization?.splitChunks).toMatchSnapshot();
   });
 });
 
 describe('getPackageNameFromModulePath', () => {
-  it('should parse correct path fragment in npm/yarn', async () => {
+  it('should parse the correct path fragment in npm/yarn', async () => {
     let modulePath = '/path/to/node_modules/@scope/package-name/index.js';
-    let [, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
+    let [_, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
     expect(scope).toBe('@scope');
     expect(name).toBe('package-name');
 
     modulePath = '/path/to/node_modules/package-name/index.js';
-    [, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
+    [_, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
     expect(scope).toBe(undefined);
     expect(name).toBe('package-name');
   });
 
-  it('should parse correct path fragment in pnpm', async () => {
+  it('should parse the correct path fragment in pnpm', async () => {
     let modulePath =
       '/path/to/node_modules/.pnpm/@scope+package-name@1.0.0/node_modules/@scope/package-name/index.js';
-    let [, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
+    let [_, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
     expect(scope).toBe('@scope');
     expect(name).toBe('package-name');
 
     modulePath =
       '/path/to/node_modules/.pnpm/package-name@1.0.0/node_modules/package-name/index.js';
-    [, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
+    [_, scope, name] = modulePath.match(MODULE_PATH_REGEX)!;
     expect(scope).toBe(undefined);
     expect(name).toBe('package-name');
   });
 
-  it('should return correct package name in npm/yarn', () => {
+  it('should return the correct package name in npm/yarn', () => {
     let modulePath = '/path/to/node_modules/@scope/package-name/index.js';
     expect(getPackageNameFromModulePath(modulePath)).toBe(
-      'npm.scope.package-name',
+      'npm-scope_package-name',
     );
 
     modulePath = '/path/to/node_modules/package-name/index.js';
-    expect(getPackageNameFromModulePath(modulePath)).toBe('npm.package-name');
+    expect(getPackageNameFromModulePath(modulePath)).toBe('npm-package-name');
   });
 
-  it('should return correct package name in pnpm', () => {
+  it('should return the correct package name in pnpm', () => {
     let modulePath =
       '/path/to/node_modules/.pnpm/@scope+package-name@1.0.0/node_modules/@scope/package-name/index.js';
     expect(getPackageNameFromModulePath(modulePath)).toBe(
-      'npm.scope.package-name',
+      'npm-scope_package-name',
     );
 
     modulePath =
       '/path/to/node_modules/.pnpm/package-name@1.0.0/node_modules/package-name/index.js';
-    expect(getPackageNameFromModulePath(modulePath)).toBe('npm.package-name');
+    expect(getPackageNameFromModulePath(modulePath)).toBe('npm-package-name');
   });
 });

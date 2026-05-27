@@ -1,3 +1,7 @@
+---
+description: '插件系统是 Rsbuild 架构的核心，Rsbuild 的大部分功能都是通过插件实现的，这种设计让核心保持轻量，同时提供了灵活的扩展性。'
+---
+
 # 插件开发
 
 插件系统是 Rsbuild 架构的核心，Rsbuild 的大部分功能都是通过插件实现的，这种设计让核心保持轻量，同时提供了灵活的扩展性。
@@ -121,7 +125,7 @@ Rsbuild 官方插件的 `name` 统一使用 `rsbuild:` 作为前缀，比如 `rs
 
 ### 模板仓库
 
-[rsbuild-plugin-template](https://github.com/rspack-contrib/rsbuild-plugin-template) 是一个最小的 Rsbuild 插件模板仓库，你可以基于该仓库来开发你的 Rsbuild 插件。
+[rsbuild-plugin-template](https://github.com/rstackjs/rsbuild-plugin-template) 是一个最小的 Rsbuild 插件模板仓库，你可以基于该仓库来开发你的 Rsbuild 插件。
 
 ### Environment 插件
 
@@ -273,11 +277,11 @@ type NormalizedConfig = {
 Rsbuild 插件允许你修改内置的 Rspack 配置，包括：
 
 - [api.modifyRspackConfig](/plugins/dev/hooks#modifyrspackconfig)：修改 Rspack 配置对象。
-- [api.modifyBundlerChain](/plugins/dev/hooks#modifybundlerchain) 通过 [rspack-chain](https://github.com/rspack-contrib/rspack-chain) 来修改 Rspack 配置。
+- [api.modifyBundlerChain](/plugins/dev/hooks#modifybundlerchain) 通过 [rspack-chain](https://github.com/rstackjs/rspack-chain) 来修改 Rspack 配置。
 
 ### 示例
 
-比如，通过 Rsbuild 插件来注册 [eslint-rspack-plugin](https://github.com/rspack-contrib/eslint-rspack-plugin)：
+比如，通过 Rsbuild 插件来注册 [eslint-rspack-plugin](https://github.com/rstackjs/eslint-rspack-plugin)：
 
 ```ts
 import type { RsbuildPlugin } from '@rsbuild/core';
@@ -296,3 +300,83 @@ export const pluginEslint = (options?: Options): RsbuildPlugin => ({
   },
 });
 ```
+
+## 扩展插件 API
+
+当你基于 Rsbuild 的 [JavaScript API](/api/start/) 来实现自定义的工具时，可能希望在现有插件 API 的基础上，提供更多能力，例如添加工具方法或共享上下文对象。
+
+此时，你可以使用 Rsbuild 实例上的 [rsbuild.expose()](/api/javascript-api/instance#rsbuildexpose) 方法。它的作用与插件的 [api.expose()](/plugins/dev/core#apiexpose) 一致，用于向 Rsbuild 插件暴露自定义的方法或对象。
+
+例如，向插件暴露 `getState` 和 `setCount` 方法：
+
+```ts title="myToolkit.ts"
+import { createRsbuild } from '@rsbuild/core';
+
+export const MY_TOOLKIT_ID = 'my-toolkit';
+
+const rsbuild = await createRsbuild({
+  // ...
+});
+
+const state = {
+  count: 0,
+};
+
+rsbuild.expose(MY_TOOLKIT_ID, {
+  getState() {
+    return state;
+  },
+  setCount(count: number) {
+    state.count = count;
+  },
+});
+```
+
+然后，插件可以通过 [api.useExposed()](/plugins/dev/core#apiuseexposed) 方法访问这些扩展 API：
+
+```ts title="myPlugin.ts"
+import { MY_TOOLKIT_ID } from './myToolkit';
+
+const myPlugin = {
+  name: 'my-plugin',
+  setup(api) {
+    const toolkitApi = api.useExposed(MY_TOOLKIT_ID);
+    if (toolkitApi) {
+      const { count } = toolkitApi.getState();
+      toolkitApi.setCount(count + 1);
+    }
+  },
+};
+```
+
+## 依赖声明
+
+发布 Rsbuild 插件时，应该在 `package.json` 中声明 `@rsbuild/core` 的 `peerDependencies`，并在 `devDependencies` 中安装它用于开发：
+
+```json
+{
+  "peerDependencies": {
+    "@rsbuild/core": "^2.0.0"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^2.0.0"
+  }
+}
+```
+
+如果插件只引用了 `@rsbuild/core` 的类型导出，可以将其声明为 optional peer dependency：
+
+```json
+{
+  "peerDependencies": {
+    "@rsbuild/core": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@rsbuild/core": {
+      "optional": true
+    }
+  }
+}
+```
+
+这种情况下，插件在被基于 Rsbuild 的上层工具（如 Rslib 或 Rspress）使用时，不会产生不必要的 peer dependency 警告。

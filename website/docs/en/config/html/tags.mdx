@@ -1,3 +1,7 @@
+---
+description: 'Modifies the tags that are injected into the HTML page.'
+---
+
 # html.tags
 
 - **Type:**
@@ -266,7 +270,6 @@ See [Injection position](#injection-position) for more details.
 
 - **Type:** `Record<string, any>`
 - **Default:** `undefined`
-- **Version:** Added in v1.4.7
 
 The metadata object for tags, used to store additional information about tags. `metadata` does not affect the generated HTML content.
 
@@ -352,7 +355,7 @@ type HtmlTagHandler = (
 
 The callback function accepts a tag list as an argument and needs to modify or return a new tag array directly.
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     tags: [
@@ -486,3 +489,9 @@ The result will look like:
   </script>
 </body>
 ```
+
+## Version history
+
+| Version | Changes                             |
+| ------- | ----------------------------------- |
+| v1.4.7  | Added support for `metadata` option |

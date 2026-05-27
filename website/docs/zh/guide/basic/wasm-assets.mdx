@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 提供了对 WebAssembly (WASM) 模块的原生支持，允许在项目中直接导入和使用 .wasm 资源。'
+---
+
 # Wasm
 
 Rsbuild 提供了对 WebAssembly (WASM) 模块的原生支持，允许在项目中直接导入和使用 `.wasm` 资源。
@@ -32,7 +36,7 @@ import('./add.wasm').then(({ add }) => {
 ```js title="index.js"
 const wasmURL = new URL('./add.wasm', import.meta.url);
 
-console.log(wasmURL.pathname); // "/static/wasm/[contenthash:8].module.wasm"
+console.log(wasmURL.pathname); // "/static/wasm/[contenthash:10].module.wasm"
 ```
 
 ## 输出目录

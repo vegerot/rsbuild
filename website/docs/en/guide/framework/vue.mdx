@@ -1,10 +1,14 @@
+---
+description: 'This document explains how to build Vue applications with Rsbuild, including Vue 2 support.'
+---
+
 # Vue
 
-In this document, you will learn how to build a Vue 3 or Vue 2 application using Rsbuild.
+This document explains how to build Vue applications with Rsbuild, including Vue 2 support.
 
 ## Create a Vue application
 
-Use [create-rsbuild](/guide/start/quick-start#create-an-rsbuild-application) to create a Vue application with Rsbuild. Run the following command:
+Create a Vue application with Rsbuild using [create-rsbuild](/guide/start/quick-start#create-an-rsbuild-application). Run this command:
 
 import { PackageManagerTabs } from '@theme';
 
@@ -17,13 +21,13 @@ import { PackageManagerTabs } from '@theme';
   }}
 />
 
-Then select `Vue 3` or `Vue 2` when prompted to "Select framework".
+Then select `Vue` when prompted to "Select framework".
 
 ## Vue 3
 
 ### Use Vue in an existing project
 
-To compile Vue SFC (Single File Components), you need to register the Rsbuild [Vue plugin](/plugins/list/plugin-vue). The plugin will automatically add the necessary configuration for Vue builds.
+To compile Vue SFC (Single File Components), register the Rsbuild [Vue plugin](/plugins/list/plugin-vue). The plugin automatically adds the necessary configuration for Vue builds.
 
 For example, register in `rsbuild.config.ts`:
 
@@ -42,7 +46,7 @@ For projects using Vue CLI, you can refer to the [Vue CLI Migration Guide](/guid
 
 ### Use the JSX syntax of Vue
 
-To use the JSX syntax of Vue, you also need to register the [@rsbuild/plugin-vue-jsx](https://github.com/rspack-contrib/rsbuild-plugin-vue-jsx).
+To use the JSX syntax of Vue, you also need to register the [@rsbuild/plugin-vue-jsx](https://github.com/rstackjs/rsbuild-plugin-vue-jsx).
 
 ### TypeScript support
 
@@ -54,7 +58,7 @@ Please refer to the [TypeScript - IDE Support](https://vuejs.org/guide/typescrip
 
 ### Use Vue 2 in an existing project
 
-To compile Vue SFC (Single File Components), you need to register the Rsbuild [Vue 2 plugin](https://github.com/rspack-contrib/rsbuild-plugin-vue2). The plugin will automatically add the necessary configuration for Vue builds.
+To compile Vue SFC (Single File Components), you need to register the Rsbuild [Vue 2 plugin](https://github.com/rstackjs/rsbuild-plugin-vue2). The plugin will automatically add the necessary configuration for Vue builds.
 
 For example, register in `rsbuild.config.ts`:
 
@@ -76,7 +80,7 @@ export default defineConfig({
 
 ### Use the JSX syntax of Vue
 
-To use the JSX syntax of Vue, you also need to register the [@rsbuild/plugin-vue2-jsx](https://github.com/rspack-contrib/rsbuild-plugin-vue2-jsx).
+To use the JSX syntax of Vue, you also need to register the [@rsbuild/plugin-vue2-jsx](https://github.com/rstackjs/rsbuild-plugin-vue2-jsx).
 
 ### Type declarations
 

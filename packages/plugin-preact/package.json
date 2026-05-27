@@ -1,6 +1,6 @@
 {
   "name": "@rsbuild/plugin-preact",
-  "version": "1.5.2",
+  "version": "1.7.2",
   "description": "Preact plugin for Rsbuild",
   "repository": {
     "type": "git",
@@ -16,31 +16,34 @@
       "require": "./dist/index.cjs"
     }
   },
-  "main": "./dist/index.cjs",
   "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "rslib build",
-    "dev": "rslib build --watch",
-    "bump": "pnpx bumpp --no-tag"
+    "build": "rslib",
+    "dev": "rslib -w"
   },
   "dependencies": {
-    "@prefresh/core": "^1.5.7",
+    "@prefresh/core": "^1.5.10",
     "@prefresh/utils": "^1.2.1",
-    "@rspack/plugin-preact-refresh": "^1.1.2",
-    "@swc/plugin-prefresh": "^9.1.0"
+    "@rspack/plugin-preact-refresh": "^1.1.5",
+    "@swc/plugin-prefresh": "^12.9.0"
   },
   "devDependencies": {
     "@rsbuild/core": "workspace:*",
-    "@rslib/core": "0.13.0",
-    "@types/node": "^22.18.1",
-    "preact": "^10.27.1",
-    "typescript": "^5.9.2"
+    "@rslib/core": "0.21.5",
+    "@types/node": "^24.12.4",
+    "preact": "^10.29.1",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@rsbuild/core": "1.x"
+    "@rsbuild/core": "^1.0.0 || ^2.0.0-0"
+  },
+  "peerDependenciesMeta": {
+    "@rsbuild/core": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",

@@ -1,51 +1,45 @@
-import { build, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 import { pluginBabel } from '@rsbuild/plugin-babel';
+import { myBabelPlugin } from './plugins/myBabelPlugin.ts';
 
-rspackOnlyTest(
-  'should run babel with babel plugin correctly',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
+test('should run babel with babel plugin correctly', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview({
+    config: {
       plugins: [
         pluginBabel({
           babelLoaderOptions: (_, { addPlugins }) => {
-            addPlugins([require('./plugins/myBabelPlugin')]);
+            addPlugins([myBabelPlugin]);
           },
         }),
       ],
-    });
+    },
+  });
 
-    expect(await page.evaluate('window.b')).toBe(10);
+  expect(await page.evaluate('window.b')).toBe(10);
+});
 
-    await rsbuild.close();
-  },
-);
-
-rspackOnlyTest(
-  'should allow to exclude file from babel transformation',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-      rsbuildConfig: {
-        source: {
-          exclude: [/aa/],
-        },
+test('should allow to exclude file from babel transformation', async ({
+  page,
+  buildPreview,
+}) => {
+  await buildPreview({
+    config: {
+      source: {
+        exclude: [/aa/],
       },
       plugins: [
         pluginBabel({
           babelLoaderOptions: (_, { addPlugins }) => {
-            addPlugins([require('./plugins/myBabelPlugin')]);
+            addPlugins([myBabelPlugin]);
           },
         }),
       ],
-    });
+    },
+  });
 
-    expect(await page.evaluate('window.b')).toBe(10);
-    expect(await page.evaluate('window.bb')).toBeUndefined();
-
-    await rsbuild.close();
-  },
-);
+  expect(await page.evaluate('window.b')).toBe(10);
+  expect(await page.evaluate('window.bb')).toBeUndefined();
+});

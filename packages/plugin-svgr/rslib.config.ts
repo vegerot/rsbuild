@@ -1,14 +1,14 @@
-import { dualPackage } from '@rsbuild/config/rslib.config.ts';
+import { pureEsmPackage } from '@scripts/config/rslib.config.ts';
 import { defineConfig } from '@rslib/core';
 
 export default defineConfig({
-  ...dualPackage,
+  ...pureEsmPackage,
   lib: [
-    ...dualPackage.lib,
+    ...pureEsmPackage.lib,
     {
-      format: 'esm',
       source: {
         entry: {
+          assetLoader: './src/assetLoader.ts',
           loader: './src/loader.ts',
         },
       },

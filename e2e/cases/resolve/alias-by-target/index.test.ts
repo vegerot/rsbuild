@@ -1,12 +1,9 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-test('should allow to set alias by build target', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+test('should allow to set alias by build target', async ({ build }) => {
+  const rsbuild = await build();
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const fileNames = Object.keys(files);
   const webIndex = fileNames.find(
     (file) => file.includes('static/js') && file.endsWith('index.js'),

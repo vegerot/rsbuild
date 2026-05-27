@@ -1,55 +1,35 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow to import inline CSS files in dev',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-    });
-
+test('should allow to import inline CSS files', async ({
+  page,
+  runBothServe,
+}) => {
+  await runBothServe(async ({ mode }) => {
     for (const key of ['aInline1', 'aInline2', 'aInline3', 'aInline4']) {
       const inline: string = await page.evaluate(`window.${key}`);
+      if (mode === 'dev') {
+        expect(
+          inline.includes('.header-class') && inline.includes('color: red'),
+        ).toBe(true);
+      } else {
+        expect(inline.includes('.header-class{color:red}')).toBe(true);
+      }
+    }
+
+    const bStyles: Record<string, string> =
+      await page.evaluate('window.bStyles');
+
+    if (mode === 'dev') {
+      const bInline: string = await page.evaluate('window.bInline');
       expect(
-        inline.includes('.header-class') && inline.includes('color: red'),
+        bInline.includes('.title-class') && bInline.includes('font-size: 14px'),
       ).toBe(true);
+    } else {
+      expect(await page.evaluate('window.bInline')).toBe(
+        '.title-class{font-size:14px}',
+      );
     }
 
-    const bInline: string = await page.evaluate('window.bInline');
-    const bStyles: Record<string, string> =
-      await page.evaluate('window.bStyles');
-
-    expect(
-      bInline.includes('.title-class') && bInline.includes('font-size: 14px'),
-    ).toBe(true);
     expect(bStyles['title-class']).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
-
-rspackOnlyTest(
-  'should allow to import inline CSS files in build',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-    });
-
-    for (const key of ['aInline1', 'aInline2', 'aInline3', 'aInline4']) {
-      const inline: string = await page.evaluate(`window.${key}`);
-      expect(inline.includes('.header-class{color:red}')).toBe(true);
-    }
-
-    const bStyles: Record<string, string> =
-      await page.evaluate('window.bStyles');
-
-    expect(await page.evaluate('window.bInline')).toBe(
-      '.title-class{font-size:14px}',
-    );
-    expect(bStyles['title-class']).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
+  });
+});

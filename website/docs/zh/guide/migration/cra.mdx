@@ -1,3 +1,7 @@
+---
+description: '本章节介绍如何将 Create React App（简称 CRA）或 CRACO 项目迁移到 Rsbuild。'
+---
+
 # Create React App
 
 本章节介绍如何将 [Create React App](https://github.com/facebook/create-react-app)（简称 CRA）或 [CRACO](https://craco.js.org/) 项目迁移到 Rsbuild。
@@ -8,6 +12,16 @@
 CRA 项目在 eject 后，更近似于直接使用 webpack 的项目，因此你可以参考 [webpack 迁移指南](/guide/migration/webpack)。
 
 :::
+
+## 使用 Agent Skills
+
+如果你在使用支持 Skills 的 coding agent，可以安装 [migrate-cra-to-rsbuild](https://github.com/rstackjs/agent-skills#migrate-cra-to-rsbuild) 技能来辅助完成迁移流程。
+
+```bash
+npx skills add rstackjs/agent-skills --skill migrate-cra-to-rsbuild
+```
+
+安装后，让 coding agent 协助完成迁移即可。
 
 ## 安装依赖
 
@@ -35,7 +49,7 @@ import { PackageManagerTabs } from '@theme';
     "start": "react-scripts start", // [!code --]
     "build": "react-scripts build", // [!code --]
     "eject": "react-scripts eject", // [!code --]
-    "start": "rsbuild dev", // [!code ++]
+    "start": "rsbuild", // [!code ++]
     "build": "rsbuild build", // [!code ++]
     "preview": "rsbuild preview" // [!code ++]
   }
@@ -43,7 +57,7 @@ import { PackageManagerTabs } from '@theme';
 ```
 
 :::tip
-Rsbuild 未集成测试框架，因此没有提供用于替换 `react-scripts test` 的命令，你可以直接使用 [Rstest](https://github.com/web-infra-dev/rstest)、Jest 或 Vitest 等测试框架。你可以参考 [Rsbuild react-rstest](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/react-rstest) 或 [Rsbuild react-jest](https://github.com/rspack-contrib/rstack-examples/tree/main/rsbuild/react-jest) 示例项目进行配置。
+Rsbuild 没有内置测试框架，因此没有提供用于替换 `react-scripts test` 的命令，你可以直接使用 [Rstest](https://github.com/web-infra-dev/rstest)、Jest 或 Vitest 等测试框架。查看 [测试](/guide/advanced/testing) 了解更多。
 :::
 
 ## 创建配置文件
@@ -153,7 +167,7 @@ export default {
 | GENERATE_SOURCEMAP      | [output.sourceMap](/config/output/source-map)                                                   |
 | IMAGE_INLINE_SIZE_LIMIT | [output.dataUriLimit](/config/output/data-uri-limit)                                            |
 | FAST_REFRESH            | [dev.hmr](/config/dev/hmr)                                                                      |
-| TSC_COMPILE_ON_ERROR    | [@rsbuild/plugin-type-check](https://github.com/rspack-contrib/rsbuild-plugin-type-check)       |
+| TSC_COMPILE_ON_ERROR    | [@rsbuild/plugin-type-check](https://github.com/rstackjs/rsbuild-plugin-type-check)             |
 
 说明：
 
@@ -274,7 +288,11 @@ import 'react-app-polyfill/ie11'; // [!code --]
 import 'react-app-polyfill/stable'; // [!code --]
 ```
 
-2. 配置 [output.polyfill](/config/output/polyfill)：
+2. 安装 `core-js`：
+
+<PackageManagerTabs command="add core-js" />
+
+3. 配置 [output.polyfill](/config/output/polyfill)：
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -311,7 +329,7 @@ CRA 默认使用 ESLint 来检查代码质量。Rsbuild 默认不包含代码检
 
 ### 在构建中运行 ESLint
 
-除了在 `package.json` 中添加 `lint` 命令，你还可以添加 [@rsbuild/plugin-eslint](https://github.com/rspack-contrib/rsbuild-plugin-eslint) 插件来保持与 CRA 相同的行为。
+除了在 `package.json` 中添加 `lint` 命令，你还可以添加 [@rsbuild/plugin-eslint](https://github.com/rstackjs/rsbuild-plugin-eslint) 插件来保持与 CRA 相同的行为。
 
 `@rsbuild/plugin-eslint` 插件允许你在构建过程中执行 ESLint 检查。
 
@@ -339,19 +357,19 @@ export default {
 
 如果你的项目使用了 [CRACO](https://craco.js.org) 来覆盖 CRA 的配置，可以参考下表来迁移：
 
-| CRACO                                                                                           | Rsbuild                                                                                   |
-| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [webpack.configure](https://craco.js.org/docs/configuration/webpack/#webpackconfigure)          | [tools.rspack](/config/tools/rspack)                                                      |
-| [webpack.alias](https://craco.js.org/docs/configuration/webpack/#webpackalias)                  | [resolve.alias](/config/resolve/alias)                                                    |
-| [webpack.plugins.add](https://craco.js.org/docs/configuration/webpack/#webpackplugins)          | [appendPlugins of tools.rspack](/config/tools/rspack#appendplugins)                       |
-| [webpack.plugins.remove](https://craco.js.org/docs/configuration/webpack/#webpackpluginsremove) | [removePlugin of tools.rspack](/config/tools/rspack#removeplugin)                         |
-| [style.modules](https://craco.js.org/docs/configuration/style/#stylemodules)                    | [output.cssModules](/config/output/css-modules)                                           |
-| [style.css](https://craco.js.org/docs/configuration/style/#stylecss)                            | [tools.cssLoader](/config/tools/css-loader)                                               |
-| [style.sass](https://craco.js.org/docs/configuration/style/#stylesass)                          | [Sass 插件](/plugins/list/plugin-sass)                                                    |
-| [style.postcss](https://craco.js.org/docs/configuration/style/#stylepostcss)                    | [tools.postcss](/config/tools/postcss)                                                    |
-| [babel](https://craco.js.org/docs/configuration/babel/)                                         | [Babel 插件](/plugins/list/plugin-babel)                                                  |
-| [typescript](https://craco.js.org/docs/configuration/typescript/)                               | [@rsbuild/plugin-type-check](https://github.com/rspack-contrib/rsbuild-plugin-type-check) |
-| [devServer](https://craco.js.org/docs/configuration/devserver/)                                 | [server configs](/config/index)                                                           |
+| CRACO                                                                                           | Rsbuild                                                                             |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [webpack.configure](https://craco.js.org/docs/configuration/webpack/#webpackconfigure)          | [tools.rspack](/config/tools/rspack)                                                |
+| [webpack.alias](https://craco.js.org/docs/configuration/webpack/#webpackalias)                  | [resolve.alias](/config/resolve/alias)                                              |
+| [webpack.plugins.add](https://craco.js.org/docs/configuration/webpack/#webpackplugins)          | [appendPlugins of tools.rspack](/config/tools/rspack#appendplugins)                 |
+| [webpack.plugins.remove](https://craco.js.org/docs/configuration/webpack/#webpackpluginsremove) | [removePlugin of tools.rspack](/config/tools/rspack#removeplugin)                   |
+| [style.modules](https://craco.js.org/docs/configuration/style/#stylemodules)                    | [output.cssModules](/config/output/css-modules)                                     |
+| [style.css](https://craco.js.org/docs/configuration/style/#stylecss)                            | [tools.cssLoader](/config/tools/css-loader)                                         |
+| [style.sass](https://craco.js.org/docs/configuration/style/#stylesass)                          | [Sass 插件](/plugins/list/plugin-sass)                                              |
+| [style.postcss](https://craco.js.org/docs/configuration/style/#stylepostcss)                    | [tools.postcss](/config/tools/postcss)                                              |
+| [babel](https://craco.js.org/docs/configuration/babel/)                                         | [Babel 插件](/plugins/list/plugin-babel)                                            |
+| [typescript](https://craco.js.org/docs/configuration/typescript/)                               | [@rsbuild/plugin-type-check](https://github.com/rstackjs/rsbuild-plugin-type-check) |
+| [devServer](https://craco.js.org/docs/configuration/devserver/)                                 | [server configs](/config/index)                                                     |
 
 ### 示例
 

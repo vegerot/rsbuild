@@ -1,26 +1,24 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-test('should not apply crossOrigin by default', async () => {
+test('should not apply crossOrigin by default', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         scriptLoading: 'blocking',
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const files = rsbuild.getDistFiles();
+  const html = getFileContent(files, 'index.html');
 
   expect(html).not.toContain('crossorigin');
 });
 
-test('should apply crossOrigin when crossorigin is "anonymous" and not same origin', async () => {
+test('should apply crossOrigin when crossorigin is "anonymous" and not same origin', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         scriptLoading: 'blocking',
         crossorigin: 'anonymous',
@@ -30,9 +28,8 @@ test('should apply crossOrigin when crossorigin is "anonymous" and not same orig
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
-  const html =
-    files[Object.keys(files).find((file) => file.endsWith('index.html'))!];
+  const files = rsbuild.getDistFiles();
+  const html = getFileContent(files, 'index.html');
 
   expect(html).toContain('crossorigin="anonymous"></script>');
 });

@@ -1,24 +1,39 @@
 import path from 'node:path';
-import { readDirContents, rspackOnlyTest, runCliSync } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, readDirContents, test } from '@e2e/helper';
 
-const nodeVersion = process.version.slice(1).split('.')[0];
-const isNodeVersionCompatible = Number(nodeVersion) >= 22;
+test('should use Node.js native loader to load config', async ({
+  execCliSync,
+}) => {
+  if (!process.features.typescript) {
+    return;
+  }
 
-const conditionalTest = isNodeVersionCompatible
-  ? rspackOnlyTest
-  : rspackOnlyTest.skip;
-
-conditionalTest('should use Node.js native loader to load config', async () => {
-  runCliSync('build --config-loader native', {
-    cwd: __dirname,
+  execCliSync('build --config-loader native', {
     env: {
-      ...process.env,
       NODE_OPTIONS: '--experimental-strip-types',
     },
   });
 
-  const outputs = await readDirContents(path.join(__dirname, 'dist-custom'));
+  const outputs = await readDirContents(
+    path.join(import.meta.dirname, 'dist-custom'),
+  );
+  const outputFiles = Object.keys(outputs);
+
+  expect(outputFiles.length > 1).toBeTruthy();
+});
+
+test('should fallback to jiti when config loader set to auto', async ({
+  execCliSync,
+}) => {
+  execCliSync('build --config-loader auto --config rsbuild.config.auto.mts', {
+    env: {
+      NODE_OPTIONS: '--experimental-strip-types',
+    },
+  });
+
+  const outputs = await readDirContents(
+    path.join(import.meta.dirname, 'dist-auto'),
+  );
   const outputFiles = Object.keys(outputs);
 
   expect(outputFiles.length > 1).toBeTruthy();

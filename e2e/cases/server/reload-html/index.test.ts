@@ -1,36 +1,61 @@
-import fs from 'node:fs';
 import { join } from 'node:path';
-import { dev, rspackOnlyTest } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-const cwd = __dirname;
+test('should reload page when HTML template changed', async ({
+  page,
+  dev,
+  editFile,
+  copySrcDir,
+}) => {
+  // Failed to run this case on Windows
+  if (process.platform === 'win32') {
+    test.skip();
+  }
 
-rspackOnlyTest(
-  'should reload page when HTML template changed',
-  async ({ page }) => {
-    // Failed to run this case on Windows
-    if (process.platform === 'win32') {
-      test.skip();
-    }
+  const tempSrc = await copySrcDir();
 
-    await fs.promises.cp(join(cwd, 'src'), join(cwd, 'test-temp-src'), {
-      recursive: true,
-    });
+  await dev();
 
-    const rsbuild = await dev({
-      cwd,
-      page,
-    });
+  await expect(page).toHaveTitle('Foo');
 
-    await expect(page).toHaveTitle('Foo');
+  await editFile(join(tempSrc, 'index.html'), (code) =>
+    code.replace('Foo', 'Bar'),
+  );
+  // expect page title to be 'Bar' after HTML template changed
+  await expect(page).toHaveTitle('Bar');
+});
 
-    const templatePath = join(cwd, 'test-temp-src/index.html');
-    await fs.promises.writeFile(
-      templatePath,
-      fs.readFileSync(templatePath, 'utf-8').replace('Foo', 'Bar'),
-    );
-    // expect page title to be 'Bar' after HTML template changed
-    await expect(page).toHaveTitle('Bar');
-    await rsbuild.close();
-  },
-);
+test('should not reload page when HTML live reload is disabled', async ({
+  page,
+  dev,
+  editFile,
+  logHelper,
+  copySrcDir,
+}) => {
+  // Failed to run this case on Windows
+  if (process.platform === 'win32') {
+    test.skip();
+  }
+
+  const tempSrc = await copySrcDir();
+
+  await dev({
+    config: {
+      dev: {
+        liveReload: {
+          html: false,
+        },
+      },
+    },
+  });
+
+  await expect(page).toHaveTitle('Foo');
+
+  logHelper.clearLogs();
+  await editFile(join(tempSrc, 'index.html'), (code) =>
+    code.replace('Foo', 'Bar'),
+  );
+  await logHelper.expectBuildEnd();
+  // Title unchanged
+  await expect(page).toHaveTitle('Foo');
+});

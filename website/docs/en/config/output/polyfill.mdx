@@ -1,17 +1,29 @@
+---
+description: 'When you enable polyfill injection, make sure core-js v3 is installed in your project, which is a popular polyfill library for JavaScript.'
+---
+
 # output.polyfill
 
 - **Type:** `'entry' | 'usage' | 'off'`
 - **Default:** `'off'`
 
-Control the polyfill injection mode.
+Controls the polyfill injection mode.
 
-> Please refer to the [Polyfill Mode](/guide/advanced/browser-compatibility#polyfill-mode) for more details.
+> See [Polyfill Mode](/guide/advanced/browser-compatibility#polyfill-mode) for more details.
+
+## Install core-js
+
+When you enable polyfill injection, make sure [core-js](https://github.com/zloirock/core-js) v3 is installed in your project, which is a popular polyfill library for JavaScript.
+
+import { PackageManagerTabs } from '@theme';
+
+<PackageManagerTabs command="add core-js" />
 
 ## Optional value
 
 ### usage
 
-When `output.polyfill` is set to `'usage'`, Rsbuild injects polyfills based on the APIs used in each file. This provides optimal bundle size as only needed polyfills are included.
+With `output.polyfill` set to `'usage'`, Rsbuild injects polyfills based on the APIs used in each file. This provides optimal bundle size by including only needed polyfills.
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -23,7 +35,7 @@ export default {
 
 ### entry
 
-When `output.polyfill` is set to `'entry'`, Rsbuild injects polyfills in each entry file. This ensures all polyfills are available but may increase bundle size.
+With `output.polyfill` set to `'entry'`, Rsbuild injects polyfills in each entry file. This ensures all polyfills are available but may increase bundle size.
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -33,9 +45,13 @@ export default {
 };
 ```
 
+:::tip
+It should be noted that when you bundle page with [Web Workers](/guide/basic/web-workers), the `entry` mode is not applicable to Web Workers because the Web Workers thread is isolated from the main thread (page), and the `usage` mode can be used at this time.
+:::
+
 ### off
 
-When `output.polyfill` is configured as `'off'`, Rsbuild will not inject the polyfills, and developers need to ensure code compatibility themselves.
+With `output.polyfill` set to `'off'`, Rsbuild doesn't inject polyfills. You need to handle code compatibility yourself.
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -44,3 +60,9 @@ export default {
   },
 };
 ```
+
+## Version history
+
+| Version | Changes                                           |
+| ------- | ------------------------------------------------- |
+| v2.0.0  | Rsbuild no longer depends on `core-js` by default |

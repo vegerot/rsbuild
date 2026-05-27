@@ -1,3 +1,7 @@
+---
+description: 'Controls whether Rsbuild inlines CSS into JS files and injects it at runtime instead of extracting separate `.css` files.'
+---
+
 # output.injectStyles
 
 - **Type:** `boolean`
@@ -9,7 +13,7 @@ By default, Rsbuild will extract CSS into a separate `.css` file and output it t
 
 ### Example
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     injectStyles: true,
@@ -29,7 +33,7 @@ For production builds, we recommend using Rsbuild's default behavior, which extr
 
 For example:
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   output: {
     injectStyles: process.env.NODE_ENV === 'development',

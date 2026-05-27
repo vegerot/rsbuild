@@ -1,16 +1,13 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
 function isIncludeFile(filenames: string[], includeFilename: string) {
   return filenames.some((filename) => filename.includes(includeFilename));
 }
 
-test('should disable asset emission for the node target', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+test('should disable asset emission for the node target', async ({ build }) => {
+  const rsbuild = await build();
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   expect(isIncludeFile(filenames, 'dist/static/image/icon.png')).toBeTruthy();
@@ -20,12 +17,10 @@ test('should disable asset emission for the node target', async () => {
   ).toBeFalsy();
 });
 
-test('should disable asset emission for JSON assets', async () => {
-  const rsbuild = await build({
-    cwd: __dirname,
-  });
+test('should disable asset emission for JSON assets', async ({ build }) => {
+  const rsbuild = await build();
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
   const filenames = Object.keys(files);
 
   expect(isIncludeFile(filenames, 'dist/static/assets/test.json')).toBeTruthy();

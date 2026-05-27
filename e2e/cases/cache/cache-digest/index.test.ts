@@ -1,20 +1,19 @@
 import path from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import type { RsbuildConfig } from '@rsbuild/core';
-import { remove } from 'fs-extra';
 
-test('should respect `buildCache.cacheDigest`', async () => {
+import { expect, test } from '@e2e/helper';
+import type { RsbuildConfig } from '@rsbuild/core';
+import fse from 'fs-extra';
+
+test('should respect `buildCache.cacheDigest`', async ({ build }) => {
   const cacheDirectory = path.resolve(
-    __dirname,
+    import.meta.dirname,
     './node_modules/.cache/test-cache-digest',
   );
 
-  await remove(cacheDirectory);
+  await fse.remove(cacheDirectory);
 
   const getBuildConfig = (input: string) => ({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       tools: {
         bundlerChain: (chain) => {
           if (input === 'foo') {

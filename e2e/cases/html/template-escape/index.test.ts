@@ -1,10 +1,8 @@
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+import { expect, getFileContent, test } from '@e2e/helper';
 
-test('should escape template parameters correctly', async () => {
+test('should escape template parameters correctly', async ({ build }) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         templateParameters: {
           text: '<div>escape me</div>',
@@ -12,21 +10,20 @@ test('should escape template parameters correctly', async () => {
       },
     },
   });
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const fooHtml =
-    files[Object.keys(files).find((file) => file.endsWith('foo.html'))!];
+  const fooHtml = getFileContent(files, 'foo.html');
   expect(fooHtml).toContain('&lt;div&gt;escape me&lt;/div&gt;');
 
-  const barHtml =
-    files[Object.keys(files).find((file) => file.endsWith('bar.html'))!];
+  const barHtml = getFileContent(files, 'bar.html');
   expect(barHtml).toContain('<div>escape me</div>');
 });
 
-test('should allow to passing undefined to template parameters', async () => {
+test('should allow to passing undefined to template parameters', async ({
+  build,
+}) => {
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       html: {
         templateParameters: {
           text: undefined,
@@ -35,16 +32,13 @@ test('should allow to passing undefined to template parameters', async () => {
     },
   });
 
-  const files = await rsbuild.getDistFiles();
+  const files = rsbuild.getDistFiles();
 
-  const fooHtml =
-    files[Object.keys(files).find((file) => file.endsWith('foo.html'))!];
+  const fooHtml = getFileContent(files, 'foo.html');
   expect(fooHtml).toContain('<div id="test"></div>');
 
-  const barHtml =
-    files[Object.keys(files).find((file) => file.endsWith('bar.html'))!];
+  const barHtml = getFileContent(files, 'bar.html');
   expect(barHtml).toContain('<div id="test"></div>');
 
   expect(rsbuild.buildError).toBeFalsy();
-  await rsbuild.close();
 });

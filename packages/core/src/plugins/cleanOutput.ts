@@ -1,7 +1,7 @@
 import { join, sep } from 'node:path';
 import { RSBUILD_OUTPUTS_PATH } from '../constants';
-import { color, emptyDir } from '../helpers';
-import { logger } from '../logger';
+import { color } from '../helpers';
+import { emptyDir } from '../helpers/fs';
 import type {
   CleanDistPath,
   CleanDistPathObject,
@@ -88,14 +88,14 @@ export const pluginCleanOutput = (): RsbuildPlugin => ({
           };
         }
 
-        logger.warn(
+        api.logger.warn(
           'The dist path is not a subdir of root path, Rsbuild will not empty it.',
         );
-        logger.warn(
+        api.logger.warn(
           `Please set ${color.yellow('`output.cleanDistPath`')} config manually.`,
         );
-        logger.warn(`Current root path: ${color.dim(rootPath)}`);
-        logger.warn(`Current dist path: ${color.dim(distPath)}`);
+        api.logger.warn(`Current root path: ${color.dim(rootPath)}`);
+        api.logger.warn(`Current dist path: ${color.dim(distPath)}`);
         return undefined;
       }
 
@@ -132,7 +132,18 @@ export const pluginCleanOutput = (): RsbuildPlugin => ({
 
       // Use `for...of` to handle nested directories correctly
       for (const pathInfo of pathInfos) {
-        await emptyDir(pathInfo.path, pathInfo.keep);
+        // Users may mistakenly set `output.distPath.root` to '/'
+        if (pathInfo.path === '/') {
+          const prefix = color.dim('[rsbuild:cleanOutput]');
+          throw new Error(
+            `${prefix} Refusing to clean output at ${color.cyan(
+              `"${pathInfo.path}"`,
+            )}. Update ${color.yellow(
+              '`output.distPath.root`',
+            )} or set ${color.yellow('`output.cleanDistPath`')} to false.`,
+          );
+        }
+        await emptyDir(pathInfo.path, api.logger, pathInfo.keep);
       }
     };
 

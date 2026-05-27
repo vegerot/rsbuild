@@ -1,5 +1,4 @@
-import { createStubRsbuild } from '@scripts/test-helper';
-import { pluginTarget } from '../src/plugins/target';
+import { createRsbuild } from '../src';
 
 describe('plugin-target', () => {
   const cases = [
@@ -24,9 +23,8 @@ describe('plugin-target', () => {
   ];
 
   test.each(cases)('%j', async (item) => {
-    const rsbuild = await createStubRsbuild({
-      plugins: [pluginTarget()],
-      rsbuildConfig: {
+    const rsbuild = await createRsbuild({
+      config: {
         output: {
           target: item.target,
           overrideBrowserslist: item.browserslist || undefined,
@@ -34,7 +32,7 @@ describe('plugin-target', () => {
       },
     });
 
-    const config = await rsbuild.unwrapConfig();
+    const config = (await rsbuild.initConfigs())[0];
 
     expect(config.target).toEqual(item.expected);
   });

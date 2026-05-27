@@ -1,3 +1,7 @@
+---
+description: 'Configure HTTPS options to enable HTTPS server. When enabled, HTTP server will be disabled.'
+---
+
 # server.https
 
 - **Type:**
@@ -16,26 +20,26 @@ Configure HTTPS options to enable HTTPS server. When enabled, HTTP server will b
 HTTP:
 
 ```
-  ➜ Local: http://localhost:3000/
-  ➜ Network: http://192.168.0.1:3000/
+  ➜  Local:    http://localhost:3000
+  ➜  Network:  use --host to expose
 ```
 
 HTTPS:
 
 ```
-  ➜ Local: https://localhost:3000/
-  ➜ Network: https://192.168.0.1:3000/
+  ➜  Local:    https://localhost:3000
+  ➜  Network:  use --host to expose
 ```
 
 :::tip
-When HTTPS is enabled, Rsbuild uses an HTTP/2 server by default. However, if you enable [server.proxy](/config/server/proxy), the dev server falls back to HTTP/1 because its underlying dependency, [http-proxy](https://www.npmjs.com/package/http-proxy), does not support HTTP/2.
+When HTTPS is enabled, Rsbuild uses an HTTP/2 server by default.
 :::
 
 ## Set certificate
 
-You can manually pass in the certificate and the private key required in the `server.https` option. This parameter will be directly passed to the `createServer` method of the https module in Node.js.
+You can manually pass in the certificate and the private key required in the `server.https` option. This parameter will be directly passed to the `createSecureServer` method of the http2 module in Node.js.
 
-For details, please refer to [https.createServer](https://nodejs.org/api/https.html#https_https_createserver_options_requestlistener).
+For details, see [http2.createSecureServer](https://nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler).
 
 ```ts
 import fs from 'node:fs';
@@ -56,7 +60,7 @@ The certificates used for local development are typically generated using [mkcer
 
 ## Self-signed Certificate
 
-For basic configuration requirements, you can add the [@rsbuild/plugin-basic-ssl](https://github.com/rspack-contrib/rsbuild-plugin-basic-ssl) plugin, which will automatically create a self-signed certificate and set `server.https` option by default.
+For basic configuration requirements, you can add the [@rsbuild/plugin-basic-ssl](https://github.com/rstackjs/rsbuild-plugin-basic-ssl) plugin, which will automatically create a self-signed certificate and set `server.https` option by default.
 
 ```ts
 import { pluginBasicSsl } from '@rsbuild/plugin-basic-ssl';

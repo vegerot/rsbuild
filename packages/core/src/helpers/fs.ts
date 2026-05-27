@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { logger } from '../logger';
+import type { Logger } from '../logger';
 import type { Rspack } from '../types';
 import { toPosixPath } from './path';
 
 export const isFileSync = (filePath: string): boolean | undefined => {
   try {
     return fs.statSync(filePath, { throwIfNoEntry: false })?.isFile();
-  } catch (_) {
+  } catch {
     return false;
   }
 };
@@ -64,8 +64,35 @@ export async function fileExistsByCompilation(
   });
 }
 
+/**
+ * Read file asynchronously using Rspack compiler's filesystem.
+ */
+export function readFileAsync(
+  fs: NonNullable<
+    Rspack.Compilation['inputFileSystem'] | Rspack.OutputFileSystem
+  >,
+  filename: string,
+): Promise<Buffer | string> {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filename, (err, data) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      if (data === undefined) {
+        reject(
+          new Error(`Failed to read file: ${filename}, data is undefined`),
+        );
+        return;
+      }
+      resolve(data);
+    });
+  });
+}
+
 export async function emptyDir(
   dir: string,
+  logger: Logger,
   keep: RegExp[] = [],
   checkExists = true,
 ): Promise<void> {
@@ -81,12 +108,15 @@ export async function emptyDir(
     await Promise.all(
       entries.map(async (entry) => {
         const fullPath = path.join(dir, entry.name);
-        if (keep.some((reg) => reg.test(toPosixPath(fullPath)))) {
-          return;
+        if (keep.length) {
+          const posixFullPath = toPosixPath(fullPath);
+          if (keep.some((regex) => regex.test(posixFullPath))) {
+            return;
+          }
         }
 
         if (entry.isDirectory()) {
-          await emptyDir(fullPath, keep, false);
+          await emptyDir(fullPath, logger, keep, false);
           if (!keep.length) {
             await fs.promises.rmdir(fullPath);
           }

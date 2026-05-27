@@ -1,31 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { build, dev } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
-import { logger } from '@rsbuild/core';
+import { enableDebugMode, expect, test } from '@e2e/helper';
 
 const getRsbuildConfig = (dist: string) =>
-  path.resolve(__dirname, `./${dist}/.rsbuild/rsbuild.config.mjs`);
+  path.resolve(import.meta.dirname, `./${dist}/.rsbuild/rsbuild.config.mjs`);
 
 const getBundlerConfig = (dist: string) =>
-  path.resolve(
-    __dirname,
-    `./${dist}/.rsbuild/${process.env.PROVIDE_TYPE || 'rspack'}.config.web.mjs`,
-  );
+  path.resolve(import.meta.dirname, `./${dist}/.rsbuild/rspack.config.web.mjs`);
 
-test('should generate config files in debug mode when build', async () => {
-  const { level } = logger;
-  logger.level = 'verbose';
-  process.env.DEBUG = 'rsbuild';
-
+test('should generate config files in debug mode when build', async ({
+  build,
+}) => {
+  const restore = enableDebugMode();
   const distRoot = 'dist-1';
   const rsbuild = await build({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
-        distPath: {
-          root: distRoot,
-        },
+        distPath: distRoot,
       },
     },
   });
@@ -35,27 +26,19 @@ test('should generate config files in debug mode when build', async () => {
 
   await rsbuild.expectLog('config inspection completed');
   await rsbuild.expectLog('creating compiler');
-
-  delete process.env.DEBUG;
-  logger.level = level;
-  await rsbuild.close();
+  restore();
 });
 
 test('should generate config files in debug mode when dev', async ({
   page,
+  dev,
 }) => {
-  const { level } = logger;
-  process.env.DEBUG = 'rsbuild';
-  logger.level = 'verbose';
-
+  const restore = enableDebugMode();
   const distRoot = 'dist-2';
   const rsbuild = await dev({
-    cwd: __dirname,
-    rsbuildConfig: {
+    config: {
       output: {
-        distPath: {
-          root: distRoot,
-        },
+        distPath: distRoot,
       },
     },
     page,
@@ -66,8 +49,5 @@ test('should generate config files in debug mode when dev', async ({
 
   await rsbuild.expectLog('config inspection completed');
   await rsbuild.expectLog('creating compiler');
-
-  delete process.env.DEBUG;
-  logger.level = level;
-  await rsbuild.close();
+  restore();
 });

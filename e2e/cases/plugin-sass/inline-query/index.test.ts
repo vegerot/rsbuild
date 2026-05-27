@@ -1,48 +1,27 @@
-import { build, dev, rspackOnlyTest } from '@e2e/helper';
-import { expect } from '@playwright/test';
+import { expect, test } from '@e2e/helper';
 
-rspackOnlyTest(
-  'should allow to import inline Sass files in dev',
-  async ({ page }) => {
-    const rsbuild = await dev({
-      cwd: __dirname,
-      page,
-    });
-
+test('should allow to import inline Sass files', async ({
+  page,
+  runBothServe,
+}) => {
+  await runBothServe(async ({ mode }) => {
     const aInline: string = await page.evaluate('window.aInline');
     const bInline: string = await page.evaluate('window.bInline');
     const bStyles: Record<string, string> =
       await page.evaluate('window.bStyles');
 
-    expect(
-      aInline.includes('.header-class') && aInline.includes('color: red'),
-    ).toBe(true);
-    expect(
-      bInline.includes('.title-class') && bInline.includes('font-size: 14px'),
-    ).toBe(true);
+    if (mode === 'dev') {
+      expect(
+        aInline.includes('.header-class') && aInline.includes('color: red'),
+      ).toBe(true);
+      expect(
+        bInline.includes('.title-class') && bInline.includes('font-size: 14px'),
+      ).toBe(true);
+    } else {
+      expect(aInline).toBe('.header-class{color:red}');
+      expect(bInline).toBe('.title-class{font-size:14px}');
+    }
+
     expect(bStyles['title-class']).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
-
-rspackOnlyTest(
-  'should allow to import inline Sass files in build',
-  async ({ page }) => {
-    const rsbuild = await build({
-      cwd: __dirname,
-      page,
-    });
-
-    const aInline: string = await page.evaluate('window.aInline');
-    const bInline: string = await page.evaluate('window.bInline');
-    const bStyles: Record<string, string> =
-      await page.evaluate('window.bStyles');
-
-    expect(aInline).toBe('.header-class{color:red}');
-    expect(bInline).toBe('.title-class{font-size:14px}');
-    expect(bStyles['title-class']).toBeTruthy();
-
-    await rsbuild.close();
-  },
-);
+  });
+});

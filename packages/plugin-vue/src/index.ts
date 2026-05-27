@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
-import type { EnvironmentConfig, RsbuildPlugin } from '@rsbuild/core';
-import { type VueLoaderOptions, VueLoaderPlugin } from 'vue-loader';
+import type { EnvironmentConfig, RsbuildPlugin, Rspack } from '@rsbuild/core';
+import { type VueLoaderOptions, VueLoaderPlugin } from 'rspack-vue-loader';
 import { applySplitChunksRule } from './splitChunks.js';
 
 const require = createRequire(import.meta.url);
@@ -20,6 +20,11 @@ export type SplitVueChunkOptions = {
 
 export type PluginVueOptions = {
   /**
+   * Test condition to match Vue files.
+   * @default /\.vue$/
+   */
+  test?: Rspack.RuleSetCondition;
+  /**
    * Options passed to `vue-loader`.
    * @see https://vue-loader.vuejs.org/
    */
@@ -37,7 +42,7 @@ export function pluginVue(options: PluginVueOptions = {}): RsbuildPlugin {
     name: PLUGIN_VUE_NAME,
 
     setup(api) {
-      const VUE_REGEXP = /\.vue$/;
+      const { test = /\.vue$/ } = options;
       const CSS_MODULES_REGEX = /\.modules?\.\w+$/i;
 
       api.modifyEnvironmentConfig((config, { mergeEnvironmentConfig }) => {
@@ -56,14 +61,19 @@ export function pluginVue(options: PluginVueOptions = {}): RsbuildPlugin {
 
         const merged = mergeEnvironmentConfig(extraConfig, config);
 
-        // Support `<style module>` in Vue SFC
+        // Support `<style module>`, `<style module="customName">` in Vue SFC
         if (merged.output.cssModules.auto === true) {
           merged.output.cssModules.auto = (path, query) => {
             // For Vue style block, the path might be like:
             // 1. `/path/to/Foo.vue`
             // 2. `/path/to/Foo.vue.css?query=...`
-            if (VUE_REGEXP.test(path) || path.includes('.vue.css')) {
-              return query.includes('type=style') && query.includes('module=');
+            if ((path.endsWith('.vue') || path.includes('.vue.css')) && query) {
+              try {
+                const params = new URLSearchParams(query);
+                return params.get('type') === 'style' && params.has('module');
+              } catch {
+                return false;
+              }
             }
             return CSS_MODULES_REGEX.test(path);
           };
@@ -72,7 +82,7 @@ export function pluginVue(options: PluginVueOptions = {}): RsbuildPlugin {
         return merged;
       });
 
-      api.modifyBundlerChain((chain, { CHAIN_ID }) => {
+      api.modifyBundlerChain((chain, { CHAIN_ID, environment, target }) => {
         chain.resolve.extensions.add('.vue');
 
         const userLoaderOptions = options.vueLoaderOptions ?? {};
@@ -80,17 +90,24 @@ export function pluginVue(options: PluginVueOptions = {}): RsbuildPlugin {
           preserveWhitespace: false,
           ...userLoaderOptions.compilerOptions,
         };
+        const emitCss = environment.config.output.emitCss ?? target === 'web';
         const vueLoaderOptions = {
-          experimentalInlineMatchResource: true,
+          // Always treat this as a client build when invoked from Rstest,
+          // since tests are executed in a DOM-based environment.
+          isServerBuild:
+            api.context.callerName === 'rstest' ? false : undefined,
+          // Keep non-emitting targets on the original SFC resource so CSS Modules
+          // hashes match the client build during SSR hydration.
+          experimentalInlineMatchResource: emitCss,
           ...userLoaderOptions,
           compilerOptions,
         };
 
         chain.module
           .rule(CHAIN_ID.RULE.VUE)
-          .test(VUE_REGEXP)
+          .test(test)
           .use(CHAIN_ID.USE.VUE)
-          .loader(require.resolve('vue-loader'))
+          .loader(require.resolve('rspack-vue-loader'))
           .options(vueLoaderOptions);
 
         // Support for lang="postcss" and lang="pcss" in SFC

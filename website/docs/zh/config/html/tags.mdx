@@ -1,3 +1,7 @@
+---
+description: 'Rsbuild 的 html.tags 配置项参考，包含作用、默认值、配置行为和使用示例。'
+---
+
 # html.tags
 
 - **类型：**
@@ -266,7 +270,6 @@ export default {
 
 - **类型：** `Record<string, any>`
 - **默认值：** `undefined`
-- **版本：** 添加于 v1.4.7
 
 标签的元信息对象，用于存储标签的附加信息。`metadata` 不会影响生成的 HTML 内容。
 
@@ -352,7 +355,7 @@ type HtmlTagHandler = (
 
 回调函数接受 tags 列表作为参数，并需要修改或直接返回新的 tags 数组：
 
-```ts
+```ts title="rsbuild.config.ts"
 export default {
   html: {
     tags: [
@@ -486,3 +489,9 @@ export default {
   </script>
 </body>
 ```
+
+## 版本历史
+
+| 版本   | 变更内容             |
+| ------ | -------------------- |
+| v1.4.7 | 新增 `metadata` 选项 |

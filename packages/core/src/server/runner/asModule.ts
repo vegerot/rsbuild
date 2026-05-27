@@ -1,26 +1,51 @@
-import type { ModuleLinker, SourceTextModule } from 'node:vm';
+import type { Module, ModuleLinker, SyntheticModule } from 'node:vm';
 
-export const asModule = async (
-  something: Record<string, any>,
-  context: Record<string, any>,
-  unlinked?: boolean,
-): Promise<SourceTextModule> => {
-  const { Module, SyntheticModule } = await import('node:vm');
+const isModuleNamespaceObject = (moduleExports: Record<string, unknown>) =>
+  Object.prototype.toString.call(moduleExports) === '[object Module]';
 
-  if (something instanceof Module) {
-    return something;
+const normalizeModuleExports = (
+  moduleExports: unknown,
+): Record<string, unknown> => {
+  if (
+    moduleExports !== null &&
+    (typeof moduleExports === 'object' || typeof moduleExports === 'function')
+  ) {
+    return moduleExports as Record<string, unknown>;
   }
 
-  const exports = [...new Set(['default', ...Object.keys(something)])];
+  return { default: moduleExports };
+};
+
+export const asModule = async (
+  moduleExports: unknown,
+  context: Record<string, unknown>,
+  unlinked?: boolean,
+): Promise<Module | SyntheticModule> => {
+  const { Module, SyntheticModule } = await import('node:vm');
+
+  if (moduleExports instanceof Module) {
+    return moduleExports;
+  }
+
+  const normalizedModuleExports = normalizeModuleExports(moduleExports);
+  const exports = [
+    ...new Set(['default', ...Object.keys(normalizedModuleExports)]),
+  ];
 
   const syntheticModule = new SyntheticModule(
     exports,
     () => {
       for (const name of exports) {
-        syntheticModule.setExport(
-          name,
-          name === 'default' ? something : something[name],
-        );
+        if (name === 'default') {
+          const defaultExport =
+            isModuleNamespaceObject(normalizedModuleExports) &&
+            'default' in normalizedModuleExports
+              ? normalizedModuleExports.default
+              : moduleExports;
+          syntheticModule.setExport(name, defaultExport);
+        } else {
+          syntheticModule.setExport(name, normalizedModuleExports[name]);
+        }
       }
     },
     { context },

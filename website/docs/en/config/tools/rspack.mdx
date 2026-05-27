@@ -1,3 +1,7 @@
+---
+description: 'The built-in Rspack config in Rsbuild may change with iterations, and these changes will not be reflected in semver.'
+---
+
 # tools.rspack
 
 - **Type:** `Rspack.Configuration | Function | undefined`
@@ -11,7 +15,7 @@ The built-in Rspack config in Rsbuild may change with iterations, and these chan
 
 ## Object type
 
-`tools.rspack` accepts an object that gets deep merged with the built-in Rspack configuration through [webpack-merge](https://github.com/survivejs/webpack-merge).
+`tools.rspack` accepts an object that gets deep merged with the built-in Rspack configuration through [rspack-merge](https://github.com/rstackjs/rspack-merge).
 
 For example, add `resolve.alias` configuration:
 
@@ -29,7 +33,7 @@ export default {
 };
 ```
 
-When merging configurations, `webpack-merge` will automatically concatenate arrays such as `plugins`, `module.rules`, `resolve.extensions`, etc.
+When merging configurations, `rspack-merge` will automatically concatenate arrays such as `plugins`, `module.rules`, `resolve.extensions`, etc.
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -222,7 +226,7 @@ export default {
 
 - **Type:** [EnvironmentContext](/api/javascript-api/environment-api#environment-context)
 
-Context information about the current environment.
+Context information for the current environment.
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -234,11 +238,27 @@ export default {
 };
 ```
 
+### environments
+
+- **Type:** `Record<string, EnvironmentContext>`
+
+Context information for all environments.
+
+```ts title="rsbuild.config.ts"
+export default {
+  tools: {
+    rspack: (chain, { environments }) => {
+      console.log(environments);
+    },
+  },
+};
+```
+
 ### HtmlPlugin
 
 - **Type:** `typeof import('html-rspack-plugin')`
 
-The default export of [html-rspack-plugin](https://github.com/rspack-contrib/html-rspack-plugin).
+The default export of [html-rspack-plugin](https://github.com/rstackjs/html-rspack-plugin).
 
 ```ts title="rsbuild.config.ts"
 export default {
@@ -254,7 +274,7 @@ export default {
 
 - **Type:** `(rules: RuleSetRule | RuleSetRule[]) => void`
 
-Add additional [Rspack rules](https://rspack.rs/config/module#modulerules) to the head of the internal Rspack module rules array.
+Add additional [Rspack rules](https://rspack.rs/config/module-rules) to the head of the internal Rspack module rules array.
 
 It should be noted that Rspack loaders will be executed in right-to-left order. If you want the loader you added to be executed before other loaders (Normal Phase), you should use [appendRules](#appendrules) to add the rule to the end.
 
@@ -290,7 +310,7 @@ export default {
 
 - **Type:** `(rules: RuleSetRule | RuleSetRule[]) => void`
 
-Add additional [Rspack rules](https://rspack.rs/config/module#modulerules) to the end of the internal Rspack module rules array.
+Add additional [Rspack rules](https://rspack.rs/config/module-rules) to the end of the internal Rspack module rules array.
 
 For example:
 
@@ -322,7 +342,13 @@ export default {
 
 ### prependPlugins
 
-- **Type:** `(plugins: BundlerPluginInstance | BundlerPluginInstance[]) => void`
+- **Type:** `
+
+```ts
+function prependPlugins(
+  plugins: Rspack.RspackPluginInstance | Rspack.RspackPluginInstance[],
+): void;
+```
 
 Add additional plugins to the head of the internal Rspack plugins array, and the plugin will be executed first.
 
@@ -342,7 +368,13 @@ export default {
 
 ### appendPlugins
 
-- **Type:** `(plugins: BundlerPluginInstance | BundlerPluginInstance[]) => void`
+- **Type:**
+
+```ts
+function appendPlugins(
+  plugins: Rspack.RspackPluginInstance | Rspack.RspackPluginInstance[],
+): void;
+```
 
 Add additional plugins at the end of the internal Rspack plugins array, the plugin will be executed last.
 
@@ -366,13 +398,13 @@ export default {
 
 Remove the internal Rspack plugin, the parameter is the `constructor.name` of the plugin.
 
-For example, remove the internal [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer):
+For example, remove the internal ProgressPlugin:
 
 ```ts title="rsbuild.config.ts"
 export default {
   tools: {
     rspack: (config, { removePlugin }) => {
-      removePlugin('BundleAnalyzerPlugin');
+      removePlugin('ProgressPlugin');
     },
   },
 };
@@ -382,7 +414,7 @@ export default {
 
 - **Type:** `(...configs:Rspack.Configuration[]) =>Rspack.Configuration`
 
-Used to merge multiple Rspack configs, the same as [webpack-merge](https://github.com/survivejs/webpack-merge).
+Used to merge multiple Rspack configs, the same as [rspack-merge](https://github.com/rstackjs/rspack-merge).
 
 ```ts title="rsbuild.config.ts"
 export default {

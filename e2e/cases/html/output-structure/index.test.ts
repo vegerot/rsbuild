@@ -1,24 +1,37 @@
 import fs from 'node:fs';
 import { join } from 'node:path';
-import { build } from '@e2e/helper';
-import { expect, test } from '@playwright/test';
+
+import { expect, test } from '@e2e/helper';
 
 test('should output nested HTML structure when html.outputStructure is `nested`', async ({
-  page,
+  build,
 }) => {
-  const rsbuild = await build({
-    cwd: __dirname,
-    page,
-    rsbuildConfig: {
-      html: {
-        outputStructure: 'nested',
-      },
-    },
-  });
+  const rsbuild = await build();
 
   const pagePath = join(rsbuild.distPath, 'index/index.html');
 
   expect(fs.existsSync(pagePath)).toBeTruthy();
+});
 
-  await rsbuild.close();
+test('should output nested HTML for multiple entries', async ({ build }) => {
+  const rsbuild = await build({
+    config: {
+      source: {
+        entry: {
+          foo: './src/foo.js',
+          bar: './src/bar.js',
+        },
+      },
+      output: {
+        filenameHash: false,
+      },
+    },
+  });
+
+  for (const entry of ['foo', 'bar']) {
+    const pagePath = join(rsbuild.distPath, entry, 'index.html');
+    const html = await fs.promises.readFile(pagePath, 'utf-8');
+
+    expect(html).toContain(`/static/js/${entry}.js`);
+  }
 });
